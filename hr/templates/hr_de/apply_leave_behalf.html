@@ -1,0 +1,244 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Apply Leave for {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-container { max-width: 720px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.page-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin-bottom: .25rem; }
+.page-subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; font-size: .9rem; }
+
+.behalf-banner {
+    background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(249,115,22,.08));
+    border: 1px solid rgba(245,158,11,.3);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: .85rem;
+}
+.behalf-avatar {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg,#f59e0b,#d97706);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+}
+
+.approval-note {
+    border-radius: 10px;
+    padding: .85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    font-size: .85rem;
+    display: flex; align-items: flex-start; gap: .6rem;
+}
+.approval-note.regular {
+    background: rgba(59,130,246,.07);
+    border: 1px solid rgba(59,130,246,.2);
+    color: #1d4ed8;
+}
+.approval-note.support {
+    background: rgba(16,185,129,.07);
+    border: 1px solid rgba(16,185,129,.2);
+    color: #065f46;
+}
+.approval-note i { margin-top: 2px; flex-shrink: 0; }
+
+.form-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 1.75rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+.section-divider {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text-tertiary);
+    margin: 1.5rem 0 1rem;
+    display: flex; align-items: center; gap: .5rem;
+}
+.section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border-color);
+}
+.form-group { margin-bottom: 1.25rem; }
+.form-label { font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; display: block; }
+.form-control {
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px; padding: .65rem .9rem;
+    font-size: .9rem; width: 100%;
+    background: var(--bg-primary); transition: border-color .18s;
+    color: var(--text-primary);
+}
+.form-control:focus { border-color: var(--accent-primary); outline: none; box-shadow: 0 0 0 3px rgba(8,11,177,.07); }
+
+.row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.col-half { flex: 1; min-width: 200px; }
+
+.rejoining-hint {
+    font-size: .75rem; color: var(--text-tertiary);
+    margin-top: .3rem;
+    display: flex; align-items: center; gap: .3rem;
+}
+
+.form-actions {
+    display: flex; gap: 1rem; justify-content: flex-end;
+    margin-top: 1.5rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+.btn-save {
+    background: var(--gradient-primary); color: #fff;
+    padding: .65rem 1.6rem; border-radius: 8px;
+    font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem;
+    transition: opacity .18s;
+}
+.btn-save:hover { opacity: .9; }
+.btn-cancel {
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    padding: .65rem 1.25rem; border-radius: 8px;
+    font-weight: 500; border: 1px solid var(--border-color);
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: .5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1 class="page-title"><i class="fas fa-calendar-plus" style="color:#f59e0b;margin-right:.5rem;"></i>Apply Leave on Behalf</h1>
+    <p class="page-subtitle">{{ dept.name }} Department — You are applying as Department Head</p>
+
+    <!-- Employee banner -->
+    <div class="behalf-banner">
+        <div class="behalf-avatar">{{ employee.emp_name|first|upper }}</div>
+        <div>
+            <strong style="font-size:.95rem;">{{ employee.emp_name }}</strong>
+            <div style="font-size:.82rem;color:var(--text-secondary);">{{ employee.designation|default:"—" }} &middot; {{ employee.department.name }}</div>
+        </div>
+    </div>
+
+    <!-- Approval flow note -->
+    {% if dept.is_support_staff %}
+    <div class="approval-note support">
+        <i class="fas fa-circle-check"></i>
+        <div>
+            <strong>Support Staff Dept</strong> — This leave will be <strong>auto-approved at Head &amp; MD stage</strong> and sent directly to HR for final approval.
+        </div>
+    </div>
+    {% else %}
+    <div class="approval-note regular">
+        <i class="fas fa-info-circle"></i>
+        <div>
+            Your Head approval will be applied <strong>automatically</strong>. The leave will proceed to <strong>MD</strong> for next approval.
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="form-card">
+        <form method="post" enctype="multipart/form-data" id="leaveForm">
+            {% csrf_token %}
+
+            <!-- Leave details -->
+            <div class="form-group">
+                <label class="form-label">Leave Type <span style="color:#ef4444;">*</span></label>
+                <select name="leave_type" class="form-control" required>
+                    <option value="">— Select Leave Type —</option>
+                    {% for lt in leave_types %}
+                    <option value="{{ lt.pk }}">{{ lt.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="row">
+                <div class="col-half">
+                    <div class="form-group">
+                        <label class="form-label">From Date <span style="color:#ef4444;">*</span></label>
+                        <input type="date" name="expected_from" id="fromDate" class="form-control" required>
+                    </div>
+                </div>
+                <div class="col-half">
+                    <div class="form-group">
+                        <label class="form-label">To Date <span style="color:#ef4444;">*</span></label>
+                        <input type="date" name="expected_to" id="toDate" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rejoining date section -->
+            <div class="section-divider"><i class="fas fa-undo-alt"></i> Rejoining</div>
+
+            <div class="row">
+                <div class="col-half">
+                    <div class="form-group">
+                        <label class="form-label">Expected Rejoining Date
+                            <span style="font-weight:400;color:var(--text-tertiary);"> (optional)</span>
+                        </label>
+                        <input type="date" name="rejoined_on" id="rejoinDate" class="form-control">
+                        <div class="rejoining-hint">
+                            <i class="fas fa-circle-info"></i>
+                            Defaults to leave end date. Change if employee rejoins earlier or later.
+                        </div>
+                    </div>
+                </div>
+                <div class="col-half">
+                    <div class="form-group">
+                        <label class="form-label">Calculated Leave Days</label>
+                        <div id="dayCount" style="padding:.65rem .9rem;background:var(--bg-secondary);border:1.5px solid var(--border-color);border-radius:8px;font-weight:700;color:var(--accent-primary);font-size:1rem;">
+                            — days
+                        </div>
+                        <div class="rejoining-hint">
+                            <i class="fas fa-calculator"></i>
+                            Based on From → Rejoining date
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other fields -->
+            <div class="form-group">
+                <label class="form-label">Reason</label>
+                <textarea name="reason" class="form-control" rows="3" placeholder="Reason for leave..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Attach Document <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></label>
+                <input type="file" name="leave_application" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'employee_home' %}" class="btn-cancel"><i class="fas fa-times"></i> Cancel</a>
+                <button type="submit" class="btn-save"><i class="fas fa-paper-plane"></i> Submit &amp; Auto-Approve</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const fromInput  = document.getElementById('fromDate');
+const toInput    = document.getElementById('toDate');
+const rejoinInput = document.getElementById('rejoinDate');
+const dayDisplay = document.getElementById('dayCount');
+
+function calcDays() {
+    const from   = fromInput.value;
+    const rejoin = rejoinInput.value || toInput.value;
+    if (from && rejoin) {
+        const d1 = new Date(from), d2 = new Date(rejoin);
+        const days = Math.round((d2 - d1) / 86400000) + 1;
+        dayDisplay.textContent = days > 0 ? days + ' day' + (days > 1 ? 's' : '') : '—';
+        dayDisplay.style.color = days > 0 ? 'var(--accent-primary)' : '#ef4444';
+    } else {
+        dayDisplay.textContent = '— days';
+    }
+}
+
+// When "To Date" is set, default the rejoin date to it
+toInput.addEventListener('change', function () {
+    if (!rejoinInput.value) rejoinInput.value = this.value;
+    calcDays();
+});
+fromInput.addEventListener('change', calcDays);
+rejoinInput.addEventListener('change', calcDays);
+</script>
+{% endblock %}

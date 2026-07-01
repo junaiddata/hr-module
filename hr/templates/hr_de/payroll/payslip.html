@@ -1,0 +1,293 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Payslip — {{ entry.employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Screen wrapper */
+.screen-wrap { max-width: 750px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.print-btn {
+    background: var(--gradient-primary); color: #fff;
+    padding: .55rem 1.2rem; border-radius: 8px; border: none;
+    font-weight: 600; cursor: pointer; margin-bottom: 1.5rem;
+    display: inline-flex; align-items: center; gap: .5rem; font-size: .88rem;
+}
+.back-btn {
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    padding: .55rem 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+    font-weight: 500; font-size: .88rem; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .5rem; margin-right: .65rem;
+}
+
+/* Payslip itself */
+.payslip {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+
+/* Header */
+.ps-header {
+    background: linear-gradient(135deg, #080bb1 0%, #0309bb 100%);
+    color: #fff;
+    padding: 2rem 2.5rem 1.5rem;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+}
+.ps-company { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; }
+.ps-title   { font-size: .78rem; opacity: .8; margin-top: .25rem; text-transform: uppercase; letter-spacing: .08em; }
+.ps-period  { text-align: right; }
+.ps-period .period-label { font-size: .72rem; opacity: .75; text-transform: uppercase; letter-spacing: .06em; }
+.ps-period .period-val   { font-size: 1.2rem; font-weight: 700; margin-top: .15rem; }
+.ps-status-badge {
+    display: inline-block; margin-top: .4rem;
+    padding: .15rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 700;
+    background: rgba(255,255,255,.2); color: #fff;
+}
+
+/* Employee info band */
+.emp-band {
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1.25rem 2.5rem;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;
+}
+.eb-item .eb-l { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: .2rem; }
+.eb-item .eb-v { font-size: .88rem; font-weight: 600; color: #0f172a; }
+
+/* Body */
+.ps-body { padding: 1.5rem 2.5rem; }
+
+.section-title {
+    font-size: .7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: #94a3b8;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: .45rem; margin-bottom: .85rem; margin-top: 1.5rem;
+    display: flex; align-items: center; gap: .4rem;
+}
+.section-title:first-of-type { margin-top: 0; }
+
+.comp-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .45rem 0; border-bottom: 1px solid #f8fafc;
+    font-size: .88rem;
+}
+.comp-row:last-child { border-bottom: none; }
+.comp-label { color: #374151; }
+.comp-label .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: .45rem; }
+.comp-value { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+.comp-value.green  { color: #059669; }
+.comp-value.red    { color: #dc2626; }
+
+/* Totals bar */
+.totals-bar {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    background: #f1f5f9; border-radius: 10px;
+    margin: 1.5rem 0; overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+.tb-cell {
+    padding: .9rem 1.25rem; text-align: center;
+    border-right: 1px solid #e2e8f0;
+}
+.tb-cell:last-child { border-right: none; }
+.tb-l { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: .25rem; }
+.tb-v { font-size: 1.05rem; font-weight: 800; color: #0f172a; }
+.tb-v.green { color: #059669; }
+.tb-v.blue  { color: #2563eb; }
+
+/* Net payable */
+.net-box {
+    background: linear-gradient(135deg, #080bb1, #0309bb);
+    border-radius: 10px; padding: 1.25rem 1.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: .75rem; margin-bottom: 1.5rem;
+}
+.net-box .nl { color: rgba(255,255,255,.8); font-size: .82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.net-box .nv { color: #fff; font-size: 1.6rem; font-weight: 800; }
+
+/* Footer */
+.ps-footer {
+    background: #f8fafc; border-top: 1px solid #e5e7eb;
+    padding: 1rem 2.5rem; font-size: .75rem; color: #94a3b8; text-align: center;
+}
+
+/* Print styles */
+@media print {
+    body * { visibility: hidden; }
+    .payslip, .payslip * { visibility: visible; }
+    .payslip { position: fixed; top: 0; left: 0; width: 100%; box-shadow: none; border: none; border-radius: 0; }
+    .screen-wrap { margin: 0; padding: 0; }
+    .print-btn, .back-btn { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="screen-wrap">
+    <div style="margin-bottom:1rem;">
+        <a href="{% url 'payroll_detail' entry.payroll_run.pk %}" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Back to Payroll
+        </a>
+        <button class="print-btn" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Payslip
+        </button>
+    </div>
+
+    <div class="payslip" id="payslip">
+
+        <!-- Header -->
+        <div class="ps-header">
+            <div>
+                <div class="ps-company">{{ request.user.get_full_name|default:"Company" }}</div>
+                <div class="ps-title">Salary Slip / Payslip</div>
+            </div>
+            <div class="ps-period">
+                <div class="period-label">Pay Period</div>
+                <div class="period-val">{{ entry.payroll_run.get_month_display }} {{ entry.payroll_run.year }}</div>
+                <span class="ps-status-badge">{{ entry.payroll_run.status }}</span>
+            </div>
+        </div>
+
+        <!-- Employee info -->
+        <div class="emp-band">
+            <div class="eb-item">
+                <div class="eb-l">Employee Name</div>
+                <div class="eb-v">{{ entry.employee.emp_name }}</div>
+            </div>
+            <div class="eb-item">
+                <div class="eb-l">Employee ID</div>
+                <div class="eb-v">{{ entry.employee.emp_id }}</div>
+            </div>
+            <div class="eb-item">
+                <div class="eb-l">Designation</div>
+                <div class="eb-v">{{ entry.employee.designation|default:"—" }}</div>
+            </div>
+            <div class="eb-item">
+                <div class="eb-l">Department</div>
+                <div class="eb-v">{{ entry.employee.department.name|default:"—" }}</div>
+            </div>
+            <div class="eb-item">
+                <div class="eb-l">Joining Date</div>
+                <div class="eb-v">{{ entry.employee.joining_date|date:"d M Y"|default:"—" }}</div>
+            </div>
+            <div class="eb-item">
+                <div class="eb-l">Pay Date</div>
+                <div class="eb-v">{{ entry.payroll_run.confirmed_at|date:"d M Y"|default:"—" }}</div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="ps-body">
+
+            <!-- Salary Structure Earnings -->
+            <div class="section-title"><i class="fas fa-plus-circle" style="color:#059669;"></i> Earnings — Salary Components</div>
+
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#3b82f6;"></span>Basic Salary</span>
+                <span class="comp-value">AED {{ entry.basic|floatformat:2 }}</span>
+            </div>
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#10b981;"></span>HRA (House Rent Allowance)</span>
+                <span class="comp-value">AED {{ entry.hra|floatformat:2 }}</span>
+            </div>
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#f59e0b;"></span>Transport Allowance</span>
+                <span class="comp-value">AED {{ entry.transport|floatformat:2 }}</span>
+            </div>
+            {% if entry.others > 0 %}
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#8b5cf6;"></span>Other Allowances</span>
+                <span class="comp-value">AED {{ entry.others|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Additions -->
+            {% if entry.bonus or entry.overtime_pay or entry.other_additions %}
+            <div class="section-title"><i class="fas fa-arrow-up" style="color:#059669;"></i> Additional Earnings</div>
+            {% if entry.bonus %}
+            <div class="comp-row">
+                <span class="comp-label">Bonus</span>
+                <span class="comp-value green">+ AED {{ entry.bonus|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if entry.overtime_pay %}
+            <div class="comp-row">
+                <span class="comp-label">Overtime Pay</span>
+                <span class="comp-value green">+ AED {{ entry.overtime_pay|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if entry.other_additions %}
+            <div class="comp-row">
+                <span class="comp-label">Other Additions</span>
+                <span class="comp-value green">+ AED {{ entry.other_additions|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- Deductions -->
+            {% if entry.loan_deduction or entry.other_deductions or entry.advance_deduction %}
+            <div class="section-title"><i class="fas fa-arrow-down" style="color:#dc2626;"></i> Monthly Deductions</div>
+            {% if entry.loan_deduction %}
+            <div class="comp-row">
+                <span class="comp-label">Loan Deduction</span>
+                <span class="comp-value red">- AED {{ entry.loan_deduction|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if entry.other_deductions %}
+            <div class="comp-row">
+                <span class="comp-label">Other Deductions</span>
+                <span class="comp-value red">- AED {{ entry.other_deductions|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if entry.advance_deduction %}
+            <div class="comp-row">
+                <span class="comp-label">
+                    <span class="dot" style="background:#f97316;"></span>Advance Salary Recovery
+                </span>
+                <span class="comp-value red">- AED {{ entry.advance_deduction|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- Totals bar -->
+            <div class="totals-bar">
+                <div class="tb-cell">
+                    <div class="tb-l">Gross Salary</div>
+                    <div class="tb-v blue">AED {{ entry.gross_salary|floatformat:2 }}</div>
+                </div>
+                <div class="tb-cell">
+                    <div class="tb-l">Total Additions</div>
+                    <div class="tb-v green">AED {{ entry.total_additions|floatformat:2 }}</div>
+                </div>
+                <div class="tb-cell">
+                    <div class="tb-l">Total Deductions</div>
+                    <div class="tb-v" style="color:#dc2626;">AED {{ entry.total_deductions|floatformat:2 }}</div>
+                </div>
+            </div>
+
+            <!-- Net payable -->
+            <div class="net-box">
+                <div class="nl">Net Salary Payable</div>
+                <div class="nv">AED {{ entry.net_salary|floatformat:2 }}</div>
+            </div>
+
+            {% if entry.notes %}
+            <div style="font-size:.8rem;color:#64748b;padding:.5rem 0;">
+                <strong>Remarks:</strong> {{ entry.notes }}
+            </div>
+            {% endif %}
+
+        </div><!-- /ps-body -->
+
+        <!-- Footer -->
+        <div class="ps-footer">
+            This is a computer-generated payslip and does not require a signature. &nbsp;·&nbsp;
+            Generated on {% now "d M Y, H:i" %} &nbsp;·&nbsp;
+            {{ entry.payroll_run }}
+        </div>
+
+    </div><!-- /payslip -->
+</div>
+{% endblock %}

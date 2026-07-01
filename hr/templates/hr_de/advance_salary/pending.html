@@ -1,0 +1,170 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Pending Advance Approvals{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.75rem; font-weight:700; margin-bottom:.35rem; display:flex; align-items:center; gap:.75rem; }
+    .page-subtitle { color:rgba(255,255,255,.8); font-size:1rem; }
+
+    .pipeline { display:flex; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom:1.5rem; }
+    .pipe-step { flex:1; padding:.9rem 1rem; display:flex; align-items:center; gap:.6rem; font-size:.82rem; font-weight:600; border-right:1px solid #e2e8f0; }
+    .pipe-step:last-child { border-right:none; }
+    .pipe-step.done   { background:#f0fdf4; color:#166534; }
+    .pipe-step.active { background:#eff6ff; color:#1d4ed8; }
+    .pipe-step.waiting{ background:#f8fafc; color:#94a3b8; }
+    .pipe-dot { width:26px; height:26px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; }
+    .pipe-step.done   .pipe-dot { background:#dcfce7; color:#16a34a; }
+    .pipe-step.active .pipe-dot { background:#dbeafe; color:#2563eb; }
+    .pipe-step.waiting .pipe-dot { background:#e2e8f0; color:#94a3b8; }
+
+    .context-banner { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:1rem; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    .banner-icon { width:42px; height:42px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+    .banner-icon.head { background:#fef3c7; color:#d97706; }
+    .banner-icon.hr   { background:#dcfce7; color:#16a34a; }
+
+    .table-card { background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    .adv-table { width:100%; margin:0; }
+    .adv-table thead { background:#f8fafc; border-bottom:2px solid #e2e8f0; }
+    .adv-table th { padding:1rem; font-weight:600; font-size:.82rem; color:#475569; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+    .adv-table td { padding:.9rem 1rem; color:#334155; font-size:.9rem; vertical-align:middle; border-bottom:1px solid #f1f5f9; }
+    .adv-table tbody tr:hover { background:#f8fafc; }
+    .adv-table tbody tr:last-child td { border-bottom:none; }
+
+    .emp-cell { display:flex; align-items:center; gap:.65rem; }
+    .emp-avatar { width:34px; height:34px; background:linear-gradient(135deg,#2208cd,#120aa09e); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.8rem; flex-shrink:0; }
+    .emp-name { font-weight:600; color:#0f172a; font-size:.88rem; }
+    .emp-id   { font-size:.72rem; color:#64748b; }
+
+    .amount-badge { background:#f0fdf4; color:#166534; padding:.25rem .6rem; border-radius:8px; font-weight:700; font-size:.88rem; }
+    .dept-tag { background:#eff6ff; color:#1d4ed8; padding:.2rem .6rem; border-radius:6px; font-size:.73rem; font-weight:600; }
+
+    .btn-review { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem 1rem; border-radius:8px; font-weight:600; font-size:.85rem; text-decoration:none; background:linear-gradient(135deg,#2208cd,#120aa09e); color:#fff; border:none; }
+    .btn-review:hover { color:#fff; opacity:.9; }
+
+    .empty-state { text-align:center; padding:4rem 2rem; }
+    .empty-icon { width:80px; height:80px; background:#f1f5f9; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:2.5rem; color:#94a3b8; margin-bottom:1.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title"><i class="fas fa-hand-holding-usd"></i>Advance Salary — Pending</h1>
+        <p class="page-subtitle">
+            {% if user_role.role == 'Head' %}Stage 1 of 2 — Department Head review for {{ user_role.department }}
+            {% elif user_role.role == 'HR' %}Stage 2 of 2 — HR final approval
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="container pb-5">
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+        <div class="pipe-step {% if user_role.role == 'Head' %}active{% else %}done{% endif %}">
+            <div class="pipe-dot">
+                {% if user_role.role == 'Head' %}<i class="fas fa-clock"></i>{% else %}<i class="fas fa-check"></i>{% endif %}
+            </div>
+            <div>
+                <div style="font-size:.8rem;font-weight:700;">Stage 1 — Head</div>
+                <div style="font-size:.7rem;font-weight:400;">{% if user_role.role == 'Head' %}Your queue{% else %}Complete{% endif %}</div>
+            </div>
+        </div>
+        <div class="pipe-step {% if user_role.role == 'HR' %}active{% else %}waiting{% endif %}">
+            <div class="pipe-dot">
+                {% if user_role.role == 'HR' %}<i class="fas fa-clock"></i>{% else %}<i class="fas fa-hourglass"></i>{% endif %}
+            </div>
+            <div>
+                <div style="font-size:.8rem;font-weight:700;">Stage 2 — HR Final</div>
+                <div style="font-size:.7rem;font-weight:400;">{% if user_role.role == 'HR' %}Your queue{% else %}Waiting{% endif %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context banner -->
+    <div class="context-banner">
+        {% if user_role.role == 'Head' %}
+        <div class="banner-icon head"><i class="fas fa-crown"></i></div>
+        <div>
+            <div style="font-weight:700;font-size:.95rem;">Department Head — {{ user_role.department }}</div>
+            <div style="font-size:.82rem;color:#64748b;">Approve or reject. Approved applications move to HR for final sign-off.</div>
+        </div>
+        {% else %}
+        <div class="banner-icon hr"><i class="fas fa-shield-halved"></i></div>
+        <div>
+            <div style="font-weight:700;font-size:.95rem;">HR — Final Approval</div>
+            <div style="font-size:.82rem;color:#64748b;">These applications have been approved by the department head. Your approval is the final step.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+        {% if advances %}
+        <div style="overflow-x:auto;">
+        <table class="adv-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Amount</th>
+                    <th>Repayment</th>
+                    <th>Reason</th>
+                    <th>Applied</th>
+                    {% if user_role.role == 'HR' %}<th>Head</th>{% endif %}
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adv in advances %}
+                <tr>
+                    <td>
+                        <div class="emp-cell">
+                            <div class="emp-avatar">{{ adv.employee.emp_name|slice:":2"|upper }}</div>
+                            <div>
+                                <div class="emp-name">{{ adv.employee.emp_name }}</div>
+                                <div class="emp-id">{{ adv.employee.emp_id }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="dept-tag"><i class="fas fa-building me-1"></i>{{ adv.employee.department|default:"—" }}</span></td>
+                    <td><span class="amount-badge">AED {{ adv.amount|floatformat:0 }}</span></td>
+                    <td style="white-space:nowrap;">{{ adv.repayment_months }} month{{ adv.repayment_months|pluralize }}</td>
+                    <td>{{ adv.reason|truncatechars:60 }}</td>
+                    <td style="white-space:nowrap;font-size:.82rem;color:#64748b;">{{ adv.created_at|date:"M d, Y" }}</td>
+                    {% if user_role.role == 'HR' %}
+                    <td style="font-size:.82rem;">
+                        {% if adv.head_approved_by %}
+                        <i class="fas fa-check text-success me-1"></i>{{ adv.head_approved_by.get_full_name|default:adv.head_approved_by.username }}
+                        {% else %}—{% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        <a href="{% url 'advance_approve' adv.pk %}" class="btn-review">
+                            <i class="fas fa-gavel"></i> Review
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon"><i class="fas fa-check-circle"></i></div>
+            <h4 style="font-size:1.2rem;font-weight:600;color:#334155;margin-bottom:.5rem;">No Pending Applications</h4>
+            <p style="color:#64748b;">Your queue is clear — all requests have been reviewed.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'advance_apply' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>New Application
+        </a>
+    </div>
+
+</div>
+{% endblock %}

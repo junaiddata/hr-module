@@ -1,0 +1,31 @@
+# Environment & secrets — never commit these
+.env
+
+# SQLite database file
+db.sqlite3
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Django collected static (production)
+staticfiles/
+
+# Media uploads (optional — remove this line if you track media in git)
+# media/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+media/

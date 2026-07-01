@@ -1,0 +1,228 @@
+{% extends "hr_de/base.html" %}
+{% block title %}My Advance Salary Applications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.75rem; font-weight:700; display:flex; align-items:center; gap:.75rem; }
+
+    .stat-strip { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .stat-pill { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:.75rem 1.25rem; flex:1; min-width:110px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+    .stat-pill .label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+    .stat-pill .value { font-size:1.4rem; font-weight:800; line-height:1.2; }
+
+    .adv-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); transition:box-shadow .2s; }
+    .adv-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
+
+    .adv-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    .adv-amount { font-size:1.4rem; font-weight:800; color:#0f172a; }
+    .adv-deduct { font-size:.8rem; color:#64748b; margin-top:.1rem; }
+
+    .status-badge { display:inline-flex; padding:.25rem .75rem; border-radius:20px; font-size:.75rem; font-weight:700; }
+    .status-pending       { background:#fef3c7; color:#d97706; }
+    .status-head_approved { background:#dbeafe; color:#2563eb; }
+    .status-approved      { background:#dcfce7; color:#16a34a; }
+    .status-rejected      { background:#fee2e2; color:#dc2626; }
+
+    .adv-meta { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem; font-size:.82rem; color:#64748b; }
+    .adv-meta span { display:flex; align-items:center; gap:.35rem; }
+
+    .adv-reason { background:#f8fafc; border-radius:8px; padding:.65rem .85rem; font-size:.85rem; color:#475569; margin-top:.75rem; border-left:3px solid #e2e8f0; }
+
+    /* Repayment tracker */
+    .tracker { margin-top:1rem; padding:1rem; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; }
+    .tracker-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin-bottom:.6rem; display:flex; align-items:center; gap:.4rem; }
+    .tracker-amounts { display:flex; justify-content:space-between; font-size:.82rem; margin-bottom:.4rem; }
+    .tracker-amounts .paid  { color:#16a34a; font-weight:700; }
+    .tracker-amounts .left  { color:#0f172a; font-weight:700; }
+    .progress-bar-outer { background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden; }
+    .progress-bar-inner { height:8px; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width .4s; }
+    .tracker-footer { display:flex; justify-content:space-between; font-size:.75rem; color:#94a3b8; margin-top:.4rem; }
+    .tracker-footer .badge-fully { background:#dcfce7; color:#16a34a; border-radius:99px; padding:.1rem .5rem; font-weight:700; font-size:.72rem; }
+
+    /* Monthly deduction pill showing requested vs approved difference */
+    .ded-changed { display:inline-flex; align-items:center; gap:.3rem; background:#fef3c7; border:1px solid #fde68a; border-radius:6px; padding:.15rem .5rem; font-size:.74rem; color:#92400e; font-weight:600; }
+
+    /* Deduction change history trail */
+    .ded-history { margin-top:.85rem; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:.75rem .9rem; }
+    .ded-history .dh-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#92400e; margin-bottom:.5rem; display:flex; align-items:center; gap:.35rem; }
+    .dh-row { display:flex; align-items:flex-start; gap:.5rem; font-size:.78rem; color:#475569; padding:.2rem 0; }
+    .dh-row .dh-amt { font-weight:700; color:#0f172a; white-space:nowrap; }
+    .dh-role { font-size:.64rem; font-weight:700; text-transform:uppercase; padding:.05rem .35rem; border-radius:4px; }
+    .dh-role.head { background:#dbeafe; color:#2563eb; }
+    .dh-role.hr   { background:#f3e8ff; color:#7c3aed; }
+    .dh-note { font-style:italic; color:#64748b; }
+
+    .approval-trail { display:flex; gap:.5rem; margin-top:.85rem; flex-wrap:wrap; }
+    .trail-step { display:flex; align-items:center; gap:.4rem; font-size:.75rem; padding:.3rem .7rem; border-radius:8px; }
+    .trail-done    { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+    .trail-waiting { background:#f8fafc; color:#94a3b8; border:1px solid #e2e8f0; }
+    .trail-reject  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+
+    .empty-state { text-align:center; padding:4rem 2rem; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="page-title"><i class="fas fa-hand-holding-usd"></i>My Advance Applications</h1>
+                <p style="color:rgba(255,255,255,.8);margin:0;">{{ employee.emp_name }} &middot; {{ employee.emp_id }}</p>
+            </div>
+            <a href="{% url 'advance_apply' %}" class="btn btn-light fw-semibold">
+                <i class="fas fa-plus me-2"></i>New Application
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container pb-5">
+
+    <!-- Stats strip -->
+    {% with total=advances.count %}
+    <div class="stat-strip">
+        <div class="stat-pill">
+            <div class="label">Total</div>
+            <div class="value">{{ total }}</div>
+        </div>
+        <div class="stat-pill">
+            <div class="label">Pending / In Review</div>
+            <div class="value" style="color:#d97706;">
+                {% with cnt=0 %}{% for adv in advances %}{% if adv.status == 'Pending' or adv.status == 'Head_Approved' %}{{ forloop.counter0|add:0 }}{% endif %}{% endfor %}{% endwith %}
+                {{ advances|length }}
+            </div>
+        </div>
+        <div class="stat-pill">
+            <div class="label">Active Repayment</div>
+            <div class="value" style="color:#2563eb;">
+                {% for adv in advances %}{% if adv.status == 'Approved' and not adv.is_fully_repaid %}1{% endif %}{% endfor %}
+            </div>
+        </div>
+        <div class="stat-pill">
+            <div class="label">Fully Repaid</div>
+            <div class="value" style="color:#16a34a;">
+                {% for adv in advances %}{% if adv.is_fully_repaid %}1{% endif %}{% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+
+    {% if advances %}
+        {% for adv in advances %}
+        <div class="adv-card">
+            <div class="adv-card-top">
+                <div>
+                    <div class="adv-amount">AED {{ adv.amount|floatformat:0 }}</div>
+                    <div class="adv-deduct">
+                        <i class="fas fa-calendar-minus me-1"></i>
+                        AED {{ adv.effective_monthly_deduction|floatformat:2 }} / month
+                        {% if adv.was_deduction_changed %}
+                        <span class="ded-changed ms-1">
+                            <i class="fas fa-info-circle"></i> Adjusted (you requested AED {{ adv.requested_monthly_deduction|floatformat:2 }})
+                        </span>
+                        {% endif %}
+                        &nbsp;&middot;&nbsp; ≈ {{ adv.estimated_months }} month(s)
+                    </div>
+                </div>
+                <span class="status-badge status-{{ adv.status|lower }}">
+                    {{ adv.get_status_display }}
+                    {% if adv.is_fully_repaid %}<span class="ms-1">✓ Repaid</span>{% endif %}
+                </span>
+            </div>
+
+            <div class="adv-meta">
+                <span><i class="fas fa-calendar"></i> Applied {{ adv.created_at|date:"M d, Y" }}</span>
+                {% if adv.employee.emp_salary %}
+                <span><i class="fas fa-percent"></i>
+                    {{ adv.effective_monthly_deduction|floatformat:2 }} of {{ adv.employee.emp_salary|floatformat:0 }} salary
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="adv-reason">{{ adv.reason }}</div>
+
+            <!-- Deduction change history -->
+            {% with changes=adv.deduction_changes.all %}
+            {% if changes %}
+            <div class="ded-history">
+                <div class="dh-title"><i class="fas fa-history"></i> Monthly Deduction Changes</div>
+                <div class="dh-row">
+                    <span class="dh-amt">AED {{ adv.requested_monthly_deduction|floatformat:2 }}</span>
+                    <span>You requested &middot; {{ adv.created_at|date:"M d, Y" }}</span>
+                </div>
+                {% for ch in changes %}
+                <div class="dh-row">
+                    <span class="dh-amt">&rarr; AED {{ ch.new_amount|floatformat:2 }}</span>
+                    <span>
+                        <span class="dh-role {{ ch.changed_by_role|lower }}">{{ ch.changed_by_role }}</span>
+                        changed it &middot; {{ ch.changed_at|date:"M d, Y" }}
+                        {% if ch.note %}<br><span class="dh-note">"{{ ch.note }}"</span>{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% if adv.status == 'Rejected' and adv.rejection_reason %}
+            <div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:8px;padding:.65rem .85rem;font-size:.83rem;color:#dc2626;margin-top:.75rem;">
+                <i class="fas fa-ban me-1"></i><strong>Rejected:</strong> {{ adv.rejection_reason }}
+            </div>
+            {% endif %}
+
+            <!-- Repayment tracker (only for Approved) -->
+            {% if adv.status == 'Approved' %}
+            <div class="tracker">
+                <div class="tracker-title">
+                    <i class="fas fa-chart-line"></i> Repayment Tracker
+                </div>
+                <div class="tracker-amounts">
+                    <span class="paid"><i class="fas fa-check-circle me-1"></i>Deducted: AED {{ adv.total_deducted|floatformat:2 }}</span>
+                    <span class="left">Remaining: AED {{ adv.remaining_amount|floatformat:2 }}</span>
+                </div>
+                <div class="progress-bar-outer">
+                    <div class="progress-bar-inner" style="width:{{ adv.progress_pct }}%;"></div>
+                </div>
+                <div class="tracker-footer">
+                    <span>{{ adv.progress_pct }}% repaid</span>
+                    {% if adv.is_fully_repaid %}
+                        <span class="badge-fully"><i class="fas fa-check me-1"></i>Fully Repaid</span>
+                    {% else %}
+                        <span>≈ {% if adv.effective_monthly_deduction > 0 %}{{ adv.remaining_amount|floatformat:0 }}{% endif %} AED left</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Approval trail -->
+            <div class="approval-trail">
+                {% if adv.status == 'Pending' %}
+                    <span class="trail-step trail-waiting"><i class="fas fa-hourglass"></i> Waiting for Head</span>
+                    <span class="trail-step trail-waiting"><i class="fas fa-hourglass"></i> Waiting for HR</span>
+                {% elif adv.status == 'Head_Approved' %}
+                    <span class="trail-step trail-done"><i class="fas fa-check"></i> Head: {{ adv.head_approved_by.get_full_name|default:adv.head_approved_by.username }}</span>
+                    <span class="trail-step trail-waiting"><i class="fas fa-hourglass"></i> Waiting for HR</span>
+                {% elif adv.status == 'Approved' %}
+                    <span class="trail-step trail-done"><i class="fas fa-check"></i> Head: {{ adv.head_approved_by.get_full_name|default:adv.head_approved_by.username }}</span>
+                    <span class="trail-step trail-done"><i class="fas fa-check"></i> HR: {{ adv.hr_approved_by.get_full_name|default:adv.hr_approved_by.username }}</span>
+                {% elif adv.status == 'Rejected' %}
+                    <span class="trail-step trail-reject"><i class="fas fa-ban"></i> Rejected</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-hand-holding-usd" style="font-size:2.5rem;display:block;margin-bottom:1rem;"></i>
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:.4rem;color:#334155;">No Applications Yet</div>
+        <div style="font-size:.875rem;margin-bottom:1.5rem;">You haven't submitted any advance salary requests.</div>
+        <a href="{% url 'advance_apply' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Apply Now
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

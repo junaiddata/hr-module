@@ -1,0 +1,352 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard — HR Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dash-wrapper { padding: 2rem; }
+
+    /* Page header */
+    .page-header {
+        background: var(--gradient-primary);
+        border-radius: 16px;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        margin-bottom: 1.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .page-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+    .page-header .sub { font-size: .88rem; opacity: .85; margin-top: .2rem; }
+    .page-header .date-chip {
+        background: rgba(255,255,255,.15);
+        border: 1px solid rgba(255,255,255,.25);
+        border-radius: 8px;
+        padding: .45rem .9rem;
+        font-size: .82rem;
+        font-weight: 500;
+        backdrop-filter: blur(4px);
+        white-space: nowrap;
+    }
+
+    /* Birthdays today banner */
+    .bday-banner {
+        background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+        border: 1px solid #fbcfe8;
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.75rem;
+    }
+    .bday-banner-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .bday-emoji { font-size: 2rem; line-height: 1; }
+    .bday-banner-title { font-size: 1.1rem; font-weight: 800; color: #9d174d; }
+    .bday-banner-sub { font-size: .84rem; color: #be185d; }
+    .bday-banner-link {
+        margin-left: auto; text-decoration: none; font-weight: 700; font-size: .82rem;
+        color: #be185d; background: #fff; border: 1px solid #fbcfe8;
+        padding: .45rem .9rem; border-radius: 9px; white-space: nowrap; display: inline-flex; align-items: center; gap: .4rem;
+    }
+    .bday-banner-link:hover { background: #fdf2f8; color: #9d174d; }
+    .bday-people { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+    .bday-person {
+        display: flex; align-items: center; gap: .65rem; text-decoration: none;
+        background: #fff; border: 1px solid #fbcfe8; border-radius: 12px;
+        padding: .55rem .85rem .55rem .55rem; transition: transform .15s, box-shadow .15s;
+    }
+    .bday-person:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(190,24,93,.14); }
+    .bday-person-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .bday-person-avatar.fallback {
+        background: linear-gradient(135deg,#ec4899,#be185d); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-weight: 700;
+    }
+    .bday-person-name { font-weight: 700; color: #831843; font-size: .88rem; }
+    .bday-person-meta { font-size: .74rem; color: #be185d; }
+
+    /* Stat cards */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.75rem;
+    }
+    .stat-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 1.4rem 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        gap: 1.1rem;
+        transition: box-shadow .2s, transform .2s;
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .stat-icon {
+        width: 52px; height: 52px;
+        border-radius: 13px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.35rem; flex-shrink: 0;
+    }
+    .stat-icon.blue   { background: rgba(8,11,177,.09);  color: var(--accent-primary); }
+    .stat-icon.amber  { background: rgba(245,158,11,.1);  color: var(--accent-warning); }
+    .stat-icon.green  { background: rgba(16,185,129,.1);  color: var(--accent-success); }
+    .stat-icon.teal   { background: rgba(59,130,246,.1);  color: var(--accent-info); }
+
+    .stat-info .n {
+        font-size: 1.75rem; font-weight: 800;
+        color: var(--text-primary); line-height: 1.1;
+    }
+    .stat-info .l { font-size: .78rem; color: var(--text-secondary); margin-top: .15rem; }
+
+    /* Quick actions */
+    .section-title {
+        font-size: 1rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex; align-items: center; gap: .5rem;
+    }
+    .section-title i { color: var(--accent-primary); }
+
+    .actions-row {
+        display: flex; flex-wrap: wrap; gap: .75rem;
+        margin-bottom: 1.75rem;
+    }
+    .action-btn {
+        display: inline-flex; align-items: center; gap: .5rem;
+        padding: .6rem 1.1rem;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-size: .855rem; font-weight: 500;
+        text-decoration: none;
+        transition: all .18s;
+    }
+    .action-btn i { color: var(--accent-primary); font-size: .9rem; }
+    .action-btn:hover {
+        border-color: var(--accent-primary);
+        color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(8,11,177,.07);
+        transform: translateY(-1px);
+    }
+    .action-btn.primary-btn {
+        background: var(--gradient-primary); color: #fff;
+        border-color: transparent;
+    }
+    .action-btn.primary-btn i { color: #fff; }
+    .action-btn.primary-btn:hover { opacity: .9; color: #fff; border-color: transparent; }
+
+    /* Recent leaves table */
+    .card-box {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.75rem;
+    }
+    .card-box-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-box-header h2 {
+        font-size: .95rem; font-weight: 700; color: var(--text-primary);
+        display: flex; align-items: center; gap: .5rem; margin: 0;
+    }
+    .card-box-header h2 i { color: var(--accent-primary); }
+    .view-all-link { font-size: .8rem; color: var(--accent-primary); font-weight: 600; text-decoration: none; }
+    .view-all-link:hover { text-decoration: underline; }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+        padding: .7rem 1.2rem;
+        background: #f8fafc;
+        color: var(--text-secondary);
+        font-size: .74rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .05em;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .data-table td {
+        padding: .8rem 1.2rem;
+        font-size: .875rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+        vertical-align: middle;
+    }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: #f8fafc; }
+
+    .status-badge {
+        display: inline-block;
+        padding: .2rem .65rem;
+        border-radius: 20px;
+        font-size: .75rem; font-weight: 600;
+    }
+    .badge-pending        { background: rgba(245,158,11,.12); color: #d97706; }
+    .badge-approved       { background: rgba(16,185,129,.12); color: #059669; }
+    .badge-rejected       { background: rgba(239,68,68,.12);  color: #dc2626; }
+    .badge-head-approved  { background: rgba(59,130,246,.12); color: #2563eb; }
+    .badge-other          { background: rgba(148,163,184,.15);color: #64748b; }
+
+    .emp-name { font-weight: 600; }
+    .emp-id   { font-size: .75rem; color: var(--text-secondary); }
+
+    @media (max-width: 640px) {
+        .dash-wrapper { padding: 1rem; }
+        .page-header { padding: 1.25rem 1rem; }
+        .page-header h1 { font-size: 1.25rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-wrapper">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <div>
+            <h1>Welcome back, {{ request.user.first_name|default:request.user.username }}!</h1>
+            <div class="sub">Here's what's happening in your organization today.</div>
+        </div>
+        <div class="date-chip">
+            <i class="fas fa-calendar-alt" style="margin-right:.4rem;"></i>{{ today|date:"l, d F Y" }}
+        </div>
+    </div>
+
+    <!-- Birthdays today -->
+    {% if birthdays_today %}
+    <div class="bday-banner">
+        <div class="bday-banner-head">
+            <span class="bday-emoji">🎂</span>
+            <div>
+                <div class="bday-banner-title">Birthday{{ birthdays_today|length|pluralize }} today!</div>
+                <div class="bday-banner-sub">Wish {{ birthdays_today|length }} team member{{ birthdays_today|length|pluralize }} a happy birthday</div>
+            </div>
+            <a href="{% url 'birthdays' %}" class="bday-banner-link">View all <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div class="bday-people">
+            {% for emp in birthdays_today %}
+            <a href="{% url 'employee_detail' emp.id %}" class="bday-person">
+                {% if emp.photo %}
+                    <img src="{{ emp.photo.url }}" alt="{{ emp.emp_name }}" class="bday-person-avatar">
+                {% else %}
+                    <span class="bday-person-avatar fallback">{{ emp.emp_name|first|upper }}</span>
+                {% endif %}
+                <div>
+                    <div class="bday-person-name">{{ emp.emp_name }}</div>
+                    <div class="bday-person-meta">{{ emp.designation|default:"—" }}{% if emp.department %} · {{ emp.department.name }}{% endif %}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stat cards -->
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <div class="n">{{ total_employees }}</div>
+                <div class="l">Total Employees</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon amber"><i class="fas fa-hourglass-half"></i></div>
+            <div class="stat-info">
+                <div class="n">{{ pending_leaves }}</div>
+                <div class="l">Pending Approvals</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+            <div class="stat-info">
+                <div class="n">{{ approved_leaves }}</div>
+                <div class="l">Approved Leaves</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick actions -->
+    <p class="section-title"><i class="fas fa-bolt"></i> Quick Actions</p>
+    <div class="actions-row">
+        <a href="{% url 'employee_create' %}" class="action-btn primary-btn">
+            <i class="fas fa-user-plus"></i> Add Employee
+        </a>
+        <a href="{% url 'add_leave' %}" class="action-btn">
+            <i class="fas fa-calendar-plus"></i> Add Leave
+        </a>
+        <a href="{% url 'pending_leaves' %}" class="action-btn">
+            <i class="fas fa-clock"></i> Pending Approvals
+        </a>
+        <a href="{% url 'org_chart' %}" class="action-btn">
+            <i class="fas fa-sitemap"></i> Org Chart
+        </a>
+        <a href="{% url 'employee_list' %}" class="action-btn">
+            <i class="fas fa-users"></i> All Employees
+        </a>
+    </div>
+
+    <!-- Recent leave requests -->
+    <div class="card-box">
+        <div class="card-box-header">
+            <h2><i class="fas fa-calendar-days"></i> Recent Leave Requests</h2>
+            <a href="{% url 'leave_history' %}" class="view-all-link">View All &rarr;</a>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Leave Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Status</th>
+                        <th>Applied</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in recent_leaves %}
+                    <tr>
+                        <td>
+                            <div class="emp-name">{{ leave.employee.emp_name }}</div>
+                            <div class="emp-id">{{ leave.employee.emp_id }}</div>
+                        </td>
+                        <td>{{ leave.leave_type.name|default:"—" }}</td>
+                        <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                        <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                        <td>
+                            {% if leave.status == 'Pending' %}
+                                <span class="status-badge badge-pending">Pending</span>
+                            {% elif leave.status == 'Approved' %}
+                                <span class="status-badge badge-approved">Approved</span>
+                            {% elif leave.status == 'Rejected' %}
+                                <span class="status-badge badge-rejected">Rejected</span>
+                            {% elif leave.status == 'Head_Approved' %}
+                                <span class="status-badge badge-head-approved">Head Approved</span>
+                            {% else %}
+                                <span class="status-badge badge-other">{{ leave.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ leave.created_at|date:"d M Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-tertiary);">
+                            <i class="fas fa-inbox" style="font-size:1.5rem; display:block; margin-bottom:.5rem;"></i>
+                            No leave requests yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

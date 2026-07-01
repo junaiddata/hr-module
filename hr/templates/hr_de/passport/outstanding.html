@@ -1,0 +1,89 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Outstanding Passports{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.75rem; font-weight:700; display:flex; align-items:center; gap:.75rem; }
+
+    .out-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.1rem 1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .out-card.overdue { border-color:#fecaca; background:#fff7f7; }
+    .emp-avatar { width:44px; height:44px; background:linear-gradient(135deg,#2208cd,#120aa09e); color:#fff; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; }
+    .out-info { flex:1; min-width:200px; }
+    .out-name { font-weight:700; color:#0f172a; font-size:1rem; }
+    .out-meta { font-size:.8rem; color:#64748b; margin-top:.15rem; }
+    .out-since { display:inline-flex; align-items:center; gap:.35rem; font-size:.78rem; font-weight:600; padding:.2rem .6rem; border-radius:20px; background:#eff6ff; color:#2563eb; }
+    .out-since.overdue { background:#fee2e2; color:#dc2626; }
+    .out-since.manual  { background:#f3e8ff; color:#7c3aed; }
+    .out-reason { font-size:.82rem; color:#475569; margin-top:.4rem; }
+    .btn-returned { background:#16a34a; border:none; color:#fff; padding:.6rem 1.3rem; border-radius:9px; font-weight:700; font-size:.9rem; display:inline-flex; align-items:center; gap:.5rem; cursor:pointer; }
+    .btn-returned:hover { background:#15803d; }
+
+    .summary-pill { display:inline-flex; align-items:center; gap:.5rem; background:rgba(255,255,255,.18); color:#fff; border-radius:20px; padding:.35rem 1rem; font-size:.85rem; font-weight:600; }
+    .empty-state { text-align:center; padding:4rem 2rem; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="page-title"><i class="fas fa-passport"></i>Outstanding Passports</h1>
+                <p style="color:rgba(255,255,255,.8);margin:.25rem 0 0;">
+                    Passports currently with employees — click <strong>Returned</strong> once back with HR
+                </p>
+            </div>
+            <span class="summary-pill"><i class="fas fa-id-card"></i>{{ items|length }} passport{{ items|length|pluralize }} out</span>
+        </div>
+    </div>
+</div>
+
+<div class="container pb-5">
+    {% if items %}
+        {% for item in items %}
+        {% with emp=item.employee req=item.request %}
+        <div class="out-card {% if req.expected_return and req.expected_return < today %}overdue{% endif %}">
+            <span class="emp-avatar">{{ emp.emp_name|slice:":2"|upper }}</span>
+            <div class="out-info">
+                <div class="out-name">{{ emp.emp_name }}
+                    <span style="font-size:.75rem;color:#94a3b8;font-weight:500;">{{ emp.emp_id }} &middot; {{ emp.department|default:"No Dept" }}</span>
+                </div>
+                <div class="out-meta">
+                    {% if req %}
+                        <span class="out-since {% if req.expected_return and req.expected_return < today %}overdue{% endif %}">
+                            <i class="fas fa-clock"></i> Out since {{ req.approved_at|date:"M d, Y" }}
+                        </span>
+                        {% if req.expected_return %}
+                            &nbsp; Expected back: <strong style="{% if req.expected_return < today %}color:#dc2626;{% endif %}">{{ req.expected_return|date:"M d, Y" }}</strong>
+                            {% if req.expected_return < today %}<span style="color:#dc2626;font-weight:700;">(Overdue)</span>{% endif %}
+                        {% endif %}
+                    {% else %}
+                        <span class="out-since manual">
+                            <i class="fas fa-user-edit"></i> Set manually (no request on file)
+                        </span>
+                    {% endif %}
+                </div>
+                {% if req %}
+                <div class="out-reason"><i class="fas fa-quote-left me-1" style="color:#cbd5e1;font-size:.7rem;"></i>{{ req.reason|truncatechars:90 }}</div>
+                {% endif %}
+            </div>
+            <form method="post" action="{% url 'passport_employee_return' emp.pk %}"
+                  onsubmit="return confirm('Confirm {{ emp.emp_name }}\'s passport is back with HR / the company?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-returned">
+                    <i class="fas fa-undo"></i> Returned
+                </button>
+            </form>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-check-circle" style="font-size:2.5rem;display:block;margin-bottom:1rem;color:#22c55e;"></i>
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:.4rem;color:#334155;">No Passports Out</div>
+        <div style="font-size:.875rem;">All passports are currently with the company.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

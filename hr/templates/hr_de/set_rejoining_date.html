@@ -1,0 +1,159 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Set Rejoining Date — {{ leave.employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-wrapper { max-width: 600px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: .25rem; }
+.page-subtitle { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1.5rem; }
+
+.leave-summary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem;
+}
+.ls-item .ls-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-tertiary); margin-bottom: .2rem; }
+.ls-item .ls-value { font-size: .92rem; font-weight: 600; color: var(--text-primary); }
+
+.form-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.75rem;
+    box-shadow: var(--shadow-sm);
+}
+.form-group { margin-bottom: 1.25rem; }
+.form-label { font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; display: block; }
+.form-control {
+    border: 1.5px solid var(--border-color); border-radius: 8px;
+    padding: .65rem .9rem; font-size: .9rem; width: 100%;
+    background: var(--bg-primary); color: var(--text-primary);
+    transition: border-color .18s;
+}
+.form-control:focus { border-color: var(--accent-primary); outline: none; box-shadow: 0 0 0 3px rgba(8,11,177,.07); }
+
+.calc-preview {
+    background: rgba(8,11,177,.05);
+    border: 1px solid rgba(8,11,177,.12);
+    border-radius: 8px;
+    padding: .75rem 1rem;
+    font-size: .88rem;
+    color: var(--accent-primary);
+    font-weight: 600;
+    margin-top: .75rem;
+    display: none;
+}
+
+.form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+.btn-save {
+    background: var(--gradient-primary); color: #fff;
+    padding: .65rem 1.5rem; border-radius: 8px;
+    font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem;
+    transition: opacity .18s;
+}
+.btn-save:hover { opacity: .9; }
+.btn-cancel {
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    padding: .65rem 1.25rem; border-radius: 8px;
+    font-weight: 500; border: 1px solid var(--border-color);
+    text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <h1 class="page-title"><i class="fas fa-undo-alt" style="color:var(--accent-primary);margin-right:.5rem;"></i>Set Rejoining Date</h1>
+    <p class="page-subtitle">Update the actual rejoining date for {{ leave.employee.emp_name }}'s leave. Actual days will be recalculated automatically.</p>
+
+    <!-- Leave summary -->
+    <div class="leave-summary">
+        <div class="ls-item">
+            <div class="ls-label">Employee</div>
+            <div class="ls-value">{{ leave.employee.emp_name }}</div>
+        </div>
+        <div class="ls-item">
+            <div class="ls-label">Leave Type</div>
+            <div class="ls-value">{{ leave.leave_type.name }}</div>
+        </div>
+        <div class="ls-item">
+            <div class="ls-label">From</div>
+            <div class="ls-value">{{ leave.expected_from|date:"d M Y" }}</div>
+        </div>
+        <div class="ls-item">
+            <div class="ls-label">To (Applied)</div>
+            <div class="ls-value">{{ leave.expected_to|date:"d M Y" }}</div>
+        </div>
+        <div class="ls-item">
+            <div class="ls-label">Applied Days</div>
+            <div class="ls-value">{{ leave.days }} day{{ leave.days|pluralize }}</div>
+        </div>
+        {% if leave.rejoined_on %}
+        <div class="ls-item">
+            <div class="ls-label">Current Rejoining</div>
+            <div class="ls-value">{{ leave.rejoined_on|date:"d M Y" }}</div>
+        </div>
+        {% endif %}
+        {% if leave.actual_days %}
+        <div class="ls-item">
+            <div class="ls-label">Current Actual Days</div>
+            <div class="ls-value">{{ leave.actual_days }} day{{ leave.actual_days|pluralize }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Form -->
+    <div class="form-card">
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Actual Rejoining Date <span style="color:#ef4444;">*</span></label>
+                <input type="date" name="rejoined_on" id="rejoinInput" class="form-control"
+                       value="{{ leave.rejoined_on|date:'Y-m-d'|default:leave.expected_to|date:'Y-m-d' }}"
+                       required>
+                <div class="calc-preview" id="calcPreview"></div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'leave_history' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Cancel</a>
+                <button type="submit" class="btn-save"><i class="fas fa-check"></i> Update Rejoining Date</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const rejoinInput  = document.getElementById('rejoinInput');
+const calcPreview  = document.getElementById('calcPreview');
+const fromDateStr  = "{{ leave.expected_from|date:'Y-m-d' }}";
+
+function updatePreview() {
+    const rejoin = rejoinInput.value;
+    if (rejoin && fromDateStr) {
+        const d1    = new Date(fromDateStr);
+        const d2    = new Date(rejoin);
+        const days  = Math.round((d2 - d1) / 86400000) + 1;
+        const orig  = {{ leave.days }};
+        let msg = `Actual leave days: <strong>${days}</strong>`;
+        if (days > orig)      msg += ` <span style="color:#d97706;">(+${days - orig} extended)</span>`;
+        else if (days < orig) msg += ` <span style="color:#10b981;">(−${orig - days} early return)</span>`;
+        else                  msg += ` <span style="color:#64748b;">(same as applied)</span>`;
+        calcPreview.innerHTML = '<i class="fas fa-calculator" style="margin-right:.4rem;"></i>' + msg;
+        calcPreview.style.display = 'block';
+    } else {
+        calcPreview.style.display = 'none';
+    }
+}
+
+rejoinInput.addEventListener('change', updatePreview);
+document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
+{% endblock %}

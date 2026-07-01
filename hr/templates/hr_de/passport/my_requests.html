@@ -1,0 +1,90 @@
+{% extends "hr_de/base.html" %}
+{% block title %}My Passport Requests{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.75rem; font-weight:700; display:flex; align-items:center; gap:.75rem; }
+
+    .custody-pill { display:inline-flex; align-items:center; gap:.4rem; background:rgba(255,255,255,.18); color:#fff; border-radius:20px; padding:.3rem .9rem; font-size:.8rem; font-weight:600; }
+
+    .req-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+    .req-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+    .status-badge { display:inline-flex; padding:.25rem .75rem; border-radius:20px; font-size:.75rem; font-weight:700; }
+    .status-pending  { background:#fef3c7; color:#d97706; }
+    .status-approved { background:#dbeafe; color:#2563eb; }
+    .status-rejected { background:#fee2e2; color:#dc2626; }
+    .status-returned { background:#dcfce7; color:#16a34a; }
+
+    .req-meta { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem; font-size:.82rem; color:#64748b; margin-top:.6rem; }
+    .req-meta span { display:flex; align-items:center; gap:.35rem; }
+    .req-reason { background:#f8fafc; border-radius:8px; padding:.65rem .85rem; font-size:.85rem; color:#475569; margin-top:.75rem; border-left:3px solid #e2e8f0; }
+    .empty-state { text-align:center; padding:4rem 2rem; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="page-title"><i class="fas fa-passport"></i>My Passport Requests</h1>
+                <p style="color:rgba(255,255,255,.8);margin:.25rem 0 0;">
+                    {{ employee.emp_name }} &middot; {{ employee.emp_id }}
+                    &nbsp; <span class="custody-pill"><i class="fas fa-id-card"></i>Custody: {{ employee.passport_status }}</span>
+                </p>
+            </div>
+            <a href="{% url 'passport_apply' %}" class="btn btn-light fw-semibold">
+                <i class="fas fa-plus me-2"></i>New Request
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container pb-5">
+    {% if requests %}
+        {% for req in requests %}
+        <div class="req-card">
+            <div class="req-card-top">
+                <div style="font-weight:700;color:#0f172a;font-size:1rem;">
+                    <i class="fas fa-passport me-2" style="color:#6366f1;"></i>Passport Request
+                </div>
+                <span class="status-badge status-{{ req.status|lower }}">{{ req.get_status_display }}</span>
+            </div>
+
+            <div class="req-meta">
+                <span><i class="fas fa-calendar"></i> Requested {{ req.created_at|date:"M d, Y" }}</span>
+                {% if req.needed_from %}<span><i class="fas fa-plane-departure"></i> From {{ req.needed_from|date:"M d, Y" }}</span>{% endif %}
+                {% if req.expected_return %}<span><i class="fas fa-plane-arrival"></i> Return {{ req.expected_return|date:"M d, Y" }}</span>{% endif %}
+            </div>
+
+            <div class="req-reason">{{ req.reason }}</div>
+
+            {% if req.status == 'Approved' %}
+            <div style="background:#eff6ff;border-left:3px solid #3b82f6;border-radius:8px;padding:.6rem .85rem;font-size:.83rem;color:#1d4ed8;margin-top:.75rem;">
+                <i class="fas fa-check-circle me-1"></i>Approved by {{ req.approved_by.get_full_name|default:req.approved_by.username }}
+                on {{ req.approved_at|date:"M d, Y" }} — passport is with you. Please return it to HR by the expected date.
+            </div>
+            {% elif req.status == 'Returned' %}
+            <div style="background:#f0fdf4;border-left:3px solid #22c55e;border-radius:8px;padding:.6rem .85rem;font-size:.83rem;color:#166534;margin-top:.75rem;">
+                <i class="fas fa-undo me-1"></i>Returned to company on {{ req.returned_at|date:"M d, Y" }}.
+            </div>
+            {% elif req.status == 'Rejected' and req.rejection_reason %}
+            <div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:8px;padding:.6rem .85rem;font-size:.83rem;color:#dc2626;margin-top:.75rem;">
+                <i class="fas fa-ban me-1"></i><strong>Rejected:</strong> {{ req.rejection_reason }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-passport" style="font-size:2.5rem;display:block;margin-bottom:1rem;"></i>
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:.4rem;color:#334155;">No Requests Yet</div>
+        <div style="font-size:.875rem;margin-bottom:1.5rem;">You haven't requested your passport yet.</div>
+        <a href="{% url 'passport_apply' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Request Now
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

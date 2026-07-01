@@ -1,0 +1,335 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}Department Dashboard — {{ dept_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dept-wrapper { padding: 2rem; }
+
+    /* Header banner */
+    .dept-header {
+        background: var(--gradient-primary);
+        border-radius: 14px;
+        padding: 1.5rem 2rem;
+        color: #fff;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .dept-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+    .dept-header .sub { font-size: .85rem; opacity: .85; margin-top: .2rem; }
+
+    /* Stat mini bar */
+    .mini-stat-bar {
+        display: flex; flex-wrap: wrap; gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .mini-stat {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        flex: 1; min-width: 160px;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+    }
+    .mini-stat .n { font-size: 1.8rem; font-weight: 800; color: var(--accent-primary); }
+    .mini-stat .l { font-size: .78rem; color: var(--text-secondary); margin-top: .2rem; }
+    .mini-stat .n.amber { color: var(--accent-warning); }
+    .mini-stat .n.purple { color: #8b5cf6; }
+
+    .support-badge {
+        background: rgba(245,158,11,.15); color: #92400e;
+        padding: .2rem .6rem; border-radius: 4px;
+        font-size: .75rem; font-weight: 600;
+    }
+
+    /* Quick links */
+    .quick-links { display: flex; flex-wrap: wrap; gap: .65rem; margin-bottom: 1.5rem; }
+    .ql {
+        display: inline-flex; align-items: center; gap: .45rem;
+        padding: .5rem .9rem;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: .845rem; font-weight: 500;
+        transition: all .18s;
+    }
+    .ql:hover { border-color: var(--accent-primary); color: var(--accent-primary); transform: translateY(-1px); }
+
+    /* Section headings */
+    .section-heading {
+        font-size: .92rem; font-weight: 700; color: var(--text-primary);
+        display: flex; align-items: center; gap: .5rem;
+        margin-bottom: .85rem;
+    }
+
+    /* Tables */
+    .card-box {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+    .card-box-header {
+        padding: .9rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .card-box-header h2 {
+        font-size: .9rem; font-weight: 700; color: var(--text-primary);
+        display: flex; align-items: center; gap: .45rem; margin: 0;
+    }
+
+    .emp-table, .pending-table { width: 100%; border-collapse: collapse; }
+    .emp-table th, .pending-table th {
+        padding: .65rem 1.1rem;
+        font-size: .72rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .05em;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+    .emp-table th     { background: #f8fafc; color: var(--text-secondary); }
+    .pending-table th { background: #fffbeb; color: #92400e; }
+
+    .emp-table td, .pending-table td {
+        padding: .75rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: .875rem;
+        vertical-align: middle;
+        color: var(--text-primary);
+    }
+    .emp-table tbody tr:last-child td,
+    .pending-table tbody tr:last-child td { border-bottom: none; }
+    .emp-table tbody tr:hover,
+    .pending-table tbody tr:hover { background: #f8fafc; }
+
+    .badge-num {
+        display: inline-block; min-width: 28px;
+        padding: .18rem .45rem; border-radius: 20px;
+        font-size: .76rem; font-weight: 700; text-align: center;
+    }
+    .bn-pending  { background: rgba(245,158,11,.12); color: #d97706; }
+    .bn-approved { background: rgba(16,185,129,.12); color: #059669; }
+    .bn-rejected { background: rgba(239,68,68,.12);  color: #dc2626; }
+    .bn-total    { background: rgba(148,163,184,.15); color: #64748b; }
+
+    .btn-action {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .28rem .7rem;
+        border-radius: 6px;
+        font-size: .78rem; font-weight: 600;
+        text-decoration: none;
+        transition: background .18s;
+    }
+    .btn-detail  { background: rgba(8,11,177,.08);   color: var(--accent-primary); }
+    .btn-detail:hover  { background: rgba(8,11,177,.15); color: var(--accent-primary); }
+    .btn-behalf  { background: rgba(99,102,241,.1);  color: #4f46e5; }
+    .btn-behalf:hover  { background: rgba(99,102,241,.2); color: #3730a3; }
+    .btn-approve-sm { background: rgba(16,185,129,.1); color: #059669; }
+    .btn-approve-sm:hover { background: rgba(16,185,129,.2); color: #047857; }
+
+    .empty-row td { text-align: center; padding: 1.5rem; color: var(--text-tertiary); font-size: .875rem; }
+
+    @media (max-width: 640px) {
+        .dept-wrapper { padding: 1rem; }
+        .dept-header  { padding: 1.1rem; }
+        .dept-header h1 { font-size: 1.1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dept-wrapper">
+
+    <!-- Header -->
+    <div class="dept-header">
+        <div>
+            <h1>
+                <i class="fas fa-building" style="margin-right:.5rem;"></i>
+                {{ dept_name }} — Department Dashboard
+            </h1>
+            <div class="sub">
+                Welcome, {{ request.user.first_name|default:request.user.username }}
+                {% if is_support_staff %} &mdash; <span style="background:rgba(255,255,255,.2);padding:.1rem .5rem;border-radius:4px;font-size:.78rem;">Support Staff Mode</span>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini stats -->
+    <div class="mini-stat-bar">
+        <div class="mini-stat">
+            <div class="n">{{ total_employees }}</div>
+            <div class="l">Employees in {{ dept_name }}</div>
+        </div>
+        <div class="mini-stat">
+            <div class="n amber">{{ total_pending }}</div>
+            <div class="l">Pending Your Approval</div>
+        </div>
+        {% if is_support_staff %}
+        <div class="mini-stat">
+            <div class="n purple"><i class="fas fa-hands-helping"></i></div>
+            <div class="l">Support Staff &mdash; Apply On Behalf</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick links -->
+    <div class="quick-links">
+        <a href="{% url 'pending_leaves' %}" class="ql"><i class="fas fa-clock" style="color:#f59e0b;"></i> Pending Approvals</a>
+        <a href="{% url 'leave_history' %}"  class="ql"><i class="fas fa-history" style="color:#6366f1;"></i> Leave History</a>
+        <a href="{% url 'employee_list' %}"  class="ql"><i class="fas fa-users" style="color:#10b981;"></i> All Employees</a>
+        <a href="{% url 'add_leave' %}"      class="ql"><i class="fas fa-plus" style="color:#3b82f6;"></i> Add Leave Request</a>
+        <a href="{% url 'change_password' %}" class="ql"><i class="fas fa-key" style="color:#8b5cf6;"></i> Change Password</a>
+    </div>
+
+    <!-- Employees in Department -->
+    <div class="card-box">
+        <div class="card-box-header">
+            <h2>
+                <i class="fas fa-users" style="color:var(--accent-primary);"></i>
+                Employees in {{ dept_name }}
+                {% if is_support_staff %}<span class="support-badge" style="margin-left:.5rem;">Support Staff</span>{% endif %}
+            </h2>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="emp-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>EMP ID</th>
+                        <th>Designation</th>
+                        <th>Pending</th>
+                        <th>Approved</th>
+                        <th>Rejected</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ emp.emp_name }}</strong></td>
+                        <td style="color:var(--text-secondary);">{{ emp.emp_id }}</td>
+                        <td>{{ emp.designation|default:"—" }}</td>
+                        <td><span class="badge-num bn-pending">{{ emp.pending_leaves }}</span></td>
+                        <td><span class="badge-num bn-approved">{{ emp.approved_leaves }}</span></td>
+                        <td><span class="badge-num bn-rejected">{{ emp.rejected_leaves }}</span></td>
+                        <td><span class="badge-num bn-total">{{ emp.total_leaves }}</span></td>
+                        <td>
+                            <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                                <a href="{% url 'employee_leave_detail' emp.pk %}" class="btn-action btn-detail">
+                                    <i class="fas fa-eye"></i> Leaves
+                                </a>
+                                <a href="{% url 'employee_detail' emp.pk %}" class="btn-action btn-detail">
+                                    <i class="fas fa-id-card"></i> Profile
+                                </a>
+                                <a href="{% url 'apply_leave_behalf' emp.pk %}" class="btn-action btn-behalf">
+                                    <i class="fas fa-calendar-plus"></i> Apply Leave
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="9">No employees found in {{ dept_name }}.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pending leaves awaiting approval -->
+    <div class="card-box">
+        <div class="card-box-header">
+            <h2>
+                <i class="fas fa-hourglass-half" style="color:#f59e0b;"></i>
+                Leaves Awaiting Your Approval
+            </h2>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="pending-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in pending_for_head %}
+                    <tr>
+                        <td>
+                            <strong>{{ leave.employee.emp_name }}</strong><br>
+                            <span style="font-size:.76rem;color:var(--text-tertiary);">{{ leave.employee.emp_id }}</span>
+                        </td>
+                        <td>{{ leave.leave_type.name }}</td>
+                        <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                        <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                        <td>{{ leave.days }}</td>
+                        <td>{{ leave.reason|truncatechars:35|default:"—" }}</td>
+                        <td>
+                            <a href="{% url 'approve_leave' leave.pk %}" class="btn-action btn-approve-sm">
+                                <i class="fas fa-gavel"></i> Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">No pending leaves to approve.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recently approved -->
+    {% if recent_approved %}
+    <div class="card-box">
+        <div class="card-box-header">
+            <h2>
+                <i class="fas fa-circle-check" style="color:#10b981;"></i>
+                Recently Approved
+            </h2>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="emp-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in recent_approved %}
+                    <tr>
+                        <td>{{ leave.employee.emp_name }}</td>
+                        <td>{{ leave.leave_type.name }}</td>
+                        <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                        <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                        <td>{{ leave.days }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

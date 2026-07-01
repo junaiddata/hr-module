@@ -1,0 +1,35 @@
+<!-- templates/hr/gender_list.html -->
+{% extends "hr/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>MOL List</h2>
+    <a href="{% url 'mol_add' %}" class="btn btn-primary mb-3">+ Add New MOL</a>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>MOL</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mol in mols %}
+            <tr>
+                <td>{{ mol.mol }}</td>
+                <td>
+                    <a href="{% url 'mol_edit' mol.id %}"  class="btn btn-sm btn-warning">Edit</a>
+                    <form method="post" action="{% url 'mol_delete' pk=mol.pk %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">🗑️</button>
+                    </form>
+                    <!-- You can add a delete button later if needed -->
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">No MOL records found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

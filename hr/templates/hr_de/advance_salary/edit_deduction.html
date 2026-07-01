@@ -1,0 +1,170 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Edit Monthly Deduction{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:.75rem; }
+
+    .info-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .info-item .l { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:.2rem; }
+    .info-item .v { font-size:1.05rem; font-weight:700; color:#0f172a; }
+    .info-item .v.green { color:#16a34a; }
+    .info-item .v.blue  { color:#2563eb; }
+    .info-item .v.amber { color:#d97706; }
+
+    .progress-bar-outer { background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden; margin-top:.35rem; }
+    .progress-bar-inner { height:8px; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a); }
+
+    .timeline { position:relative; padding-left:1.5rem; margin-top:.5rem; }
+    .timeline::before { content:''; position:absolute; left:5px; top:4px; bottom:4px; width:2px; background:#e2e8f0; }
+    .tl-item { position:relative; padding-bottom:1rem; }
+    .tl-item:last-child { padding-bottom:0; }
+    .tl-dot { position:absolute; left:-1.5rem; top:2px; width:12px; height:12px; border-radius:50%; background:#6366f1; border:2px solid #fff; box-shadow:0 0 0 1px #c7d2fe; }
+    .tl-dot.req { background:#94a3b8; }
+    .tl-amt { font-weight:700; color:#0f172a; font-size:.9rem; }
+    .tl-meta { font-size:.76rem; color:#64748b; }
+    .tl-role { display:inline-block; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.05rem .4rem; border-radius:5px; }
+    .tl-role.head { background:#dbeafe; color:#2563eb; }
+    .tl-role.hr   { background:#f3e8ff; color:#7c3aed; }
+    .tl-note { font-size:.78rem; color:#475569; font-style:italic; margin-top:.15rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title"><i class="fas fa-sliders-h"></i>Edit Monthly Deduction</h1>
+        <p style="color:rgba(255,255,255,.8);margin:.25rem 0 0;">
+            {{ advance.employee.emp_name }} &middot; {{ advance.employee.emp_id }} &middot; {{ advance.employee.department|default:"No Dept" }}
+        </p>
+    </div>
+</div>
+
+<div class="container pb-5">
+    <div class="row g-4">
+        <!-- Left: summary + edit form -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-4">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="l">Advance Amount</div>
+                            <div class="v green">AED {{ advance.amount|floatformat:0 }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="l">Requested / Month</div>
+                            <div class="v">AED {{ advance.requested_monthly_deduction|floatformat:2 }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="l">Current / Month</div>
+                            <div class="v blue">AED {{ advance.effective_monthly_deduction|floatformat:2 }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="l">Status</div>
+                            <div class="v">{{ advance.get_status_display }}</div>
+                        </div>
+                    </div>
+
+                    {% if advance.status == 'Approved' %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between" style="font-size:.82rem;">
+                            <span style="color:#16a34a;font-weight:700;">Deducted: AED {{ advance.total_deducted|floatformat:2 }}</span>
+                            <span style="font-weight:700;">Remaining: AED {{ advance.remaining_amount|floatformat:2 }}</span>
+                        </div>
+                        <div class="progress-bar-outer">
+                            <div class="progress-bar-inner" style="width:{{ advance.progress_pct }}%;"></div>
+                        </div>
+                        <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem;">{{ advance.progress_pct }}% repaid &middot; ≈ {{ advance.estimated_months }} month(s) at current rate</div>
+                    </div>
+                    {% endif %}
+
+                    {% if advance.is_fully_repaid and advance.status == 'Approved' %}
+                    <div class="alert alert-success py-2 px-3" style="font-size:.85rem;">
+                        <i class="fas fa-check-circle me-1"></i>This advance is fully repaid. No further deductions will be applied.
+                    </div>
+                    {% else %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <label class="form-label fw-semibold">New Monthly Deduction (AED) <span class="text-danger">*</span></label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text"><i class="fas fa-calendar-minus"></i></span>
+                            <input type="number" name="approved_monthly_deduction" id="inpNew" class="form-control"
+                                   step="0.01" min="1" value="{{ advance.effective_monthly_deduction|floatformat:2 }}" required>
+                        </div>
+                        <div class="form-text mb-3" id="preview"></div>
+
+                        <label class="form-label fw-semibold">Note <span style="color:#94a3b8;font-weight:400;">(optional — shown to employee)</span></label>
+                        <textarea name="note" class="form-control mb-3" rows="2" placeholder="e.g. Reduced on employee request"></textarea>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fas fa-save me-2"></i>Update Deduction
+                            </button>
+                            <a href="{% if user_role.role == 'HR' %}{% url 'advance_list' %}{% else %}{% url 'advance_list' %}{% endif %}" class="btn btn-outline-secondary">Back</a>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: change history trail -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0 pt-3 px-4">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-history me-2 text-secondary"></i>Change History</h6>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="timeline">
+                        <!-- Baseline: original request -->
+                        <div class="tl-item">
+                            <span class="tl-dot req"></span>
+                            <div class="tl-amt">AED {{ advance.requested_monthly_deduction|floatformat:2 }} / month</div>
+                            <div class="tl-meta">
+                                Requested by {{ advance.applied_by.get_full_name|default:advance.applied_by.username|default:"employee" }}
+                                &middot; {{ advance.created_at|date:"M d, Y" }}
+                            </div>
+                        </div>
+
+                        {% for ch in changes %}
+                        <div class="tl-item">
+                            <span class="tl-dot"></span>
+                            <div class="tl-amt">
+                                AED {{ ch.old_amount|floatformat:2 }} &rarr; AED {{ ch.new_amount|floatformat:2 }}
+                            </div>
+                            <div class="tl-meta">
+                                <span class="tl-role {{ ch.changed_by_role|lower }}">{{ ch.changed_by_role }}</span>
+                                {{ ch.changed_by.get_full_name|default:ch.changed_by.username }}
+                                &middot; {{ ch.changed_at|date:"M d, Y H:i" }}
+                            </div>
+                            {% if ch.note %}<div class="tl-note">"{{ ch.note }}"</div>{% endif %}
+                        </div>
+                        {% endfor %}
+
+                        {% if not changes %}
+                        <div class="tl-item">
+                            <span class="tl-dot" style="background:#cbd5e1;"></span>
+                            <div class="tl-meta">No changes yet — still at the requested amount.</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var amount = {{ advance.amount|floatformat:2 }};
+var inp = document.getElementById('inpNew');
+function prev() {
+    var m = parseFloat(inp.value) || 0;
+    var p = document.getElementById('preview');
+    if (m > 0) {
+        p.innerHTML = '&approx; ' + Math.ceil(amount / m) + ' month(s) to repay AED ' + amount.toFixed(0) + ' at this rate.';
+    } else { p.textContent = ''; }
+}
+if (inp) { inp.addEventListener('input', prev); prev(); }
+</script>
+{% endblock %}

@@ -1,0 +1,517 @@
+{% extends 'hr_de/base.html' %}
+{% load static hr_extras %}
+
+{% block title %}Organization Chart — HR Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .org-wrapper { padding: 2rem; }
+
+    /* Page header */
+    .org-header {
+        background: var(--gradient-primary);
+        border-radius: 16px;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .org-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+    .org-header .sub { font-size: .88rem; opacity: .85; margin-top: .25rem; }
+    .org-header .dept-count {
+        background: rgba(255,255,255,.18);
+        border: 1px solid rgba(255,255,255,.28);
+        border-radius: 8px;
+        padding: .45rem .95rem;
+        font-size: .82rem; font-weight: 600;
+        backdrop-filter: blur(4px);
+        white-space: nowrap;
+    }
+
+    /* Drag hint banner */
+    .drag-hint {
+        display: flex; align-items: center; gap: .6rem;
+        background: rgba(79,70,229,.07);
+        border: 1px dashed rgba(79,70,229,.35);
+        border-radius: 10px;
+        padding: .65rem 1.1rem;
+        font-size: .82rem; color: var(--accent-primary);
+        margin-bottom: 1.5rem;
+    }
+    .drag-hint i { font-size: 1rem; }
+
+    /* Top management */
+    .section-title {
+        font-size: .95rem; font-weight: 700; color: var(--text-primary);
+        display: flex; align-items: center; gap: .5rem;
+        margin-bottom: 1.1rem;
+    }
+    .section-title i { color: var(--accent-primary); }
+
+    .mgmt-strip {
+        display: flex; flex-wrap: wrap; gap: 1rem;
+        margin-bottom: 2.5rem;
+        padding: 1.5rem;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .mgmt-card {
+        display: flex; align-items: center; gap: .85rem;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-secondary);
+        transition: all .2s;
+        flex: 1; min-width: 200px;
+    }
+    .mgmt-card:hover { border-color: var(--accent-primary); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+    .mgmt-avatar {
+        width: 46px; height: 46px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .av-hr      { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+    .av-manager { background: linear-gradient(135deg, #0891b2, #0284c7); }
+    .av-md      { background: linear-gradient(135deg, #b45309, #d97706); }
+
+    .mgmt-info .mname { font-weight: 700; font-size: .9rem; color: var(--text-primary); }
+    .mgmt-info .mrole {
+        display: inline-block;
+        font-size: .72rem; font-weight: 600;
+        padding: .1rem .5rem; border-radius: 20px; margin-top: .15rem;
+    }
+    .role-hr      { background: rgba(79,70,229,.12); color: #4f46e5; }
+    .role-manager { background: rgba(8,145,178,.12); color: #0891b2; }
+    .role-md      { background: rgba(180,83,9,.12);  color: #b45309; }
+
+    /* Department cards grid */
+    .dept-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .dept-card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        transition: box-shadow .2s, transform .2s;
+    }
+    .dept-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+
+    .dept-card-header {
+        padding: 1.1rem 1.25rem;
+        color: #fff;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .dept-card-header h3 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .dept-total-badge {
+        background: rgba(255,255,255,.25);
+        border: 1px solid rgba(255,255,255,.35);
+        border-radius: 20px;
+        padding: .15rem .65rem;
+        font-size: .78rem; font-weight: 600;
+    }
+
+    .dept-accent-0  { background: linear-gradient(135deg,#4f46e5,#7c3aed); }
+    .dept-accent-1  { background: linear-gradient(135deg,#0891b2,#06b6d4); }
+    .dept-accent-2  { background: linear-gradient(135deg,#16a34a,#4ade80); }
+    .dept-accent-3  { background: linear-gradient(135deg,#b45309,#f59e0b); }
+    .dept-accent-4  { background: linear-gradient(135deg,#dc2626,#f87171); }
+    .dept-accent-5  { background: linear-gradient(135deg,#7c3aed,#c084fc); }
+    .dept-accent-6  { background: linear-gradient(135deg,#0f766e,#14b8a6); }
+    .dept-accent-7  { background: linear-gradient(135deg,#be185d,#f472b6); }
+    .dept-accent-8  { background: linear-gradient(135deg,#1d4ed8,#60a5fa); }
+    .dept-accent-9  { background: linear-gradient(135deg,#92400e,#d97706); }
+
+    .dept-card-body { padding: 1.1rem 1.25rem; }
+
+    /* Head drop zone */
+    .head-section {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px dashed var(--border-color);
+        border-radius: 10px;
+        transition: background .2s, border-color .2s;
+    }
+    .head-section.drop-active {
+        background: rgba(245,158,11,.08);
+        border: 2px dashed #f59e0b !important;
+        padding: .75rem;
+    }
+    .head-section.drop-active .drop-cue { display: flex !important; }
+
+    .drop-cue {
+        display: none;
+        align-items: center; justify-content: center; gap: .5rem;
+        padding: .6rem;
+        border-radius: 8px;
+        background: rgba(245,158,11,.12);
+        color: #b45309;
+        font-size: .8rem; font-weight: 600;
+        margin-top: .5rem;
+    }
+
+    .head-label {
+        font-size: .68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: var(--text-tertiary); margin-bottom: .5rem;
+        display: flex; align-items: center; gap: .35rem;
+    }
+    .head-label i { color: #f59e0b; }
+
+    .head-item {
+        display: flex; align-items: center; gap: .7rem;
+        padding: .6rem .75rem;
+        background: rgba(245,158,11,.06);
+        border: 1px solid rgba(245,158,11,.15);
+        border-radius: 10px;
+        margin-bottom: .4rem;
+    }
+    .head-avatar {
+        width: 34px; height: 34px;
+        border-radius: 8px;
+        background: linear-gradient(135deg,#f59e0b,#d97706);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: .88rem; flex-shrink: 0;
+    }
+    .head-info .hname { font-weight: 700; font-size: .875rem; color: var(--text-primary); }
+    .head-info .hid   { font-size: .72rem; color: var(--text-secondary); }
+
+    .no-head-box {
+        padding: .75rem 1rem;
+        background: #f8fafc;
+        border: 1.5px dashed var(--border-color);
+        border-radius: 10px;
+        text-align: center;
+        color: var(--text-tertiary);
+        font-size: .8rem;
+    }
+    .no-head-box i { display: block; margin-bottom: .35rem; font-size: 1.1rem; }
+
+    /* Draggable employee items */
+    .emp-section-label {
+        font-size: .68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: var(--text-tertiary);
+        margin-bottom: .5rem;
+        display: flex; align-items: center; gap: .35rem;
+    }
+
+    .emp-items { display: flex; flex-direction: column; gap: .35rem; }
+    .emp-item {
+        display: flex; align-items: center; gap: .6rem;
+        padding: .4rem .5rem;
+        border-radius: 8px;
+        transition: background .15s, opacity .2s;
+    }
+    .emp-item:hover { background: var(--bg-hover); }
+    .emp-item[draggable="true"] { cursor: grab; }
+    .emp-item[draggable="true"]:active { cursor: grabbing; }
+    .emp-item.dragging { opacity: .35; }
+
+    /* Drag badge shown on hover when drag is enabled */
+    .drag-badge {
+        margin-left: auto;
+        font-size: .65rem; color: var(--text-tertiary);
+        display: none;
+    }
+    .emp-item[draggable="true"]:hover .drag-badge { display: inline; }
+
+    .emp-mini-avatar {
+        width: 28px; height: 28px;
+        border-radius: 7px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-secondary); font-weight: 700; font-size: .75rem;
+        flex-shrink: 0;
+    }
+    .emp-mini-info .ename { font-size: .83rem; font-weight: 500; color: var(--text-primary); }
+    .emp-mini-info .edesig { font-size: .72rem; color: var(--text-secondary); }
+
+    .more-emp {
+        font-size: .78rem; color: var(--text-tertiary);
+        text-align: center; padding: .35rem 0;
+    }
+
+    /* Card footer */
+    .dept-card-footer {
+        padding: .7rem 1.25rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        display: flex; align-items: center; gap: .5rem;
+        font-size: .8rem; color: var(--text-secondary); font-weight: 500;
+    }
+    .dept-card-footer i { color: var(--accent-primary); }
+
+    /* Toast */
+    #org-toast-container {
+        position: fixed; top: 1.2rem; right: 1.2rem; z-index: 9999;
+        display: flex; flex-direction: column; gap: .5rem;
+    }
+    .org-toast {
+        min-width: 280px; max-width: 360px;
+        padding: .85rem 1.1rem;
+        border-radius: 10px;
+        font-size: .875rem; font-weight: 500;
+        display: flex; align-items: center; gap: .7rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,.14);
+        animation: slideIn .25s ease;
+    }
+    .org-toast.success { background: #ecfdf5; border-left: 4px solid #10b981; color: #065f46; }
+    .org-toast.danger  { background: #fef2f2; border-left: 4px solid #ef4444; color: #7f1d1d; }
+    @keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+
+    @media (max-width: 640px) {
+        .org-wrapper { padding: 1rem; }
+        .org-header h1 { font-size: 1.2rem; }
+        .dept-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="org-toast-container"></div>
+<div class="org-wrapper">
+
+    <!-- Page header -->
+    <div class="org-header">
+        <div>
+            <h1><i class="fas fa-sitemap" style="margin-right:.6rem;"></i>Organization Chart</h1>
+            <div class="sub">Visual hierarchy of departments, heads, and employees.</div>
+        </div>
+        <div class="dept-count">
+            <i class="fas fa-building" style="margin-right:.4rem;"></i>{{ chart_data|length }} Department{{ chart_data|length|pluralize }}
+        </div>
+    </div>
+
+    {% if can_assign_head %}
+    <div class="drag-hint">
+        <i class="fas fa-hand-pointer"></i>
+        <span><strong>Drag any team member</strong> and drop them onto a department's <strong>Head</strong> section to promote them as Head of that department.</span>
+    </div>
+    {% endif %}
+
+    <!-- Top Management -->
+    {% if top_mgmt %}
+    <p class="section-title"><i class="fas fa-crown"></i> Senior Management</p>
+    <div class="mgmt-strip">
+        {% for role_obj in top_mgmt %}
+        <div class="mgmt-card">
+            <div class="mgmt-avatar {% if role_obj.role == 'HR' %}av-hr{% elif role_obj.role == 'Manager' %}av-manager{% else %}av-md{% endif %}">
+                {{ role_obj.user.username|first|upper }}
+            </div>
+            <div class="mgmt-info">
+                <div class="mname">{{ role_obj.user.get_full_name|default:role_obj.user.username }}</div>
+                <span class="mrole {% if role_obj.role == 'HR' %}role-hr{% elif role_obj.role == 'Manager' %}role-manager{% else %}role-md{% endif %}">
+                    {{ role_obj.role }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Departments -->
+    <p class="section-title"><i class="fas fa-building"></i> Departments</p>
+    <div class="dept-grid">
+        {% for item in chart_data %}
+        {% with accent_idx=forloop.counter0|mod:10 %}
+        <div class="dept-card">
+            <!-- Card header -->
+            <div class="dept-card-header dept-accent-{{ accent_idx }}">
+                <h3><i class="fas fa-building" style="margin-right:.45rem;opacity:.85;"></i>{{ item.department.name }}</h3>
+                <span class="dept-total-badge">{{ item.total }} emp.</span>
+            </div>
+
+            <!-- Card body -->
+            <div class="dept-card-body">
+
+                <!-- Head drop zone -->
+                <div class="head-section{% if can_assign_head %} head-drop-zone{% endif %}"
+                     data-dept-pk="{{ item.department.pk }}"
+                     data-dept-name="{{ item.department.name }}">
+
+                    <div class="head-label"><i class="fas fa-crown"></i> Department Head</div>
+
+                    {% if item.heads %}
+                        {% for head in item.heads %}
+                        <div class="head-item">
+                            <div class="head-avatar">{{ head.user.username|first|upper }}</div>
+                            <div class="head-info">
+                                <div class="hname">
+                                    {{ head.user.get_full_name|default:head.user.username }}
+                                </div>
+                                <div class="hid">
+                                    {% if head.employee %}{{ head.employee.emp_id }}{% else %}{{ head.user.username }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="no-head-box">
+                        <i class="fas fa-user-slash"></i>
+                        No Head Assigned
+                    </div>
+                    {% endif %}
+
+                    {% if can_assign_head %}
+                    <div class="drop-cue">
+                        <i class="fas fa-crown"></i> Drop here to assign as Head
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Regular employees -->
+                {% if item.employees %}
+                <div class="emp-section-label"><i class="fas fa-users"></i> Team Members</div>
+                <div class="emp-items">
+                    {% for emp in item.employees|slice:":6" %}
+                    <div class="emp-item"
+                         {% if can_assign_head %}
+                         draggable="true"
+                         data-emp-pk="{{ emp.pk }}"
+                         data-emp-name="{{ emp.emp_name }}"
+                         data-has-user="{% if emp.user %}true{% else %}false{% endif %}"
+                         {% endif %}>
+                        <div class="emp-mini-avatar">{{ emp.emp_name|first|upper }}</div>
+                        <div class="emp-mini-info">
+                            <div class="ename">{{ emp.emp_name }}</div>
+                            <div class="edesig">{{ emp.designation|default:"—" }}</div>
+                        </div>
+                        {% if can_assign_head %}
+                        <span class="drag-badge"><i class="fas fa-grip-vertical"></i></span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% if item.employees|length > 6 %}
+                    <div class="more-emp">+ {{ item.employees|length|add:"-6" }} more member{{ item.employees|length|add:"-6"|pluralize }}</div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="no-head-box" style="margin-top:.25rem;">
+                    <i class="fas fa-inbox"></i>
+                    No team members yet
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Card footer -->
+            <div class="dept-card-footer">
+                <i class="fas fa-users"></i>
+                {{ item.total }} total employee{{ item.total|pluralize }}
+                {% if item.department.is_support_staff %}
+                <span style="margin-left:auto;background:rgba(245,158,11,.12);color:#d97706;padding:.1rem .5rem;border-radius:4px;font-size:.72rem;font-weight:700;">Support Staff</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endwith %}
+        {% empty %}
+        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-tertiary);">
+            <i class="fas fa-building" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
+            No departments configured yet. <a href="{% url 'department_list' %}" style="color:var(--accent-primary);">Add departments</a>.
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+{% if can_assign_head %}
+<script>
+(function () {
+    'use strict';
+
+    const ASSIGN_URL = '{% url "assign_head" %}';
+    let draggedEl = null;
+
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+
+    function showToast(msg, type) {
+        const tc = document.getElementById('org-toast-container');
+        const t  = document.createElement('div');
+        const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+        t.className = `org-toast ${type}`;
+        t.innerHTML = `<i class="fas ${icon}"></i><span>${msg}</span>`;
+        tc.appendChild(t);
+        setTimeout(() => t.remove(), 4000);
+    }
+
+    // ── Draggable employees ──────────────────────────────────────────────────
+    document.querySelectorAll('.emp-item[draggable="true"]').forEach(item => {
+        item.addEventListener('dragstart', e => {
+            draggedEl = item;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', item.dataset.empPk);
+        });
+        item.addEventListener('dragend', () => {
+            if (draggedEl) draggedEl.classList.remove('dragging');
+            draggedEl = null;
+        });
+    });
+
+    // ── Head drop zones ──────────────────────────────────────────────────────
+    document.querySelectorAll('.head-drop-zone').forEach(zone => {
+        zone.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            zone.classList.add('drop-active');
+        });
+
+        zone.addEventListener('dragleave', e => {
+            // Only remove if truly leaving the zone (not entering a child)
+            if (!zone.contains(e.relatedTarget)) {
+                zone.classList.remove('drop-active');
+            }
+        });
+
+        zone.addEventListener('drop', async e => {
+            e.preventDefault();
+            zone.classList.remove('drop-active');
+
+            if (!draggedEl) return;
+
+            const empPk   = draggedEl.dataset.empPk;
+            const empName = draggedEl.dataset.empName;
+            const deptPk  = zone.dataset.deptPk;
+            const deptName = zone.dataset.deptName;
+
+            try {
+                const resp = await fetch(ASSIGN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({ employee_pk: empPk, department_pk: deptPk }),
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1400);
+                } else {
+                    showToast(data.error, 'danger');
+                }
+            } catch (err) {
+                showToast('Network error — please try again.', 'danger');
+            }
+        });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

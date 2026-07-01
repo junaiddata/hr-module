@@ -1,0 +1,1205 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}{{ employee|default:"Add New" }} Employee - HR Management System{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Page Container */
+    .form-container {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    /* Page Header */
+    .page-header {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 2.5rem;
+        margin: -2rem -2rem 2rem -2rem;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .page-title-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--gradient-primary);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+    }
+    
+    .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    /* Form Sections */
+    .form-section {
+        background: var(--bg-primary);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+    }
+    
+    .form-section:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+    
+    .section-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    .section-icon.personal {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .section-icon.work {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+    }
+    
+    .section-icon.documents {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .section-icon.uploads {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    
+    .section-description {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    
+    /* Form Elements */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-label .required {
+        color: #ef4444;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: var(--bg-primary);
+        width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+    
+    .form-control::placeholder {
+        color: var(--text-tertiary);
+    }
+    
+    /* File Upload Styling */
+    .file-upload-wrapper {
+        position: relative;
+    }
+    
+    .file-upload-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+    
+    .file-upload-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 2px dashed var(--border-color);
+        border-radius: 10px;
+        background: var(--bg-tertiary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .file-upload-wrapper:hover .file-upload-label {
+        border-color: var(--accent-primary);
+        background: rgba(99, 102, 241, 0.05);
+    }
+    
+    .file-upload-icon {
+        font-size: 1.5rem;
+        color: var(--text-tertiary);
+    }
+    
+    .file-upload-text {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    
+    .current-file {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .current-file a {
+        color: var(--accent-primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .current-file a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Switch Styling */
+    .form-switch {
+        padding-left: 0;
+    }
+    
+    .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+        background-color: var(--border-color);
+        border: none;
+        cursor: pointer;
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--accent-primary);
+        border-color: var(--accent-primary);
+    }
+    
+    .form-check-label {
+        margin-left: 0.5rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+    
+    /* Select2 Customization */
+    .select2-container--default .select2-selection--single {
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        height: 44px;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--text-primary);
+        line-height: 28px;
+    }
+    
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    /* Action Buttons */
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .btn-modern {
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        border: none;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+    
+    .btn-primary-modern {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    
+    .btn-primary-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-secondary-modern {
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+    
+    .btn-secondary-modern:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
+    
+    /* Helper Text */
+    .form-text {
+        font-size: 0.813rem;
+        color: var(--text-tertiary);
+        margin-top: 0.25rem;
+    }
+    
+    /* Info Alert */
+    .info-alert {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .info-alert-icon {
+        color: var(--accent-primary);
+        font-size: 1.25rem;
+    }
+    
+    .info-alert-text {
+        color: var(--text-primary);
+        font-size: 0.875rem;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .form-container {
+            padding: 1rem;
+        }
+        
+        .page-header {
+            padding: 1.5rem;
+            margin: -1rem -1rem 1.5rem -1rem;
+        }
+        
+        .form-section {
+            padding: 1.5rem;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn-modern {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">
+                <div class="page-title-icon">
+                    <i class="fas fa-user-{% if employee %}edit{% else %}plus{% endif %}"></i>
+                </div>
+                {% if employee %}Edit Employee{% else %}Add New Employee{% endif %}
+            </h1>
+            <p class="page-subtitle">
+                {% if employee %}
+                    Update employee information and documents
+                {% else %}
+                    Fill in the employee details to create a new record
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Info Alert -->
+    <div class="info-alert">
+        <i class="fas fa-info-circle info-alert-icon"></i>
+        <span class="info-alert-text">
+            Fields marked with <span class="required">*</span> are required. Please ensure all mandatory information is provided.
+        </span>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- Personal Information Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon personal">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Personal Information</h2>
+                    <p class="section-description">Basic employee details and contact information</p>
+                </div>
+            </div>
+
+            <!-- Employee Photo -->
+            <div class="row g-3 mb-2">
+                <div class="col-12">
+                    <div class="form-group d-flex align-items-center" style="gap:1.5rem;flex-wrap:wrap;">
+                        <img id="photo-preview"
+                             src="{% if employee.photo %}{{ employee.photo.url }}{% endif %}"
+                             alt="Photo"
+                             style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid var(--border-color);background:var(--bg-tertiary);{% if not employee.photo %}display:none;{% endif %}">
+                        <div id="photo-placeholder"
+                             style="width:96px;height:96px;border-radius:50%;display:{% if employee.photo %}none{% else %}flex{% endif %};align-items:center;justify-content:center;background:var(--bg-tertiary);border:2px dashed var(--border-color);color:var(--text-tertiary);font-size:2rem;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div style="flex:1;min-width:220px;">
+                            <label class="form-label" for="photo-upload">
+                                <i class="fas fa-camera"></i> Employee Photo
+                            </label>
+                            <div class="file-upload-wrapper">
+                                <input type="file" name="photo" class="file-upload-input"
+                                       id="photo-upload" accept=".jpg,.jpeg,.png,.webp">
+                                <label for="photo-upload" class="file-upload-label">
+                                    <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                    <span class="file-upload-text">Click to upload a profile photo</span>
+                                </label>
+                            </div>
+                            <small class="form-text">JPG, PNG or WEBP. A square image works best.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Full Name <span class="required">*</span>
+                        </label>
+                        <input type="text" name="emp_name" class="form-control" 
+                               placeholder="Enter employee's full name"
+                               value="{{ employee.emp_name|default:'' }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Employee ID <span class="required">*</span>
+                        </label>
+                        <input type="text" name="emp_id" class="form-control" 
+                               placeholder="e.g., EMP001"
+                               value="{{ employee.emp_id|default:'' }}" required>
+                        <small class="form-text">Unique identifier for the employee</small>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Date of Birth <span class="required">*</span>
+                        </label>
+                        <input type="date" name="dob" class="form-control" 
+                               value="{{ employee.dob|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Gender <span class="required">*</span>
+                        </label>
+                        <select name="gender" class="form-select" required>
+                            <option value="">Select gender</option>
+                            <option value="M" {% if employee.gender == 'M' %}selected{% endif %}>Male</option>
+                            <option value="F" {% if employee.gender == 'F' %}selected{% endif %}>Female</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Nationality <span class="required">*</span>
+                        </label>
+                        <input type="text" name="nationality" class="form-control" 
+                               value="{{ employee.nationality|default:'India' }}"
+                               list="countryList" placeholder="Type or select country" required>
+                        <datalist id="countryList">
+                            {% for code, name in countries %}
+                                <option value="{{ name }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-phone"></i> Contact Number <span class="required">*</span>
+                        </label>
+                        <input type="text" name="contact_number" class="form-control" 
+                               placeholder="+971 XX XXX XXXX"
+                               value="{{ employee.contact_number|default:'' }}" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Work Information Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon work">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Work Information</h2>
+                    <p class="section-description">Job details and employment status</p>
+                </div>
+            </div>
+            
+                        <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Department <span class="required">*</span>
+                        </label>
+                        <select name="department" class="form-control" required>
+                            <option value="">-- Select Department --</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.pk }}" {% if employee.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Designation <span class="required">*</span>
+                        </label>
+                        <input type="text" name="designation" class="form-control" 
+                               placeholder="e.g., Manager, Developer, Executive"
+                               value="{{ employee.designation|default:'' }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            MOL <span class="required">*</span>
+                        </label>
+                        <select name="mol" class="form-select" required>
+                            <option value="">Select MOL</option>
+                            {% for m in mols %}
+                                <option value="{{ m.id }}" {% if employee.mol.id == m.id %}selected{% endif %}>{{ m.mol }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Joining Date <span class="required">*</span>
+                        </label>
+                        <input type="date" name="joining_date" class="form-control" 
+                               value="{{ employee.joining_date|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-dollar-sign"></i> Monthly Salary
+                        </label>
+                        <input type="number" name="emp_salary" class="form-control" 
+                               placeholder="0.00"
+                               value="{{ employee.emp_salary|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-map-marker-alt"></i> Job Location
+                        </label>
+                        <input type="text" name="job_location" class="form-control" 
+                               placeholder="e.g., Dubai, Abu Dhabi"
+                               value="{{ employee.job_location|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Employee Status <span class="required">*</span>
+                        </label>
+                        <select name="employee_status" class="form-select" required>
+                            <option value="">Select status</option>
+                            <option value="Active" {% if employee.employee_status == 'Active' %}selected{% endif %}>
+                                <i class="fas fa-check-circle"></i> Active
+                            </option>
+                            <option value="Inactive" {% if employee.employee_status == 'Inactive' %}selected{% endif %}>
+                                Inactive
+                            </option>
+                            <option value="On Leave" {% if employee.employee_status == 'On Leave' %}selected{% endif %}>
+                                On Leave
+                            </option>
+                            <option value="Resigned" {% if employee.employee_status == 'Resigned' %}selected{% endif %}>
+                                Resigned
+                            </option>
+                            <option value="Terminated" {% if employee.employee_status == 'Terminated' %}selected{% endif %}>
+                                Terminated
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-12">
+                    <div class="form-group">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" 
+                                {% if employee.is_active or not employee.pk %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Account is Active
+                            </label>
+                        </div>
+                        <small class="form-text">Check if the employee is currently working.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Salary Structure Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon" style="background: linear-gradient(135deg,#3b82f6,#6366f1);">
+                    <i class="fas fa-sliders-h"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Salary Structure</h2>
+                    <p class="section-description">Break down the gross salary into components. Total must equal gross salary.</p>
+                </div>
+            </div>
+
+            <!-- Visual bar -->
+            <div style="height:8px;border-radius:20px;overflow:hidden;display:flex;margin-bottom:1rem;background:#f1f5f9;" id="salaryBarForm"></div>
+            <div style="display:flex;flex-wrap:wrap;gap:.6rem 1.25rem;font-size:.78rem;margin-bottom:1.25rem;" id="salaryLegend">
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#3b82f6;display:inline-block;margin-right:.3rem;"></span>Basic (<span id="lgFBasic">0</span>%)</span>
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;margin-right:.3rem;"></span>HRA (<span id="lgFHra">0</span>%)</span>
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;margin-right:.3rem;"></span>Transport (<span id="lgFTransport">0</span>%)</span>
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#8b5cf6;display:inline-block;margin-right:.3rem;"></span>Others (<span id="lgFOthers">0</span>%)</span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#3b82f6;display:inline-block;margin-right:.3rem;"></span>
+                            Basic
+                        </label>
+                        <input type="number" name="basic" id="fBasic" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.basic|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;margin-right:.3rem;"></span>
+                            HRA
+                        </label>
+                        <input type="number" name="hra" id="fHra" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.hra|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;margin-right:.3rem;"></span>
+                            Transport
+                        </label>
+                        <input type="number" name="transport" id="fTransport" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.transport|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#8b5cf6;display:inline-block;margin-right:.3rem;"></span>
+                            Others
+                        </label>
+                        <input type="number" name="others" id="fOthers" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.others|default:'' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total summary row -->
+            <div style="background:var(--bg-secondary);border:1.5px solid var(--border-color);border-radius:10px;padding:.85rem 1.1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+                <div>
+                    <div style="font-size:.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">Components Total</div>
+                    <div style="font-size:1.2rem;font-weight:800;color:var(--accent-primary);">AED <span id="fTotal">0.00</span></div>
+                </div>
+                <span id="fDiffTag" style="display:none;font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;"></span>
+            </div>
+        </div>
+
+        <!-- Document Information Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon documents">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Document Information</h2>
+                    <p class="section-description">Passport, visa, and other official documents</p>
+                </div>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-passport"></i> Passport Number
+                        </label>
+                        <input type="text" name="passport_number" class="form-control" 
+                               placeholder="e.g., A12345678"
+                               value="{{ employee.passport_number|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Passport Expiry Date
+                        </label>
+                        <input type="date" name="passport_expiry" class="form-control" 
+                               value="{{ employee.passport_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Passport Status
+                        </label>
+                        <select name="passport_status" class="form-control">
+                            <option value="With company" {% if employee.passport_status == 'With company' or not employee.passport_status %}selected{% endif %}>With Company</option>
+                            <option value="With employee" {% if employee.passport_status == 'With employee' %}selected{% endif %}>With Employee</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-id-card"></i> Visa Expiry Date
+                        </label>
+                        <input type="date" name="visa_expiry" class="form-control" 
+                               value="{{ employee.visa_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Labour Card Number
+                        </label>
+                        <input type="text" name="labour_card_number" class="form-control" 
+                               placeholder="e.g., LC123456"
+                               value="{{ employee.labour_card_number|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Labour Card Expiry
+                        </label>
+                        <input type="date" name="labour_card_expiry" class="form-control" 
+                               value="{{ employee.labour_card_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-id-badge"></i> EID Number
+                        </label>
+                        <input type="text" name="eid_number" class="form-control"
+                               placeholder="784-xxxx-xxxxxxx-x"
+                               value="{{ employee.eid_number|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            EID Expiry Date
+                        </label>
+                        <input type="date" name="eid_expiry" class="form-control"
+                               value="{{ employee.eid_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-shield-alt"></i> Insurance Number
+                        </label>
+                        <input type="text" name="insurance_number" class="form-control"
+                               placeholder="e.g., INS-2024-XXXXX"
+                               value="{{ employee.insurance_number|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Insurance Expiry Date
+                        </label>
+                        <input type="date" name="insurance_expiry" class="form-control"
+                               value="{{ employee.insurance_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-car"></i> Driving License Number
+                        </label>
+                        <input type="text" name="driving_license_number" class="form-control"
+                               placeholder="e.g., DL-XXXXXXXX"
+                               value="{{ employee.driving_license_number|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Driving License Expiry Date
+                        </label>
+                        <input type="date" name="driving_license_expiry" class="form-control"
+                               value="{{ employee.driving_license_expiry|date:'Y-m-d' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Document Uploads Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon uploads">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Document Uploads</h2>
+                    <p class="section-description">Upload scanned copies of official documents</p>
+                </div>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-passport"></i> Passport Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="passport" class="file-upload-input" 
+                                   id="passport-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="passport-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.passport %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.passport.url }}" target="_blank">View current passport</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-id-card"></i> Visa Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="visa" class="file-upload-input" 
+                                   id="visa-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="visa-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.visa %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.visa.url }}" target="_blank">View current visa</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-id-card-alt"></i> Labour Card Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="labour_card" class="file-upload-input" 
+                                   id="labour-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="labour-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.labour_card %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.labour_card.url }}" target="_blank">View current labour card</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-id-badge"></i> EID Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="eid" class="file-upload-input"
+                                   id="eid-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="eid-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.eid %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.eid.url }}" target="_blank">View current EID</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-shield-alt"></i> Insurance Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="insurance" class="file-upload-input"
+                                   id="insurance-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="insurance-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.insurance %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.insurance.url }}" target="_blank">View current insurance</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-car"></i> Driving License Copy
+                        </label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="driving_license" class="file-upload-input"
+                                   id="driving-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <label for="driving-upload" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <span class="file-upload-text">Click to upload or drag and drop</span>
+                            </label>
+                        </div>
+                        {% if employee.driving_license %}
+                            <div class="current-file">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="{{ employee.driving_license.url }}" target="_blank">View current driving license</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Login Account Section -->
+        <div class="section-card" style="border-left: 4px solid #6366f1;">
+            <div class="section-header">
+                <div class="section-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                    <i class="fas fa-user-lock"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Login Account</h2>
+                    <p class="section-description">
+                        {% if employee and employee.user %}
+                            Linked to <strong>{{ employee.user.username }}</strong> — update username or password below
+                        {% else %}
+                            Give this employee a portal login (leave blank to skip)
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control"
+                               value="{{ employee.user.username|default:'' }}"
+                               placeholder="e.g. john.doe"
+                               autocomplete="off">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Password {% if employee and employee.user %}(leave blank to keep current){% endif %}</label>
+                        <input type="password" name="password" class="form-control"
+                               placeholder="Set password"
+                               autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-center" style="padding-top:1.75rem;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="make_head" id="make_head"
+                               {% if is_head %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="make_head" style="color: var(--text-primary);">
+                            <i class="fas fa-crown" style="color:#f59e0b;"></i>
+                            Make Department Head
+                        </label>
+                        <div class="form-text" style="font-size:0.78rem; color: var(--text-secondary);">
+                            Head can approve leaves for their department
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <a href="{% url 'employee_list' %}" class="btn-modern btn-secondary-modern">
+                <i class="fas fa-times"></i>
+                Cancel
+            </a>
+            <button type="submit" class="btn-modern btn-primary-modern">
+                <i class="fas fa-save"></i>
+                {% if employee %}Update Employee{% else %}Create Employee{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Mobile Menu Button -->
+<button class="mobile-menu-btn" onclick="openMobileSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<style>
+    .mobile-menu-btn {
+        display: none;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        width: 48px;
+        height: 48px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: var(--shadow-md);
+        transition: all 0.2s ease;
+    }
+    
+    @media (max-width: 1024px) {
+        .mobile-menu-btn {
+            display: flex;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize Select2 for MOL dropdown
+    $('select[name="mol"]').select2({
+        placeholder: "Select MOL",
+        allowClear: true
+    });
+    
+    // Employee photo live preview
+    $('#photo-upload').on('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            $('#photo-preview').attr('src', url).show();
+            $('#photo-placeholder').hide();
+        }
+    });
+
+    // File upload preview
+    $('.file-upload-input').on('change', function() {
+        const fileName = this.files[0]?.name;
+        const label = $(this).siblings('.file-upload-label');
+        const icon = label.find('.file-upload-icon');
+        const text = label.find('.file-upload-text');
+        
+        if (fileName) {
+            icon.removeClass('fa-cloud-upload-alt').addClass('fa-file-check');
+            text.text(fileName);
+            label.css('border-color', 'var(--accent-primary)');
+        }
+    });
+    
+    // Form validation
+    $('form').on('submit', function() {
+        const button = $(this).find('button[type="submit"]');
+        button.html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+        button.prop('disabled', true);
+    });
+});
+</script>
+
+<script>
+// ── Salary structure live calculator ────────────────────────────────────────
+(function () {
+    var grossInput    = document.querySelector('input[name="emp_salary"]');
+    var compInputs    = ['fBasic','fHra','fTransport','fOthers'].map(function(id){ return document.getElementById(id); });
+    var lgIds         = ['lgFBasic','lgFHra','lgFTransport','lgFOthers'].map(function(id){ return document.getElementById(id); });
+    var barEl         = document.getElementById('salaryBarForm');
+    var totalEl       = document.getElementById('fTotal');
+    var diffTag       = document.getElementById('fDiffTag');
+    var barColors     = ['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
+
+    function rebuild() {
+        var vals  = compInputs.map(function(el){ return parseFloat(el.value) || 0; });
+        var sum   = vals.reduce(function(a,b){ return a+b; }, 0);
+        var gross = parseFloat(grossInput ? grossInput.value : 0) || 0;
+
+        // Update total display
+        totalEl.textContent = sum.toFixed(2);
+
+        // Rebuild bar segments
+        barEl.innerHTML = '';
+        if (sum > 0) {
+            vals.forEach(function(v, i) {
+                var seg = document.createElement('div');
+                seg.style.cssText = 'width:' + (v/sum*100).toFixed(2) + '%;background:' + barColors[i] + ';height:100%;transition:width .3s;';
+                barEl.appendChild(seg);
+                lgIds[i].textContent = (v/sum*100).toFixed(1);
+            });
+        } else {
+            lgIds.forEach(function(el){ el.textContent = '0'; });
+        }
+
+        // Diff vs gross
+        if (gross > 0) {
+            diffTag.style.display = 'inline-block';
+            var diff = sum - gross;
+            if (Math.abs(diff) < 0.01) {
+                diffTag.style.cssText = 'display:inline-block;background:rgba(16,185,129,.12);color:#059669;font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;';
+                diffTag.textContent = '✓ Matches gross';
+            } else if (diff > 0) {
+                diffTag.style.cssText = 'display:inline-block;background:rgba(239,68,68,.1);color:#dc2626;font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;';
+                diffTag.textContent = '+AED ' + diff.toFixed(2) + ' over gross';
+            } else {
+                diffTag.style.cssText = 'display:inline-block;background:rgba(245,158,11,.1);color:#d97706;font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;';
+                diffTag.textContent = 'AED ' + Math.abs(diff).toFixed(2) + ' under gross';
+            }
+        } else {
+            diffTag.style.display = 'none';
+        }
+    }
+
+    compInputs.forEach(function(el){ el.addEventListener('input', rebuild); });
+    if (grossInput) grossInput.addEventListener('input', rebuild);
+    document.addEventListener('DOMContentLoaded', rebuild);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "hr_de/base.html" %}
+{% block title %}New Payroll Run{% endblock %}
+
+{% block extra_css %}
+<style>
+.pw { max-width: 580px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .25rem; }
+.page-sub   { color: var(--text-secondary); font-size: .88rem; margin-bottom: 1.75rem; }
+
+.form-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; padding: 2rem; box-shadow: var(--shadow-sm);
+}
+.form-group { margin-bottom: 1.25rem; }
+.form-label { font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; display: block; }
+.form-control {
+    border: 1.5px solid var(--border-color); border-radius: 8px;
+    padding: .65rem .9rem; font-size: .92rem; width: 100%;
+    color: var(--text-primary); background: var(--bg-primary);
+    transition: border-color .18s;
+}
+.form-control:focus { border-color: var(--accent-primary); outline: none; box-shadow: 0 0 0 3px rgba(8,11,177,.07); }
+.row { display: flex; gap: 1rem; }
+.col { flex: 1; }
+.info-box {
+    background: rgba(59,130,246,.06); border: 1px solid rgba(59,130,246,.2);
+    border-radius: 10px; padding: .85rem 1rem; font-size: .83rem;
+    color: #1e40af; margin-bottom: 1.5rem;
+    display: flex; gap: .6rem; align-items: flex-start;
+}
+.form-actions { display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.25rem; border-top: 1px solid var(--border-color); margin-top: 1.5rem; }
+.btn-save {
+    background: var(--gradient-primary); color: #fff; padding: .65rem 1.75rem;
+    border-radius: 8px; font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem;
+}
+.btn-cancel {
+    background: var(--bg-tertiary); color: var(--text-secondary); padding: .65rem 1.25rem;
+    border-radius: 8px; font-weight: 500; border: 1px solid var(--border-color);
+    text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pw">
+    <h1 class="page-title"><i class="fas fa-plus-circle" style="color:var(--accent-primary);margin-right:.5rem;"></i>New Payroll Run</h1>
+    <p class="page-sub">Select the month and year. The system will auto-populate one entry per active employee from their salary structure.</p>
+
+    <div class="info-box">
+        <i class="fas fa-circle-info" style="margin-top:2px;flex-shrink:0;"></i>
+        <div>Only active employees with a salary structure will be included. You can adjust bonuses and deductions after the run is created.</div>
+    </div>
+
+    <div class="form-card">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label class="form-label">Month <span style="color:#ef4444;">*</span></label>
+                        <select name="month" class="form-control" required>
+                            {% for val, label in month_choices %}
+                            <option value="{{ val }}" {% if val == current_month %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label class="form-label">Year <span style="color:#ef4444;">*</span></label>
+                        <input type="number" name="year" class="form-control" value="{{ current_year }}" min="2020" max="2099" required>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Notes <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Any notes about this payroll run..."></textarea>
+            </div>
+            <div class="form-actions">
+                <a href="{% url 'payroll_list' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Cancel</a>
+                <button type="submit" class="btn-save"><i class="fas fa-bolt"></i> Create &amp; Populate</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

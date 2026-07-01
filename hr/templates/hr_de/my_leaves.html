@@ -1,0 +1,125 @@
+{% extends "hr_de/base.html" %}
+{% block title %}My Leaves - {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.dashboard-header { background: linear-gradient(135deg, #1e40af 0%, #6366f1 100%); color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.stat-card { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border-radius: 12px; padding: 1rem; text-align: center; }
+.stat-value { font-size: 2rem; font-weight: 700; }
+.stat-label { font-size: 0.8rem; opacity: 0.85; margin-top: 0.25rem; }
+.leave-table { width: 100%; background: var(--bg-primary); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.leave-table th { padding: 0.9rem 1.25rem; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+.leave-table td { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.leave-table tbody tr:hover { background: var(--bg-hover); }
+.badge-pending { background: rgba(245,158,11,0.15); color: #d97706; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.badge-approved { background: rgba(16,185,129,0.15); color: #059669; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.badge-rejected { background: rgba(239,68,68,0.15); color: #dc2626; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.badge-progress { background: rgba(99,102,241,0.15); color: #4f46e5; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.btn-apply { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 0.65rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+.btn-apply:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.35); color: white; }
+.empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1100px; margin: 0 auto;">
+
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+            <div>
+                <h1 style="font-size:1.75rem; font-weight:700; margin:0;">
+                    <i class="fas fa-calendar-alt" style="margin-right:0.5rem;"></i>
+                    My Leaves
+                </h1>
+                <p style="margin:0.25rem 0 0; opacity:0.85;">{{ employee.emp_name }} — {{ employee.department.name|default:"—" }}</p>
+            </div>
+            <a href="{% url 'submit_my_leave' %}" class="btn-apply">
+                <i class="fas fa-plus"></i> Apply Leave
+            </a>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total }}</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ approved }}</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ rejected }}</div>
+                <div class="stat-label">Rejected</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave History Table -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h2 style="font-size:1.1rem; font-weight:600; color: var(--text-primary); margin:0;">Leave History</h2>
+    </div>
+
+    <table class="leave-table">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Stage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in leaves %}
+            <tr>
+                <td>{{ leave.leave_type.name }}</td>
+                <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                <td>{{ leave.days }}</td>
+                <td>{{ leave.reason|truncatechars:40 }}</td>
+                <td>
+                    {% if leave.status == 'Pending' %}
+                        <span class="badge-pending">Pending</span>
+                    {% elif leave.status == 'Approved' %}
+                        <span class="badge-approved">Approved</span>
+                    {% elif leave.status == 'Rejected' %}
+                        <span class="badge-rejected">Rejected</span>
+                        {% if leave.rejection_reason %}
+                            <div style="font-size:0.75rem; color:#dc2626; margin-top:0.25rem;">{{ leave.rejection_reason }}</div>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge-progress">{{ leave.get_status_display }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:0.8rem; color: var(--text-secondary);">
+                    {% if leave.status == 'Pending' %}Awaiting Head
+                    {% elif leave.status == 'Head_Approved' %}Awaiting Manager
+                    {% elif leave.status == 'Manager_Approved' %}Awaiting MD
+                    {% elif leave.status == 'MD_Approved' %}Awaiting HR
+                    {% elif leave.status == 'Approved' %}Completed
+                    {% elif leave.status == 'Rejected' %}Rejected
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:0.75rem;"></i>
+                        No leave requests yet. <a href="{% url 'submit_my_leave' %}">Apply your first leave</a>.
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

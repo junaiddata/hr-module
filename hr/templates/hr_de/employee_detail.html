@@ -1,0 +1,573 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}{{ employee.emp_name }} - Employee Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ed-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    /* ── Reusable info ("i") tooltip ───────────────────────────── */
+    .info-tip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px; height: 18px;
+        border-radius: 50%;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        font-size: .68rem;
+        cursor: help;
+        margin-left: .4rem;
+        flex-shrink: 0;
+        border: 1px solid var(--border-color);
+        transition: all .15s;
+        vertical-align: middle;
+    }
+    .info-tip:hover, .info-tip:focus { background: var(--accent-primary); color: #fff; outline: none; }
+    .info-tip .info-tip-text {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        width: max-content;
+        max-width: 260px;
+        background: #0f172a;
+        color: #fff;
+        text-align: left;
+        padding: .6rem .8rem;
+        border-radius: 8px;
+        font-size: .78rem;
+        font-weight: 400;
+        line-height: 1.45;
+        z-index: 50;
+        box-shadow: var(--shadow-lg);
+        transition: opacity .18s, transform .18s;
+        pointer-events: none;
+        white-space: normal;
+    }
+    .info-tip .info-tip-text::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: #0f172a;
+    }
+    .info-tip:hover .info-tip-text,
+    .info-tip:focus .info-tip-text {
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    /* keep tooltip on-screen near the right edge */
+    .info-tip.tip-left .info-tip-text { left: auto; right: 0; transform: translateX(0) translateY(4px); }
+    .info-tip.tip-left .info-tip-text::after { left: auto; right: 6px; transform: none; }
+    .info-tip.tip-left:hover .info-tip-text,
+    .info-tip.tip-left:focus .info-tip-text { transform: translateX(0) translateY(0); }
+
+    /* ── Topbar ─────────────────────────────────────────────────── */
+    .ed-topbar {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    .ed-breadcrumb { font-size: .82rem; color: var(--text-secondary); display: flex; align-items: center; gap: .4rem; margin-bottom: .45rem; }
+    .ed-breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+    .ed-breadcrumb a:hover { color: var(--accent-primary); }
+    .ed-breadcrumb .sep { color: var(--text-tertiary); }
+    .ed-breadcrumb .current { color: var(--text-primary); font-weight: 600; }
+    .ed-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+
+    .ed-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .ed-btn {
+        display: inline-flex; align-items: center; gap: .5rem;
+        padding: .55rem 1.1rem; border-radius: 10px;
+        font-size: .85rem; font-weight: 600; text-decoration: none;
+        border: 1px solid var(--border-color); background: var(--bg-primary);
+        color: var(--text-secondary); transition: all .18s; cursor: pointer;
+    }
+    .ed-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .ed-btn-primary { background: var(--gradient-primary); color: #fff; border: none; box-shadow: 0 4px 12px rgba(8,11,177,.22); }
+    .ed-btn-primary:hover { color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(8,11,177,.3); }
+
+    /* ── Quick-stat chips ───────────────────────────────────────── */
+    .ed-chips { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .ed-chip {
+        display: flex; align-items: center; gap: .65rem;
+        background: var(--bg-primary); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: .7rem 1rem; box-shadow: var(--shadow-sm);
+        min-width: 150px;
+    }
+    .ed-chip-icon {
+        width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .9rem; color: #fff;
+    }
+    .ed-chip-label { font-size: .72rem; color: var(--text-secondary); display: flex; align-items: center; }
+    .ed-chip-value { font-size: .95rem; font-weight: 700; color: var(--text-primary); }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .ed-card {
+        background: var(--bg-primary); border: 1px solid var(--border-color);
+        border-radius: 16px; margin-bottom: 1.5rem; overflow: hidden; box-shadow: var(--shadow-sm);
+    }
+    .ed-card-header {
+        padding: 1.15rem 1.6rem; border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
+    }
+    .ed-card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; }
+    .ed-card-body { padding: 1.6rem; }
+
+    /* ── Info grid (label + value pairs) ────────────────────────── */
+    .ed-info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.3rem 2.5rem; }
+    .ed-info-row { display: flex; align-items: baseline; gap: 1rem; }
+    .ed-info-label { flex: 0 0 44%; max-width: 44%; font-size: .875rem; color: var(--text-secondary); display: flex; align-items: center; }
+    .ed-info-value { flex: 1; font-size: .9rem; font-weight: 600; color: var(--text-primary); word-break: break-word; display: flex; align-items: center; gap: .5rem; }
+
+    /* copy button */
+    .copy-btn { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: .78rem; padding: 2px 4px; border-radius: 4px; transition: all .15s; }
+    .copy-btn:hover { color: var(--accent-primary); background: var(--bg-tertiary); }
+
+    /* ── Personal details layout ────────────────────────────────── */
+    .ed-personal { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
+    .ed-photo-col { flex: 0 0 200px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .ed-photo-frame { position: relative; width: 118px; height: 118px; }
+    .ed-photo { width: 118px; height: 118px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border-color); background: var(--bg-tertiary); }
+    .ed-photo-edit {
+        position: absolute; right: 2px; bottom: 2px;
+        width: 34px; height: 34px; border-radius: 50%;
+        background: var(--accent-primary); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; border: 3px solid var(--bg-primary);
+        font-size: .82rem; transition: transform .15s, background .15s;
+    }
+    .ed-photo-edit:hover { transform: scale(1.1); background: var(--accent-secondary); }
+    .ed-photo-hint { font-size: .72rem; color: var(--text-tertiary); margin-top: .5rem; }
+    .ed-photo-fallback { width: 118px; height: 118px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 2.6rem; font-weight: 700; }
+    .ed-photo-name { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 1rem; }
+    .ed-photo-role { font-size: .85rem; color: var(--text-secondary); }
+    .ed-status { display: inline-flex; align-items: center; gap: .4rem; margin-top: .75rem; padding: .3rem .85rem; border-radius: 9999px; font-size: .78rem; font-weight: 600; }
+    .ed-status.active { background: #d1fae5; color: #065f46; }
+    .ed-status.inactive { background: #fee2e2; color: #991b1b; }
+    .ed-personal-info { flex: 1; min-width: 280px; }
+
+    /* ── Documents table ────────────────────────────────────────── */
+    .ed-doc-table { width: 100%; border-collapse: collapse; }
+    .ed-doc-table th {
+        text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em;
+        color: var(--text-secondary); font-weight: 700; padding: .5rem .75rem; border-bottom: 2px solid var(--border-color);
+    }
+    .ed-doc-table td { padding: .85rem .75rem; border-bottom: 1px solid var(--border-color); font-size: .875rem; vertical-align: middle; }
+    .ed-doc-table tr:last-child td { border-bottom: none; }
+    .ed-doc-name { font-weight: 600; color: var(--text-primary); }
+    .ed-doc-num { color: var(--text-secondary); font-size: .82rem; }
+
+    .badge-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .7rem; border-radius: 9999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
+    .badge-expired  { background: #fee2e2; color: #991b1b; }
+    .badge-critical { background: #ffedd5; color: #9a3412; }
+    .badge-warning  { background: #fef9c3; color: #854d0e; }
+    .badge-valid    { background: #d1fae5; color: #065f46; }
+    .badge-none     { background: var(--bg-tertiary); color: var(--text-tertiary); }
+
+    .ed-doc-link { color: var(--accent-primary); text-decoration: none; font-weight: 600; font-size: .82rem; display: inline-flex; align-items: center; gap: .35rem; }
+    .ed-doc-link:hover { text-decoration: underline; }
+    .ed-doc-missing { color: var(--text-tertiary); font-size: .82rem; }
+
+    /* Legend explaining the expiry colours */
+    .ed-legend { display: flex; gap: 1.1rem; flex-wrap: wrap; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px dashed var(--border-color); font-size: .76rem; color: var(--text-secondary); }
+    .ed-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+    /* ── Salary ─────────────────────────────────────────────────── */
+    .ed-salary-bar { height: 8px; border-radius: 20px; overflow: hidden; display: flex; margin-bottom: .85rem; background: var(--bg-tertiary); }
+    .ed-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .35rem; }
+
+    .ed-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+    .ed-meta { text-align: center; color: var(--text-tertiary); font-size: .82rem; padding: .5rem 0 1rem; }
+
+    @media (max-width: 900px) {
+        .ed-two-col { grid-template-columns: 1fr; }
+        .ed-info-grid { grid-template-columns: 1fr; gap: .9rem; }
+    }
+    @media (max-width: 768px) {
+        .ed-container { padding: 1rem; }
+        .ed-personal { gap: 1.5rem; }
+        .ed-photo-col { flex-basis: 100%; }
+        .ed-doc-table thead { display: none; }
+        .ed-doc-table, .ed-doc-table tbody, .ed-doc-table tr, .ed-doc-table td { display: block; width: 100%; }
+        .ed-doc-table tr { border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: .75rem; padding: .5rem; }
+        .ed-doc-table td { border: none; padding: .35rem .5rem; }
+    }
+
+    /* Print: show only the record, hide app chrome */
+    @media print {
+        .sidebar, .mobile-toggle, .ed-actions, .info-tip, .copy-btn, .ed-doc-link { display: none !important; }
+        .main-content { margin-left: 0 !important; }
+        .ed-card { break-inside: avoid; box-shadow: none; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ed-container">
+
+    <!-- Topbar: breadcrumb + name + actions -->
+    <div class="ed-topbar">
+        <div>
+            <div class="ed-breadcrumb">
+                <a href="{% url 'employee_list' %}">Employees</a>
+                <span class="sep">›</span>
+                <span class="current">{{ employee.emp_name }}</span>
+            </div>
+            <h1 class="ed-title">{{ employee.emp_name }}</h1>
+        </div>
+        <div class="ed-actions">
+            <button onclick="window.print()" class="ed-btn" title="Print this profile">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <a href="{% url 'employee_leave_detail' employee.id %}" class="ed-btn">
+                <i class="fas fa-calendar-alt"></i> Leave Details
+            </a>
+            {% if request.user.role.role == 'HR' %}
+            <a href="{% url 'employee_edit' employee.id %}" class="ed-btn ed-btn-primary">
+                <i class="fas fa-pen"></i> Edit Details
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick-glance stats -->
+    <div class="ed-chips">
+        <div class="ed-chip">
+            <div class="ed-chip-icon" style="background:{% if employee.is_active %}#10b981{% else %}#ef4444{% endif %};"><i class="fas fa-circle-check"></i></div>
+            <div>
+                <div class="ed-chip-label">Status
+                    <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">The employee's current employment state (Active, On Leave, Resigned, etc.). Set from the Edit screen.</span></span>
+                </div>
+                <div class="ed-chip-value">{{ employee.get_employee_status_display }}</div>
+            </div>
+        </div>
+        <div class="ed-chip">
+            <div class="ed-chip-icon" style="background:#6366f1;"><i class="fas fa-cake-candles"></i></div>
+            <div>
+                <div class="ed-chip-label">Age
+                    <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Calculated automatically from the Date of Birth.</span></span>
+                </div>
+                <div class="ed-chip-value">{% if age is not None %}{{ age }} yrs{% else %}—{% endif %}</div>
+            </div>
+        </div>
+        <div class="ed-chip">
+            <div class="ed-chip-icon" style="background:#0ea5e9;"><i class="fas fa-briefcase"></i></div>
+            <div>
+                <div class="ed-chip-label">Tenure
+                    <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">How long the employee has worked here, calculated from the Joining Date.</span></span>
+                </div>
+                <div class="ed-chip-value">{% if tenure is not None %}{{ tenure }} yr{{ tenure|pluralize }}{% else %}—{% endif %}</div>
+            </div>
+        </div>
+        <div class="ed-chip">
+            <div class="ed-chip-icon" style="background:{% if expiry_alerts %}#f59e0b{% else %}#10b981{% endif %};"><i class="fas fa-triangle-exclamation"></i></div>
+            <div>
+                <div class="ed-chip-label">Document Alerts
+                    <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Number of documents that are expired or expiring within 90 days. Renew these soon.</span></span>
+                </div>
+                <div class="ed-chip-value">{% if expiry_alerts %}{{ expiry_alerts }} need attention{% else %}All valid{% endif %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personal Details -->
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Personal Details
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Identity and contact information for this employee. Email &amp; phone are used for notifications.</span></span>
+            </h2>
+        </div>
+        <div class="ed-card-body">
+            <div class="ed-personal">
+                <div class="ed-photo-col">
+                    <div class="ed-photo-frame">
+                        {% if employee.photo %}
+                            <img src="{{ employee.photo.url }}" alt="{{ employee.emp_name }}" class="ed-photo">
+                        {% else %}
+                            <div class="ed-photo-fallback">{{ employee.emp_name|first|upper }}</div>
+                        {% endif %}
+                        {% if is_own %}
+                        <form method="post" action="{% url 'upload_my_photo' %}" enctype="multipart/form-data" id="photoForm">
+                            {% csrf_token %}
+                            <label class="ed-photo-edit" title="Change your photo">
+                                <i class="fas fa-camera"></i>
+                                <input type="file" name="photo" accept="image/*" hidden
+                                       onchange="if(this.files.length){document.getElementById('photoForm').submit();}">
+                            </label>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% if is_own %}<div class="ed-photo-hint">Tap the camera to update your photo</div>{% endif %}
+                    <div class="ed-photo-name">{{ employee.emp_name }}</div>
+                    <div class="ed-photo-role">{{ employee.designation|default:"—" }}</div>
+                    <span class="ed-status {% if employee.is_active %}active{% else %}inactive{% endif %}">
+                        <i class="fas fa-circle" style="font-size:.5rem;"></i>
+                        {{ employee.get_employee_status_display }}
+                    </span>
+                </div>
+                <div class="ed-personal-info">
+                    <div class="ed-info-grid">
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Employee ID
+                                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Unique company identifier for this employee. No two employees can share it.</span></span>
+                            </span>
+                            <span class="ed-info-value">
+                                {{ employee.emp_id }}
+                                <button class="copy-btn" data-copy="{{ employee.emp_id }}" title="Copy"><i class="far fa-copy"></i></button>
+                            </span>
+                        </div>
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Date of Birth</span>
+                            <span class="ed-info-value">{{ employee.dob|date:"d M Y"|default:"—" }}</span>
+                        </div>
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Gender</span>
+                            <span class="ed-info-value">{{ employee.get_gender_display }}</span>
+                        </div>
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Nationality</span>
+                            <span class="ed-info-value">{{ employee.nationality.name|default:employee.nationality }}</span>
+                        </div>
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Phone Number</span>
+                            <span class="ed-info-value">
+                                {{ employee.contact_number|default:"—" }}
+                                {% if employee.contact_number %}<button class="copy-btn" data-copy="{{ employee.contact_number }}" title="Copy"><i class="far fa-copy"></i></button>{% endif %}
+                            </span>
+                        </div>
+                        <div class="ed-info-row">
+                            <span class="ed-info-label">Email Address
+                                <span class="info-tip tip-left" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Taken from the linked login account. Add a login on the Edit screen to set it.</span></span>
+                            </span>
+                            <span class="ed-info-value">
+                                {{ employee.user.email|default:"—" }}
+                                {% if employee.user.email %}<button class="copy-btn" data-copy="{{ employee.user.email }}" title="Copy"><i class="far fa-copy"></i></button>{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Details -->
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Job Details
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Role, department and employment terms. The MOL is the sub-company that sponsors the employee's visa.</span></span>
+            </h2>
+        </div>
+        <div class="ed-card-body">
+            <div class="ed-info-grid">
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Designation</span>
+                    <span class="ed-info-value">{{ employee.designation|default:"—" }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Department</span>
+                    <span class="ed-info-value">{{ employee.department|default:"—" }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">MOL (Sub-company)
+                        <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Ministry of Labour entity — the legal company under which this employee's visa &amp; labour card are registered.</span></span>
+                    </span>
+                    <span class="ed-info-value">{{ employee.mol|default:"—" }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Job Location</span>
+                    <span class="ed-info-value">{{ employee.job_location|default:"—" }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Joining Date</span>
+                    <span class="ed-info-value">{{ employee.joining_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Gross Salary
+                        <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Total monthly salary before it is split into components (Basic, HRA, etc.) below.</span></span>
+                    </span>
+                    <span class="ed-info-value">{% if employee.emp_salary %}AED {{ employee.emp_salary|floatformat:2 }}{% else %}—{% endif %}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Passport Status
+                        <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Where the physical passport is held — with the company (safe custody) or with the employee.</span></span>
+                    </span>
+                    <span class="ed-info-value">{{ employee.get_passport_status_display }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label">Login Account
+                        <span class="info-tip tip-left" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">The portal username this employee logs in with. If empty, they have no self-service access.</span></span>
+                    </span>
+                    <span class="ed-info-value">{{ employee.user.username|default:"No login" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Salary Structure (HR / MD only) -->
+    {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Salary Structure
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">How the gross salary breaks down into Basic, HRA, Transport and Others. Used when generating payroll &amp; payslips.</span></span>
+            </h2>
+            {% if request.user.role.role == 'HR' %}
+            <a href="{% url 'salary_structure' employee.pk %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;">
+                <i class="fas fa-pen"></i> {% if employee.salary_structure %}Edit{% else %}Set Structure{% endif %}
+            </a>
+            {% endif %}
+        </div>
+        <div class="ed-card-body">
+            {% with s=employee.salary_structure %}
+            {% if s and s.total > 0 %}
+            <div class="ed-salary-bar"
+                 data-basic="{{ s.basic }}" data-hra="{{ s.hra }}"
+                 data-transport="{{ s.transport }}" data-others="{{ s.others }}"
+                 id="salaryBar_{{ employee.pk }}"></div>
+            <script>
+            (function(){
+                var bar = document.getElementById('salaryBar_{{ employee.pk }}');
+                var vals = [+bar.dataset.basic, +bar.dataset.hra, +bar.dataset.transport, +bar.dataset.others];
+                var total = vals.reduce(function(a,b){return a+b;},0);
+                var colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
+                if(total > 0) vals.forEach(function(v,i){
+                    var d = document.createElement('div');
+                    d.style.cssText = 'width:'+(v/total*100).toFixed(2)+'%;background:'+colors[i]+';height:100%;';
+                    bar.appendChild(d);
+                });
+            })();
+            </script>
+            <div class="ed-info-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+                <div class="ed-info-row">
+                    <span class="ed-info-label"><span class="ed-dot" style="background:#3b82f6;"></span>Basic</span>
+                    <span class="ed-info-value">AED {{ s.basic|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label"><span class="ed-dot" style="background:#10b981;"></span>HRA</span>
+                    <span class="ed-info-value">AED {{ s.hra|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label"><span class="ed-dot" style="background:#f59e0b;"></span>Transport</span>
+                    <span class="ed-info-value">AED {{ s.transport|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label"><span class="ed-dot" style="background:#8b5cf6;"></span>Others</span>
+                    <span class="ed-info-value">AED {{ s.others|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label" style="font-weight:700;color:var(--text-primary);">Total</span>
+                    <span class="ed-info-value" style="color:var(--accent-primary);font-weight:800;">AED {{ s.total|floatformat:2 }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p style="color:var(--text-tertiary);font-size:.9rem;margin:0;">
+                <i class="fas fa-circle-info" style="margin-right:.4rem;"></i>
+                No salary structure set yet.
+                {% if request.user.role.role == 'HR' %}
+                <a href="{% url 'salary_structure' employee.pk %}" style="color:var(--accent-primary);font-weight:600;">Set now →</a>
+                {% endif %}
+            </p>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Documents (numbers + expiry + files, all in one) -->
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Documents
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Official documents with their reference numbers, expiry dates and uploaded copies. Colours flag what needs renewing.</span></span>
+            </h2>
+        </div>
+        <div class="ed-card-body">
+            <table class="ed-doc-table">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Number</th>
+                        <th>Expiry</th>
+                        <th>Status</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in documents %}
+                    <tr>
+                        <td class="ed-doc-name">{{ d.label }}</td>
+                        <td class="ed-doc-num">{{ d.number|default:"—" }}</td>
+                        <td>{{ d.expiry|date:"d M Y"|default:"—" }}</td>
+                        <td>
+                            {% if d.status == 'expired' %}
+                                <span class="badge-pill badge-expired"><i class="fas fa-circle-xmark"></i> Expired {{ d.abs_days }}d ago</span>
+                            {% elif d.status == 'critical' %}
+                                <span class="badge-pill badge-critical"><i class="fas fa-triangle-exclamation"></i> {{ d.days }}d left</span>
+                            {% elif d.status == 'warning' %}
+                                <span class="badge-pill badge-warning"><i class="fas fa-clock"></i> {{ d.days }}d left</span>
+                            {% elif d.status == 'valid' %}
+                                <span class="badge-pill badge-valid"><i class="fas fa-circle-check"></i> Valid</span>
+                            {% else %}
+                                <span class="badge-pill badge-none">No date</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if d.file %}
+                                <a href="{{ d.file.url }}" class="ed-doc-link" target="_blank"><i class="fas fa-external-link-alt"></i> View</a>
+                            {% else %}
+                                <span class="ed-doc-missing">Not uploaded</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Legend explaining the colours -->
+            <div class="ed-legend">
+                <span><i class="fas fa-info-circle"></i> What the colours mean:</span>
+                <span><span class="legend-dot" style="background:#ef4444;"></span> Expired — renew immediately</span>
+                <span><span class="legend-dot" style="background:#f97316;"></span> Expiring ≤ 30 days</span>
+                <span><span class="legend-dot" style="background:#eab308;"></span> Expiring ≤ 90 days</span>
+                <span><span class="legend-dot" style="background:#10b981;"></span> Valid</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ed-meta">
+        <i class="fas fa-clock"></i>
+        Record created {{ employee.created_at|date:"d M Y, H:i" }} &middot; Last updated {{ employee.updated_at|date:"d M Y, H:i" }}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Copy-to-clipboard for IDs, phone, email
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var text = btn.getAttribute('data-copy');
+            navigator.clipboard.writeText(text).then(function () {
+                var icon = btn.querySelector('i');
+                var prev = icon.className;
+                icon.className = 'fas fa-check';
+                btn.style.color = '#10b981';
+                setTimeout(function () { icon.className = prev; btn.style.color = ''; }, 1200);
+            });
+        });
+    });
+</script>
+{% endblock %}

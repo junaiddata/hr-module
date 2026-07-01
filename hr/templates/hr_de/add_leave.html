@@ -1,0 +1,1104 @@
+{% extends "hr_de/base.html" %}
+{% load static %}
+
+{% block title %}{% if leave %}Edit Leave {% else %}New Leave {% endif %} - HR System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page Header */
+    .page-header {
+        background: linear-gradient(135deg, #0a0a85 0%, #1e15bb9e 100%);
+        padding: 2.5rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    
+    .page-header-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .page-title {
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .page-subtitle {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 1.1rem;
+    }
+    
+    /* Breadcrumb */
+    .breadcrumb-custom {
+        background: transparent;
+        padding: 0;
+        margin-bottom: 0;
+    }
+    
+    .breadcrumb-custom .breadcrumb-item {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+    }
+    
+    .breadcrumb-custom .breadcrumb-item.active {
+        color: #ffffff;
+    }
+    
+    .breadcrumb-custom .breadcrumb-item + .breadcrumb-item::before {
+        color: rgba(255, 255, 255, 0.5);
+        content: "›";
+    }
+    
+    /* Form Container */
+    .form-container {
+        max-width: 1000px;
+        margin: -3rem auto 2rem;
+        position: relative;
+        z-index: 10;
+    }
+    
+    .form-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+    
+    /* Form Steps */
+    .form-steps {
+        display: flex;
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .form-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        padding: 0 1rem;
+    }
+    
+    .form-step::after {
+        content: '';
+        position: absolute;
+        right: -20px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 2px;
+        background: #e2e8f0;
+    }
+    
+    .form-step:last-child::after {
+        display: none;
+    }
+    
+    .step-number {
+        width: 32px;
+        height: 32px;
+        background: #e2e8f0;
+        color: #64748b;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-step.active .step-number {
+        background: var(--gradient-primary);
+        color: #ffffff;
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+    .readonly-field {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+    .step-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    
+    .form-step.active .step-label {
+        color: #0f172a;
+        font-weight: 600;
+    }
+    
+    /* Form Body */
+    .form-body {
+        padding: 2rem;
+    }
+    
+    /* Form Groups */
+    .form-section {
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .section-icon {
+        width: 36px;
+        height: 36px;
+        background: rgba(99, 102, 241, 0.1);
+        color: #6366f1;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Form Controls */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #334155;
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+    
+    .form-label .required {
+        color: #ef4444;
+        margin-left: 0.25rem;
+    }
+    
+    .form-control,
+    .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background-color: #ffffff;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .form-control:hover,
+    .form-select:hover {
+        border-color: #cbd5e1;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 120px;
+    }
+    
+    /* Enhanced Select */
+    .select-wrapper {
+        position: relative;
+    }
+    
+    .select-wrapper::after {
+        content: '\f078';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #64748b;
+    }
+    
+    /* Date Input Enhancement */
+    .date-input-group {
+        position: relative;
+    }
+    
+    .date-input-group .form-control {
+        padding-left: 2.75rem;
+    }
+    
+    .date-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        pointer-events: none;
+    }
+    
+    /* Checkbox Enhancement */
+    .form-check {
+        background: #f8fafc;
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    
+    .form-check:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        margin-top: 0;
+        border: 2px solid #cbd5e1;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .form-check-input:checked {
+        background-color: #6366f1;
+        border-color: #6366f1;
+    }
+    
+    .form-check-label {
+        margin-left: 0.5rem;
+        cursor: pointer;
+        color: #475569;
+        font-weight: 500;
+    }
+    
+    /* File Upload Styles */
+    .file-upload-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        width: 100%;
+    }
+    
+    .file-upload-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: #f8fafc;
+        border: 2px dashed #cbd5e1;
+        border-radius: 10px;
+        color: #64748b;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .file-upload-btn:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #475569;
+    }
+    
+    .file-upload-input {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+    
+    .file-preview {
+        margin-top: 1rem;
+        display: none;
+    }
+    
+    .file-preview.show {
+        display: block;
+    }
+    
+    .file-preview-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #f1f5f9;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .file-preview-icon {
+        color: #3b82f6;
+        font-size: 1.25rem;
+    }
+    
+    .file-preview-info {
+        flex: 1;
+    }
+    
+    .file-preview-name {
+        font-weight: 500;
+        color: #0f172a;
+        margin-bottom: 0.25rem;
+    }
+    
+    .file-preview-size {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    
+    .file-preview-remove {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background 0.2s ease;
+    }
+    
+    .file-preview-remove:hover {
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    /* Helper Text */
+    .form-helper {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+    
+    .form-helper i {
+        font-size: 0.75rem;
+    }
+    
+    /* Date Preview */
+    .date-preview {
+        background: #f1f5f9;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+        display: none;
+    }
+    
+    .date-preview.show {
+        display: block;
+    }
+    
+    .duration-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--gradient-primary);
+        color: #ffffff;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    /* Action Buttons */
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        padding-top: 2rem;
+        border-top: 2px solid #e2e8f0;
+        margin-top: 2rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+    
+    .btn-primary {
+        background: var(--gradient-primary);
+        color: #ffffff;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #ffffff;
+        color: #475569;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .btn-secondary:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+    
+    /* Loading State */
+    .btn-loading {
+        position: relative;
+        color: transparent;
+    }
+    
+    .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin-left: -8px;
+        margin-top: -8px;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spinner 0.8s linear infinite;
+    }
+    
+    @keyframes spinner {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Info Cards */
+    .info-card {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: start;
+    }
+    
+    .info-card-icon {
+        color: #0284c7;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .info-card-content {
+        flex: 1;
+    }
+    
+    .info-card-title {
+        font-weight: 600;
+        color: #075985;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-card-text {
+        font-size: 0.875rem;
+        color: #0c4a6e;
+        line-height: 1.5;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .form-container {
+            margin: -2rem 1rem 2rem;
+        }
+        
+        .form-steps {
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        
+        .form-step::after {
+            right: -15px;
+            width: 30px;
+        }
+        
+        .form-body {
+            padding: 1.5rem;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .file-upload-btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Mobile Menu Button -->
+<button class="mobile-menu-btn" onclick="openMobileSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-custom">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}" style="color: rgba(255, 255, 255, 0.8);">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'leave_history' %}" style="color: rgba(255, 255, 255, 0.8);">Leave Management</a></li>
+                    <li class="breadcrumb-item active">{% if leave %}Edit Leave{% else %}New Leave{% endif %}</li>
+                </ol>
+            </nav>
+            <h1 class="page-title">
+                <i class="fas fa-calendar-plus me-3"></i>
+                {% if leave %}Edit Leave {% else %}New Leave {% endif %}
+            </h1>
+            <p class="page-subtitle">Fill out the form below to {% if leave %}update your{% else %}submit a new{% endif %} leave </p>
+        </div>
+    </div>
+</div>
+
+<!-- Form Container -->
+<div class="form-container">
+    <div class="form-card">
+        <!-- Form Steps -->
+        <div class="form-steps">
+            <div class="form-step active">
+                <div class="step-number">1</div>
+                <div class="step-label">Basic Info</div>
+            </div>
+            <div class="form-step">
+                <div class="step-number">2</div>
+                <div class="step-label">Leave Dates</div>
+            </div>
+            <div class="form-step">
+                <div class="step-number">3</div>
+                <div class="step-label">Review</div>
+            </div>
+        </div>
+
+        <!-- Form Body -->
+        <div class="form-body">
+            <form method="post" id="leaveForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Info Card -->
+                <div class="info-card">
+                    <div class="info-card-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="info-card-content">
+                        <div class="info-card-title">Quick Tip</div>
+                        <div class="info-card-text">
+                            Please ensure all dates are accurate. You can also attach supporting documents if needed.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <div class="section-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        Basic Information
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Employee <span class="required">*</span>
+                                </label>
+                                <div class="select-wrapper">
+                                    <select name="employee" class="form-select" required>
+                                        <option value="" disabled {% if not leave %}selected{% endif %}>Select Employee</option>
+                                        {% for emp in employees %}
+                                            <option value="{{ emp.id }}" {% if leave and emp.id == leave.employee.id %}selected{% endif %}>
+                                                {{ emp.emp_name }} ({{ emp.emp_id }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-helper">
+                                    <i class="fas fa-circle-info"></i>
+                                    Select the employee requesting leave
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Leave Type <span class="required">*</span>
+                                </label>
+                                <div class="select-wrapper">
+                                    <select name="leave_type" class="form-select" required>
+                                        <option value="" disabled {% if not leave %}selected{% endif %}>Select Leave Type</option>
+                                        {% for lt in leave_types %}
+                                            <option value="{{ lt.id }}" {% if leave and lt.id == leave.leave_type.id %}selected{% endif %}>
+                                                {{ lt.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-helper">
+                                    <i class="fas fa-circle-info"></i>
+                                    Choose the appropriate leave category
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Reported To <span class="required">*</span>
+                                </label>
+                                <input type="text" name="reported_to" class="form-control" required
+                                       value="{% if leave %}{{ leave.reported_to }}{% endif %}" 
+                                       placeholder="Enter HR/Manager name">
+                                <div class="form-helper">
+                                    <i class="fas fa-circle-info"></i>
+                                    Name of the person this leave will be reported to
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leave Dates Section -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <div class="section-icon">
+                            <i class="fas fa-calendar-days"></i>
+                        </div>
+                        Leave Duration
+                    </div>
+                    
+                    <!-- Expected Dates -->
+                    <h6 class="mb-3 text-muted">Expected Leave Period</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    From Date <span class="required">*</span>
+                                </label>
+                                <div class="date-input-group">
+                                    <i class="fas fa-calendar date-icon"></i>
+                                    <input type="date" name="expected_from" id="expected_from" 
+                                           class="form-control" required
+                                           value="{% if leave %}{{ leave.expected_from|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    To Date <span class="required">*</span>
+                                </label>
+                                <div class="date-input-group">
+                                    <i class="fas fa-calendar date-icon"></i>
+                                    <input type="date" name="expected_to" id="expected_to" 
+                                           class="form-control" required
+                                           value="{% if leave %}{{ leave.expected_to|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Preview -->
+                    <div class="date-preview" id="expectedDatePreview">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="text-muted">Expected Duration:</span>
+                            <span class="duration-badge">
+                                <i class="fas fa-clock"></i>
+                                <span id="expectedDuration">0 days</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {% if user.role.role != "Head" %}
+                    <!-- Only show this section if user is not Head -->
+                    
+                    <!-- Same as Expected Checkbox -->
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="same_as_expected">
+                        <label class="form-check-label" for="same_as_expected">
+                            Actual dates are same as expected dates
+                        </label>
+                    </div>
+                    
+                    <!-- Actual Dates -->
+                    <h6 class="mb-3 mt-4 text-muted">Actual Leave Period (if different)</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Actual From Date</label>
+                                <div class="date-input-group">
+                                    <i class="fas fa-calendar date-icon"></i>
+                                    <input type="date" name="actual_from" id="actual_from" 
+                                           class="form-control"
+                                           value="{% if leave and leave.actual_from %}{{ leave.actual_from|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Actual To Date</label>
+                                <div class="date-input-group">
+                                    <i class="fas fa-calendar date-icon"></i>
+                                    <input type="date" name="actual_to" id="actual_to" 
+                                           class="form-control"
+                                           value="{% if leave and leave.actual_to %}{{ leave.actual_to|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Rejoined On</label>
+                                <div class="date-input-group">
+                                    <i class="fas fa-calendar-check date-icon"></i>
+                                    <input type="date" name="rejoined_on" class="form-control"
+                                           value="{% if leave and leave.rejoined_on %}{{ leave.rejoined_on|date:'Y-m-d' }}{% endif %}">
+                                </div>
+                                <div class="form-helper">
+                                    <i class="fas fa-circle-info"></i>
+                                    Date when employee returned to work
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% endif %}
+
+                <!-- Reason Section -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <div class="section-icon">
+                            <i class="fas fa-message"></i>
+                        </div>
+                        Leave Reason
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            Reason for Leave <span class="required">*</span>
+                        </label>
+                        <textarea name="reason" class="form-control" rows="4" required 
+                                  placeholder="Please provide a detailed reason for leave ...">{{ leave.reason|default_if_none:'' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- File Upload Section -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <div class="section-icon">
+                            <i class="fas fa-file-upload"></i>
+                        </div>
+                        Supporting Documents (Optional)
+                    </div>
+                    
+<div class="form-group">
+    <label class="form-label">
+        Leave Application Form
+    </label>
+
+    <!-- If a file is already uploaded, show link/preview -->
+    {% if leave and leave.leave_application %}
+        <p>
+            Current File: 
+            <a href="{{ leave.leave_application.url }}" target="_blank">
+                {{ leave.leave_application.name |slice:"19:" }}
+            </a>
+        </p>
+    {% endif %}
+
+    <div class="file-upload-wrapper">
+        <div class="file-upload-btn" id="fileUploadBtn">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <span>
+                {% if leave and leave.leave_application %}
+                    Upload New File (replace current)
+                {% else %}
+                    Click to upload leave application form
+                {% endif %}
+            </span>
+        </div>
+        <input type="file" name="leave_application" id="fileUploadInput" 
+               class="file-upload-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+    </div>
+
+    <div class="form-helper">
+        <i class="fas fa-circle-info"></i>
+        Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)
+    </div>
+</div>
+
+                        
+                        <!-- File Preview -->
+                        <div class="file-preview" id="filePreview">
+                            <div class="file-preview-item">
+                                <div class="file-preview-icon">
+                                    <i class="fas fa-file-pdf"></i>
+                                </div>
+                                <div class="file-preview-info">
+                                    <div class="file-preview-name" id="fileName">document.pdf</div>
+                                    <div class="file-preview-size" id="fileSize">2.5 MB</div>
+                                </div>
+                                <button type="button" class="file-preview-remove" id="fileRemoveBtn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        {% if leave %}Update {% else %}Submit {% endif %}
+                    </button>
+                    <a href="{% url 'leave_history' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .mobile-menu-btn {
+        display: none;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        width: 48px;
+        height: 48px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: var(--shadow-md);
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-menu-btn:hover {
+        background: var(--bg-hover);
+        transform: scale(1.05);
+    }
+    
+    @media (max-width: 1024px) {
+        .mobile-menu-btn {
+            display: flex;
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize form elements
+        const form = document.getElementById('leaveForm');
+        const sameAsExpectedCheckbox = document.getElementById('same_as_expected');
+        const expectedFromInput = document.getElementById('expected_from');
+        const expectedToInput = document.getElementById('expected_to');
+        const actualFromInput = document.getElementById('actual_from');
+        const actualToInput = document.getElementById('actual_to');
+        const expectedDatePreview = document.getElementById('expectedDatePreview');
+        const expectedDuration = document.getElementById('expectedDuration');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // File upload elements
+        const fileUploadBtn = document.getElementById('fileUploadBtn');
+        const fileUploadInput = document.getElementById('fileUploadInput');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const fileRemoveBtn = document.getElementById('fileRemoveBtn');
+
+        // Function to calculate date difference
+        function calculateDays(startDate, endDate) {
+            if (!startDate || !endDate) return 0;
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays;
+        }
+
+        // Function to update duration preview
+        function updateDurationPreview() {
+            const days = calculateDays(expectedFromInput.value, expectedToInput.value);
+            if (days > 0) {
+                expectedDuration.textContent = `${days} day${days > 1 ? 's' : ''}`;
+                expectedDatePreview.classList.add('show');
+            } else {
+                expectedDatePreview.classList.remove('show');
+            }
+        }
+
+        // Function to format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Function to get file icon based on type
+        function getFileIcon(fileType) {
+            if (fileType.includes('pdf')) return 'fa-file-pdf';
+            if (fileType.includes('word') || fileType.includes('document')) return 'fa-file-word';
+            if (fileType.includes('image')) return 'fa-file-image';
+            return 'fa-file';
+        }
+
+        // File upload handling
+        fileUploadInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const fileType = file.type;
+                const fileSizeBytes = file.size;
+                
+                // Validate file size (10MB max)
+                if (fileSizeBytes > 10 * 1024 * 1024) {
+                    alert('File size exceeds 10MB limit. Please choose a smaller file.');
+                    this.value = '';
+                    return;
+                }
+                
+                // Update file preview
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(fileSizeBytes);
+                
+                // Update file icon
+                const fileIcon = filePreview.querySelector('.file-preview-icon i');
+                fileIcon.className = 'fas ' + getFileIcon(fileType);
+                
+                // Show preview
+                filePreview.classList.add('show');
+                
+                // Update upload button text
+                fileUploadBtn.querySelector('span').textContent = 'Change file';
+            }
+        });
+
+        // Remove file
+        fileRemoveBtn.addEventListener('click', function() {
+            fileUploadInput.value = '';
+            filePreview.classList.remove('show');
+            fileUploadBtn.querySelector('span').textContent = 'Click to upload leave application form';
+        });
+
+        // Function to copy expected dates to actual dates
+        function copyDates() {
+            if (sameAsExpectedCheckbox.checked) {
+                actualFromInput.value = expectedFromInput.value;
+                actualToInput.value = expectedToInput.value;
+                actualFromInput.readOnly = true;
+                actualToInput.readOnly = true;
+                // Add a visual indication that the fields are locked
+                actualFromInput.classList.add('readonly-field');
+                actualToInput.classList.add('readonly-field');
+            } else {
+                actualFromInput.readOnly = false;
+                actualToInput.readOnly = false;
+                // Remove visual indication
+                actualFromInput.classList.remove('readonly-field');
+                actualToInput.classList.remove('readonly-field');
+            }
+        }
+        
+        // Event listeners
+        sameAsExpectedCheckbox.addEventListener('change', copyDates);
+        
+        expectedFromInput.addEventListener('change', function() {
+            updateDurationPreview();
+            if (sameAsExpectedCheckbox && sameAsExpectedCheckbox.checked) {
+                actualFromInput.value = this.value;
+            }
+            // Set min date for expected_to
+            expectedToInput.min = this.value;
+        });
+
+        expectedToInput.addEventListener('change', function() {
+            updateDurationPreview();
+            if (sameAsExpectedCheckbox && sameAsExpectedCheckbox.checked) {
+                actualToInput.value = this.value;
+            }
+        });
+
+        if (actualFromInput) {
+            actualFromInput.addEventListener('change', function() {
+                // Set min date for actual_to
+                actualToInput.min = this.value;
+            });
+        }
+
+        // Form submission
+        form.addEventListener('submit', function(e) {
+            // Add loading state
+            submitBtn.classList.add('btn-loading');
+            submitBtn.disabled = true;
+            
+            // Allow form to submit normally
+        });
+
+        // Initialize on load
+        updateDurationPreview();
+        if (expectedFromInput.value) {
+            expectedToInput.min = expectedFromInput.value;
+        }
+        if (actualFromInput && actualFromInput.value) {
+            actualToInput.min = actualFromInput.value;
+        }
+    });
+</script>
+{% endblock %}

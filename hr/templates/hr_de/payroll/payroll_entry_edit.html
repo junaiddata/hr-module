@@ -1,0 +1,256 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Edit Entry — {{ entry.employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pw { max-width: 780px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.page-title { font-size: 1.4rem; font-weight: 700; margin-bottom: .2rem; }
+.page-sub   { color: var(--text-secondary); font-size: .88rem; margin-bottom: 1.5rem; }
+
+/* Employee strip */
+.emp-strip {
+    background: var(--gradient-primary); border-radius: 12px;
+    padding: 1.1rem 1.5rem; color: #fff;
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+}
+.emp-av {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; font-weight: 800; flex-shrink: 0;
+}
+.emp-strip .name { font-weight: 700; }
+.emp-strip .meta { font-size: .8rem; opacity: .82; }
+.emp-strip .gross { margin-left: auto; text-align: right; }
+.emp-strip .gross .gl { font-size: .72rem; opacity: .8; text-transform: uppercase; letter-spacing: .05em; }
+.emp-strip .gross .ga { font-size: 1.3rem; font-weight: 800; }
+
+/* Salary snapshot */
+.snapshot {
+    background: var(--bg-secondary); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+    display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: .75rem;
+}
+.ss-item .ss-l { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-tertiary); margin-bottom: .2rem; }
+.ss-item .ss-v { font-size: .92rem; font-weight: 600; color: var(--text-primary); }
+
+/* Form card */
+.form-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.fc-section {
+    padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);
+}
+.fc-section:last-child { border-bottom: none; }
+.section-lbl {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: .5rem;
+}
+.row-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 1rem; }
+.form-group { }
+.form-label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .35rem; display: block; }
+.form-control {
+    border: 1.5px solid var(--border-color); border-radius: 8px;
+    padding: .6rem .9rem; font-size: .92rem; width: 100%;
+    color: var(--text-primary); background: var(--bg-primary); transition: border-color .18s;
+}
+.form-control:focus { border-color: var(--accent-primary); outline: none; box-shadow: 0 0 0 3px rgba(8,11,177,.07); }
+
+/* Live net preview */
+.net-preview {
+    background: #fff; border: 1.5px solid var(--border-color);
+    border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;
+    display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+}
+.np-item .np-l { font-size: .73rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-tertiary); }
+.np-item .np-v { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-top: .15rem; }
+.np-item .np-v.green  { color: #059669; }
+.np-item .np-v.red    { color: #dc2626; }
+.np-item .np-v.primary{ color: var(--accent-primary); font-size: 1.35rem; font-weight: 800; }
+
+.form-actions {
+    display: flex; gap: 1rem; justify-content: flex-end; flex-wrap: wrap;
+    padding: 1.25rem 1.5rem; border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+.btn-save {
+    background: var(--gradient-primary); color: #fff; padding: .65rem 1.75rem;
+    border-radius: 8px; font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem;
+}
+.btn-cancel {
+    background: #fff; color: var(--text-secondary); padding: .65rem 1.25rem;
+    border-radius: 8px; font-weight: 500; border: 1px solid var(--border-color);
+    text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pw">
+    <h1 class="page-title"><i class="fas fa-pen" style="color:var(--accent-primary);margin-right:.5rem;"></i>Edit Payroll Entry</h1>
+    <p class="page-sub">{{ entry.payroll_run }} — Adjust additions and deductions for this employee.</p>
+
+    <!-- Employee strip -->
+    <div class="emp-strip">
+        <div class="emp-av">{{ entry.employee.emp_name|first|upper }}</div>
+        <div>
+            <div class="name">{{ entry.employee.emp_name }}</div>
+            <div class="meta">{{ entry.employee.emp_id }} · {{ entry.employee.department.name }}</div>
+        </div>
+        <div class="gross">
+            <div class="gl">Gross Salary</div>
+            <div class="ga">AED {{ entry.gross_salary|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Salary structure snapshot -->
+    <div class="snapshot">
+        <div class="ss-item">
+            <div class="ss-l">Basic</div>
+            <div class="ss-v">AED {{ entry.basic|floatformat:2 }}</div>
+        </div>
+        <div class="ss-item">
+            <div class="ss-l">HRA</div>
+            <div class="ss-v">AED {{ entry.hra|floatformat:2 }}</div>
+        </div>
+        <div class="ss-item">
+            <div class="ss-l">Transport</div>
+            <div class="ss-v">AED {{ entry.transport|floatformat:2 }}</div>
+        </div>
+        <div class="ss-item">
+            <div class="ss-l">Others</div>
+            <div class="ss-v">AED {{ entry.others|floatformat:2 }}</div>
+        </div>
+        <div class="ss-item" style="border-left:2px solid var(--border-color);padding-left:.75rem;">
+            <div class="ss-l">Structure Total</div>
+            <div class="ss-v" style="color:var(--accent-primary);">AED {{ entry.gross_salary|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Live net preview -->
+    <div class="net-preview">
+        <div class="np-item">
+            <div class="np-l">Gross</div>
+            <div class="np-v" id="previewGross">AED {{ entry.gross_salary|floatformat:2 }}</div>
+        </div>
+        <div class="np-item">
+            <div class="np-l">+ Additions</div>
+            <div class="np-v green" id="previewAdd">AED 0.00</div>
+        </div>
+        <div class="np-item">
+            <div class="np-l">− Deductions</div>
+            <div class="np-v red" id="previewDed">AED 0.00</div>
+        </div>
+        <div class="np-item" style="border-left:2px solid var(--border-color);padding-left:1rem;">
+            <div class="np-l">Net Payable</div>
+            <div class="np-v primary" id="previewNet">AED {{ entry.net_salary|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="form-card">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Additions -->
+            <div class="fc-section">
+                <div class="section-lbl" style="color:#059669;"><i class="fas fa-plus-circle"></i> Additions</div>
+                <div class="row-grid">
+                    <div class="form-group">
+                        <label class="form-label">Bonus</label>
+                        <input type="number" name="bonus" id="inpBonus" class="form-control"
+                               min="0" step="0.01" value="{{ entry.bonus|floatformat:2 }}" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Overtime Pay</label>
+                        <input type="number" name="overtime_pay" id="inpOT" class="form-control"
+                               min="0" step="0.01" value="{{ entry.overtime_pay|floatformat:2 }}" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Other Additions</label>
+                        <input type="number" name="other_additions" id="inpOtherAdd" class="form-control"
+                               min="0" step="0.01" value="{{ entry.other_additions|floatformat:2 }}" placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deductions -->
+            <div class="fc-section">
+                <div class="section-lbl" style="color:#dc2626;"><i class="fas fa-minus-circle"></i> Deductions</div>
+                <div class="row-grid">
+                    <div class="form-group">
+                        <label class="form-label">Loan Deduction</label>
+                        <input type="number" name="loan_deduction" id="inpLoan" class="form-control"
+                               min="0" step="0.01" value="{{ entry.loan_deduction|floatformat:2 }}" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Other Deductions</label>
+                        <input type="number" name="other_deductions" id="inpOtherDed" class="form-control"
+                               min="0" step="0.01" value="{{ entry.other_deductions|floatformat:2 }}" placeholder="0.00">
+                    </div>
+                    {% if entry.advance_deduction %}
+                    <div class="form-group">
+                        <label class="form-label">Advance Recovery (auto)</label>
+                        <div style="background:var(--bg-secondary);border:1.5px solid var(--border-color);border-radius:8px;padding:.6rem .9rem;font-size:.92rem;color:#dc2626;font-weight:600;">
+                            AED {{ entry.advance_deduction|floatformat:2 }}
+                        </div>
+                        <div style="font-size:.72rem;color:var(--text-tertiary);margin-top:.3rem;">
+                            Auto-set from approved advance salary. Edit the advance to adjust.
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="fc-section">
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Any remarks for this entry...">{{ entry.notes }}</textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'payroll_detail' entry.payroll_run.pk %}" class="btn-cancel">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+                <button type="submit" class="btn-save">
+                    <i class="fas fa-save"></i> Save &amp; Recalculate
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var gross       = {{ entry.gross_salary|default:0 }};
+var advanceDed  = {{ entry.advance_deduction|default:0 }};
+var ids   = ['inpBonus','inpOT','inpOtherAdd','inpLoan','inpOtherDed'];
+var elems = ids.map(function(id){ return document.getElementById(id); });
+
+function calc() {
+    var bonus  = parseFloat(document.getElementById('inpBonus').value)     || 0;
+    var ot     = parseFloat(document.getElementById('inpOT').value)         || 0;
+    var otAdd  = parseFloat(document.getElementById('inpOtherAdd').value)   || 0;
+    var loan   = parseFloat(document.getElementById('inpLoan').value)       || 0;
+    var otDed  = parseFloat(document.getElementById('inpOtherDed').value)   || 0;
+
+    var totalAdd = bonus + ot + otAdd;
+    var totalDed = loan + otDed + advanceDed;
+    var net      = gross + totalAdd - totalDed;
+
+    document.getElementById('previewAdd').textContent = 'AED ' + totalAdd.toFixed(2);
+    document.getElementById('previewDed').textContent = 'AED ' + totalDed.toFixed(2);
+    document.getElementById('previewNet').textContent = 'AED ' + net.toFixed(2);
+    document.getElementById('previewNet').style.color = net < 0 ? '#dc2626' : 'var(--accent-primary)';
+}
+
+elems.forEach(function(el){ el.addEventListener('input', calc); });
+document.addEventListener('DOMContentLoaded', calc);
+</script>
+{% endblock %}

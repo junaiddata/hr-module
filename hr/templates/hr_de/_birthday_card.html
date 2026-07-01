@@ -1,0 +1,25 @@
+{% load static %}
+<div class="bd-card {% if r.is_today %}today{% endif %}">
+    {% if r.employee.photo %}
+        <img src="{{ r.employee.photo.url }}" alt="{{ r.employee.emp_name }}" class="bd-avatar">
+    {% else %}
+        <div class="bd-avatar-fallback">{{ r.employee.emp_name|first|upper }}</div>
+    {% endif %}
+    <div class="bd-info">
+        <div class="bd-name">{{ r.employee.emp_name }}</div>
+        <div class="bd-meta">{{ r.employee.designation|default:"—" }}{% if r.employee.department %} · {{ r.employee.department.name }}{% endif %}</div>
+        {% if r.is_today %}
+            <span class="bd-badge badge-today">🎉 Today!</span>
+        {% elif r.days_until < 0 %}
+            <span class="bd-badge badge-past">Celebrated</span>
+        {% elif r.days_until <= 7 %}
+            <span class="bd-badge badge-soon">In {{ r.days_until }} day{{ r.days_until|pluralize }}</span>
+        {% else %}
+            <span class="bd-badge badge-upc">In {{ r.days_until }} days</span>
+        {% endif %}
+    </div>
+    <div class="bd-right">
+        <div class="bd-date"><span class="day">{{ r.bday|date:"d" }}</span> {{ r.bday|date:"M" }}</div>
+        <div class="bd-turns">Turns {{ r.turning }}</div>
+    </div>
+</div>

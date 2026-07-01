@@ -1,0 +1,214 @@
+{% extends 'hr_de/base.html' %}
+{% block title %}MD Accounts — HR System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper { padding: 2rem; max-width: 860px; margin: 0 auto; }
+
+    .page-header {
+        background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+        border-radius: 14px;
+        padding: 1.5rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    }
+    .page-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+    .page-header .sub { font-size: .85rem; opacity: .85; margin-top: .2rem; }
+
+    /* Create form card */
+    .create-card {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-bottom: 1.75rem;
+        box-shadow: var(--shadow-sm);
+    }
+    .create-card h2 {
+        font-size: .9rem; font-weight: 700; color: var(--text-primary);
+        display: flex; align-items: center; gap: .5rem;
+        margin-bottom: 1.1rem;
+    }
+    .create-card h2 i { color: #d97706; }
+
+    .form-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+    .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: .35rem; }
+    .form-group label { font-size: .75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .05em; }
+    .form-group input {
+        padding: .55rem .8rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: .875rem;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        transition: border-color .18s;
+    }
+    .form-group input:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.1); }
+
+    .btn-create {
+        display: inline-flex; align-items: center; gap: .45rem;
+        padding: .55rem 1.25rem;
+        background: linear-gradient(135deg, #b45309, #d97706);
+        color: #fff;
+        border: none; border-radius: 8px;
+        font-size: .875rem; font-weight: 600;
+        cursor: pointer;
+        transition: opacity .18s;
+    }
+    .btn-create:hover { opacity: .9; }
+
+    /* Accounts list */
+    .list-card {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+    .list-card-header {
+        padding: .9rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: .5rem;
+    }
+    .list-card-header h2 { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+        padding: .65rem 1.1rem;
+        font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+        background: #f8fafc; color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-color);
+        text-align: left;
+    }
+    tbody td {
+        padding: .8rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: .875rem;
+        vertical-align: middle;
+        color: var(--text-primary);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #f8fafc; }
+
+    .avatar-sm {
+        width: 34px; height: 34px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #b45309, #d97706);
+        color: #fff; font-weight: 700; font-size: .85rem;
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-right: .6rem;
+        flex-shrink: 0;
+    }
+    .role-badge {
+        display: inline-block;
+        padding: .15rem .55rem; border-radius: 20px;
+        font-size: .72rem; font-weight: 700;
+        background: rgba(180,83,9,.1); color: #b45309;
+    }
+    .btn-del {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .28rem .7rem;
+        border-radius: 6px;
+        font-size: .78rem; font-weight: 600;
+        background: rgba(239,68,68,.08); color: #dc2626;
+        border: 1px solid rgba(239,68,68,.15);
+        text-decoration: none;
+        transition: background .15s;
+        cursor: pointer;
+    }
+    .btn-del:hover { background: rgba(239,68,68,.15); }
+
+    .empty-row td { text-align: center; padding: 2rem; color: var(--text-tertiary); font-size: .875rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-user-shield" style="margin-right:.5rem;"></i>MD System Accounts</h1>
+            <div class="sub">Managing Director accounts have full view access but cannot create or edit employees.</div>
+        </div>
+        <a href="{% url 'settings' %}" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);color:#fff;padding:.4rem .9rem;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;">
+            <i class="fas fa-arrow-left" style="margin-right:.4rem;"></i>Back to Settings
+        </a>
+    </div>
+
+    <!-- Create form -->
+    <div class="create-card">
+        <h2><i class="fas fa-plus-circle"></i> Create New MD Account</h2>
+        <form method="post" action="{% url 'md_account_create' %}">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" placeholder="e.g. John Smith">
+                </div>
+                <div class="form-group">
+                    <label for="username">Username <span style="color:#dc2626;">*</span></label>
+                    <input type="text" id="username" name="username" placeholder="e.g. md_john" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password <span style="color:#dc2626;">*</span></label>
+                    <input type="password" id="password" name="password" placeholder="Set a strong password" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-create">
+                <i class="fas fa-user-plus"></i> Create MD Account
+            </button>
+        </form>
+    </div>
+
+    <!-- Existing MD accounts -->
+    <div class="list-card">
+        <div class="list-card-header">
+            <i class="fas fa-users" style="color:#d97706;"></i>
+            <h2>Existing MD Accounts ({{ md_roles|length }})</h2>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th>Role</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for role_obj in md_roles %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;">
+                            <span class="avatar-sm">{{ role_obj.user.username|first|upper }}</span>
+                            <div>
+                                <div style="font-weight:600;">{{ role_obj.user.get_full_name|default:role_obj.user.username }}</div>
+                                <div style="font-size:.76rem;color:var(--text-secondary);">@{{ role_obj.user.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="role-badge">MD</span></td>
+                    <td>
+                        <form method="post" action="{% url 'md_account_delete' role_obj.pk %}" onsubmit="return confirm('Delete MD account for {{ role_obj.user.username }}? This cannot be undone.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-del">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row">
+                    <td colspan="3">
+                        <i class="fas fa-user-slash" style="display:block;font-size:1.5rem;margin-bottom:.5rem;"></i>
+                        No MD accounts yet. Create one above.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

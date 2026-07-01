@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave History - {{ employee.emp_name }}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Header */
+        .page-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin: -2rem -2rem 2rem -2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .page-title i {
+            font-size: 1.75rem;
+            opacity: 0.9;
+        }
+        
+        .employee-info {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .info-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .summary-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .card-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .card-icon {
+            float: right;
+            font-size: 2rem;
+            color: #e5e7eb;
+        }
+        
+        .card-trend {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .trend-up {
+            color: #10b981;
+        }
+        
+        .trend-down {
+            color: #ef4444;
+        }
+        
+        /* Table Container */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            padding: 1.5rem;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .table-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            color: #6b7280;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+        }
+        
+        .filter-btn.active {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 0.95rem;
+            color: #374151;
+        }
+        
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+        
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Leave Type Badge */
+        .leave-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .leave-badge.sick {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .leave-badge.annual {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .leave-badge.personal {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .leave-badge.maternity {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+        
+        .leave-badge.other {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        /* Date Range */
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .date-range i {
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #a16207;
+        }
+        
+        .status-badge.active {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #6b7280;
+        }
+        
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+        
+        .empty-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Actions */
+        .actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+        
+        /* Reason Tooltip */
+        .reason-text {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: help;
+        }
+        
+        .reason-text:hover {
+            position: relative;
+        }
+        
+        /* Print Styles */
+        @media print {
+            .page-header {
+                margin: 0;
+                padding: 1rem 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .actions,
+            .filter-buttons {
+                display: none;
+            }
+            
+            .table-container {
+                box-shadow: none;
+                border: 1px solid #000;
+            }
+            
+            body {
+                background: white;
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .page-header {
+                margin: -1rem -1rem 1.5rem -1rem;
+                padding: 1.5rem 0;
+            }
+            
+            .page-title {
+                font-size: 1.5rem;
+            }
+            
+            .employee-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .table-container {
+                overflow-x: auto;
+            }
+            
+            table {
+                min-width: 800px;
+            }
+            
+            .table-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="page-header">
+            <div class="header-content">
+                <h1 class="page-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Leave History
+                </h1>
+                <div class="employee-info">
+                    <span>{{ employee.emp_name }}</span>
+                    <span class="info-badge">ID: {{ employee.emp_id }}</span>
+                    <span class="info-badge">{{ leaves|length }} Leave Records</span>
+                    <span class="info-badge">Department: {{ employee.department|default:"Not Specified" }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <i class="fas fa-calendar-check card-icon"></i>
+                <div class="card-label">Total Leaves Taken</div>
+                <div class="card-value">{{ total_leaves|default:"0" }}</div>
+                <div class="card-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+    
+                </div>
+            </div>
+            <div class="summary-card">
+                <i class="fas fa-hourglass-half card-icon"></i>
+                <div class="card-label">Total Leave Days</div>
+                <div class="card-value">{{ total_leave_days |default:"0" }} days</div>
+            </div>
+            <div class="summary-card">
+                <i class="fas fa-heart card-icon"></i>
+                <div class="card-label">Sick Leaves</div>
+                <div class="card-value">{{ sick_leaves|default:"0" }}</div>
+            </div>
+            <div class="summary-card">
+                <i class="fas fa-umbrella-beach card-icon"></i>
+                <div class="card-label">Annual Leaves</div>
+                <div class="card-value">{{ annual_leaves|default:"0" }}</div>
+            </div>
+        </div>
+        
+        <!-- Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <h2 class="table-title">
+                    <i class="fas fa-list"></i>
+                    Leave Records
+                </h2>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterLeaves('all')">All</button>
+                    <button class="filter-btn" onclick="filterLeaves('sick')">Sick</button>
+                    <button class="filter-btn" onclick="filterLeaves('annual')">Annual</button>
+                    <button class="filter-btn" onclick="filterLeaves('personal')">Personal</button>
+                </div>
+            </div>
+            
+            {% if leaves %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>Expected Period</th>
+                        <th>Actual Period</th>
+                        <th>Rejoined</th>
+                        <th>Reported To</th>
+                        <th>Status</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leaves %}
+                    <tr data-leave-type="{{ leave.leave_type.name|lower }}">
+                        <td>
+                            <span class="leave-badge {% if 'sick' in leave.leave_type.name|lower %}sick{% elif 'annual' in leave.leave_type.name|lower %}annual{% elif 'personal' in leave.leave_type.name|lower %}personal{% elif 'maternity' in leave.leave_type.name|lower %}maternity{% else %}other{% endif %}">
+                                {{ leave.leave_type.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="date-range">
+                                <i class="fas fa-calendar-alt"></i>
+                                {{ leave.expected_from|date:"M d" }} - {{ leave.expected_to|date:"M d, Y" }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if leave.actual_from and leave.actual_to %}
+                            <div class="date-range">
+                                <i class="fas fa-calendar-check"></i>
+                                {{ leave.actual_from|date:"M d" }} - {{ leave.actual_to|date:"M d, Y" }}
+                            </div>
+                            {% else %}
+                            <span style="color: #9ca3af;">Not specified</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if leave.rejoined_on %}
+                                <span style="color: #059669;">{{ leave.rejoined_on|date:"M d, Y" }}</span>
+                            {% else %}
+                                <span style="color: #9ca3af;">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ leave.reported_to }}</td>
+                        <td>
+                            {% if leave.rejoined_on %}
+                                <span class="status-badge completed">
+                                    <i class="fas fa-check-circle"></i>
+                                    Completed
+                                </span>
+                            {% elif leave.actual_from %}
+                                <span class="status-badge active">
+                                    <i class="fas fa-circle"></i>
+                                    Active
+                                </span>
+                            {% else %}
+                                <span class="status-badge pending">
+                                    <i class="fas fa-clock"></i>
+                                    Pending
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="reason-text" title="{{ leave.reason }}">
+                                {{ leave.reason }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox empty-icon"></i>
+                <h3 class="empty-title">No Leave Records Found</h3>
+                <p>This employee hasn't taken any leaves yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Actions -->
+        <div class="actions">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print"></i>
+                Print Report
+            </button>
+            <button onclick="exportToExcel()" class="btn btn-secondary">
+                <i class="fas fa-file-excel"></i>
+                Export to Excel
+            </button>
+            <a href="{% url 'employee_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Back to Employee List
+            </a>
+        </div>
+    </div>
+    
+<script>
+    // Calculate summary statistics
+    // document.addEventListener('DOMContentLoaded', function() {
+    //     {% if leaves %}
+    //     const leaves = [
+    //         {% for leave in leaves %}
+    //         {
+    //             type: "{{ leave.leave_type.name|lower }}",
+    //             expectedFrom: new Date("{{ leave.expected_from|date:'Y-m-d' }}"),
+    //             expectedTo: new Date("{{ leave.expected_to|date:'Y-m-d' }}"),
+    //             actualFrom: {% if leave.actual_from %}new Date("{{ leave.actual_from|date:'Y-m-d' }}"){% else %}null{% endif %},
+    //             actualTo: {% if leave.actual_to %}new Date("{{ leave.actual_to|date:'Y-m-d' }}"){% else %}null{% endif %}
+    //         }{% if not forloop.last %},{% endif %}
+    //         {% endfor %}
+    //     ];
+        
+    //     // Calculate statistics
+    //     let totalDays = 0;
+    //     let sickLeaves = 0;
+    //     let annualLeaves = 0;
+        
+    //     leaves.forEach(leave => {
+    //         // Calculate duration
+    //         if (leave.actualFrom && leave.actualTo) {
+    //             const duration = Math.ceil((leave.actualTo - leave.actualFrom) / (1000 * 60 * 60 * 24)) + 1;
+    //             totalDays += duration;
+    //         } else {
+    //             const duration = Math.ceil((leave.expectedTo - leave.expectedFrom) / (1000 * 60 * 60 * 24)) + 1;
+    //             totalDays += duration;
+    //         }
+            
+    //         // Count leave types
+    //         if (leave.type.includes('sick')) sickLeaves++;
+    //         if (leave.type.includes('annual')) annualLeaves++;
+    //     });
+        
+    //     const avgDuration = leaves.length > 0 ? Math.round(totalDays / leaves.length) : 0;
+        
+    //     // Update cards if values not set by backend
+    //     const cards = document.querySelectorAll('.card-value');
+    //     if (cards.length >= 4) {
+    //         cards[0].textContent = leaves.length;
+    //         cards[1].textContent = avgDuration + ' days';
+    //         cards[2].textContent = sickLeaves;
+    //         cards[3].textContent = annualLeaves;
+    //     }
+    //     {% endif %}
+    // });
+    
+    // Filter functionality
+    function filterLeaves(type, event) {  // Added event parameter
+        // Update active button
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Filter rows
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            if (type === 'all') {
+                row.style.display = '';
+            } else {
+                const leaveType = row.getAttribute('data-leave-type');
+                if (leaveType && leaveType.includes(type)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    }
+    
+    // Export to Excel functionality
+    // function exportToExcel() {
+    //     // Create CSV content
+    //     let csv = 'Leave Type,Expected From,Expected To,Actual From,Actual To,Rejoined On,Reported To,Reason\n';
+        
+    //     {% for leave in leaves %}
+    //     csv += '"{{ leave.leave_type.name }}","{{ leave.expected_from|date:"Y-m-d" }}","{{ leave.expected_to|date:"Y-m-d" }}","{% if leave.actual_from %}{{ leave.actual_from|date:"Y-m-d" }}{% endif %}","{% if leave.actual_to %}{{ leave.actual_to|date:"Y-m-d" }}{% endif %}","{% if leave.rejoined_on %}{{ leave.rejoined_on|date:"Y-m-d" }}{% endif %}","{{ leave.reported_to }}","{{ leave.reason|escapejs }}"\n';
+    //     {% endfor %}
+        
+    //     // Create download link
+    //     const blob = new Blob([csv], { type: 'text/csv' });
+    //     const url = window.URL.createObjectURL(blob);
+    //     const a = document.createElement('a');
+    //     a.href = url;
+    //     a.download = 'leave_history_{{ employee.emp_id }}.csv';
+    //     document.body.appendChild(a);
+    //     a.click();
+    //     document.body.removeChild(a);
+    //     window.URL.revokeObjectURL(url);
+    // }
+    
+    // Add hover effect to rows
+    document.addEventListener('DOMContentLoaded', function() {
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.01)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = 'none';
+            });
+        });
+        
+        // Expand reason text on click
+        const reasonTexts = document.querySelectorAll('.reason-text');
+        reasonTexts.forEach(element => {
+            element.addEventListener('click', function() {
+                if (this.style.whiteSpace === 'normal') {
+                    this.style.whiteSpace = 'nowrap';
+                    this.style.maxWidth = '200px';
+                } else {
+                    this.style.whiteSpace = 'normal';
+                    this.style.maxWidth = 'none';
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>

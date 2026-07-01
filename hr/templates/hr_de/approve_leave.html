@@ -1,0 +1,453 @@
+{% extends 'hr_de/base.html' %}
+{% block title %}Review Leave — HR System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #0a0a85 0%, #1e15bb9e 100%);
+        padding: 2rem 0; margin-bottom: 2rem; border-radius: 0 0 20px 20px;
+    }
+    .page-title {
+        color: #fff; font-size: 1.75rem; font-weight: 700;
+        margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem;
+    }
+    .page-subtitle { color: rgba(255,255,255,0.8); font-size: 1rem; }
+
+    /* 4-step pipeline */
+    .pipeline-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 1.5rem; margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .pipeline-label {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 1rem;
+    }
+    .pipeline {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+        border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+    }
+    .pipe-step {
+        padding: 1rem; display: flex; flex-direction: column; gap: 0.4rem;
+        border-right: 1px solid #e2e8f0; position: relative;
+    }
+    .pipe-step:last-child { border-right: none; }
+    .pipe-step.s-waiting  { background: #f8fafc; }
+    .pipe-step.s-active   { background: #eff6ff; }
+    .pipe-step.s-done     { background: #f0fdf4; }
+    .pipe-step.s-rejected { background: #fef2f2; }
+
+    .pipe-badge {
+        width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; font-weight: 700; margin-bottom: 0.3rem;
+    }
+    .pipe-step.s-waiting  .pipe-badge { background: #e2e8f0; color: #94a3b8; }
+    .pipe-step.s-active   .pipe-badge { background: #dbeafe; color: #2563eb; }
+    .pipe-step.s-done     .pipe-badge { background: #dcfce7; color: #16a34a; }
+    .pipe-step.s-rejected .pipe-badge { background: #fee2e2; color: #dc2626; }
+
+    .pipe-role   { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
+    .pipe-status { font-size: 0.8rem; font-weight: 600; }
+    .pipe-step.s-waiting  .pipe-status { color: #94a3b8; }
+    .pipe-step.s-active   .pipe-status { color: #2563eb; }
+    .pipe-step.s-done     .pipe-status { color: #16a34a; }
+    .pipe-step.s-rejected .pipe-status { color: #dc2626; }
+    .pipe-by { font-size: 0.7rem; color: #64748b; }
+
+    /* Leave detail card */
+    .detail-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 1.5rem;
+    }
+    .emp-header {
+        display: flex; align-items: center; gap: 1rem;
+        padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap;
+    }
+    .emp-avatar {
+        width: 50px; height: 50px;
+        background: linear-gradient(135deg,#2208cd,#120aa09e);
+        color: #fff; border-radius: 12px; display: flex; align-items: center;
+        justify-content: center; font-size: 1.2rem; font-weight: 700; flex-shrink: 0;
+    }
+    .emp-name { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+    .emp-meta { font-size: 0.8rem; color: #64748b; }
+
+    .leave-type-badge {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+    }
+    .leave-type-badge.sick     { background: #fee2e2; color: #dc2626; }
+    .leave-type-badge.annual   { background: #dbeafe; color: #2563eb; }
+    .leave-type-badge.personal { background: #fef3c7; color: #d97706; }
+    .leave-type-badge.maternity{ background: #ede9fe; color: #7c3aed; }
+
+    .detail-body { padding: 1.5rem; }
+    .detail-grid {
+        display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 1.25rem;
+    }
+    .d-item { display: flex; flex-direction: column; gap: 0.3rem; }
+    .d-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
+    .d-value { font-size: 0.92rem; font-weight: 500; color: #0f172a; }
+
+    .reason-box {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 1rem; font-size: 0.88rem;
+        color: #334155; line-height: 1.6; margin-top: 1rem;
+    }
+    .rejection-box {
+        background: #fef2f2; border: 1px solid #fecaca;
+        border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.88rem; color: #7f1d1d;
+    }
+
+    /* Action card */
+    .action-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 1.5rem;
+    }
+    .action-title { font-weight: 700; color: #0f172a; margin-bottom: 1rem; font-size: 0.95rem; }
+
+    .reject-section {
+        background: #fff5f5; border: 1px solid #fed7d7;
+        border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: none;
+    }
+    .reject-section textarea {
+        width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 0.75rem; font-size: 0.88rem; resize: vertical; min-height: 80px; margin-top: 0.5rem;
+    }
+    .reject-section textarea:focus {
+        outline: none; border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+    }
+
+    .btn {
+        padding: 0.6rem 1.4rem; border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        transition: all 0.2s ease; text-decoration: none; border: none; cursor: pointer; font-size: 0.9rem;
+    }
+    .btn-approve {
+        background: linear-gradient(135deg,#16a34a,#15803d);
+        color: #fff; box-shadow: 0 2px 8px rgba(22,163,74,0.3);
+    }
+    .btn-approve:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(22,163,74,0.4); }
+    .btn-reject  { background: #fff; color: #dc2626; border: 2px solid #dc2626; }
+    .btn-reject:hover { background: #fef2f2; }
+    .btn-confirm-reject { background: #dc2626; color: #fff; }
+    .btn-confirm-reject:hover { background: #b91c1c; }
+    .btn-back    { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .btn-back:hover { background: #e2e8f0; }
+
+    @media (max-width: 768px) {
+        .pipeline { grid-template-columns: 1fr 1fr; }
+        .pipe-step { border-bottom: 1px solid #e2e8f0; }
+        .detail-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+        .pipeline { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title"><i class="fas fa-gavel"></i> Review Leave Request</h1>
+        <p class="page-subtitle">
+            {% if approver_role and approver_role.role == 'Head' %}Stage 1 of 3 — Department Head
+            {% elif approver_role and approver_role.role == 'MD' %}Stage 2 of 3 — Managing Director
+            {% elif approver_role and approver_role.role == 'HR' %}Stage 3 of 3 — HR Final Approval
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- 3-stage Pipeline -->
+    <div class="pipeline-card">
+        <div class="pipeline-label"><i class="fas fa-route"></i> &nbsp;Approval Pipeline</div>
+        <div class="pipeline" style="grid-template-columns: repeat(3, 1fr);">
+
+            <!-- Stage 1: Head -->
+            {% if leave.status == 'Pending' %}
+            <div class="pipe-step s-active">
+            {% elif leave.status == 'Rejected' and not leave.md_approved_by and leave.head_approved_by %}
+            <div class="pipe-step s-rejected">
+            {% elif leave.head_approved_by %}
+            <div class="pipe-step s-done">
+            {% else %}
+            <div class="pipe-step s-waiting">
+            {% endif %}
+                <div class="pipe-badge">
+                    {% if leave.status == 'Pending' %}<i class="fas fa-clock"></i>
+                    {% elif leave.status == 'Rejected' and not leave.md_approved_by and leave.head_approved_by %}<i class="fas fa-times"></i>
+                    {% elif leave.head_approved_by %}<i class="fas fa-check"></i>
+                    {% else %}<i class="fas fa-hourglass"></i>{% endif %}
+                </div>
+                <span class="pipe-role">Stage 1 · Head</span>
+                <span class="pipe-status">
+                    {% if leave.status == 'Pending' %}Awaiting
+                    {% elif leave.status == 'Rejected' and not leave.md_approved_by and leave.head_approved_by %}Rejected
+                    {% elif leave.head_approved_by %}Approved
+                    {% else %}Waiting{% endif %}
+                </span>
+                {% if leave.head_approved_by %}
+                <span class="pipe-by">{{ leave.head_approved_by.get_full_name|default:leave.head_approved_by.username }}{% if leave.head_approved_at %} · {{ leave.head_approved_at|date:"M d, H:i" }}{% endif %}</span>
+                {% endif %}
+            </div>
+
+            <!-- Stage 2: MD -->
+            {% if leave.status == 'Head_Approved' %}
+            <div class="pipe-step s-active">
+            {% elif leave.status in 'MD_Approved,Approved' or leave.md_approved_by %}
+            <div class="pipe-step s-done">
+            {% elif leave.status == 'Rejected' and leave.md_approved_by %}
+            <div class="pipe-step s-rejected">
+            {% else %}
+            <div class="pipe-step s-waiting">
+            {% endif %}
+                <div class="pipe-badge">
+                    {% if leave.status == 'Head_Approved' %}<i class="fas fa-clock"></i>
+                    {% elif leave.status == 'Rejected' and leave.md_approved_by and not leave.approved_by %}<i class="fas fa-times"></i>
+                    {% elif leave.md_approved_by %}<i class="fas fa-check"></i>
+                    {% else %}<i class="fas fa-hourglass"></i>{% endif %}
+                </div>
+                <span class="pipe-role">Stage 2 · MD</span>
+                <span class="pipe-status">
+                    {% if leave.status == 'Head_Approved' %}Awaiting
+                    {% elif leave.status == 'Rejected' and leave.md_approved_by and not leave.approved_by %}Rejected
+                    {% elif leave.md_approved_by %}Approved
+                    {% else %}Waiting{% endif %}
+                </span>
+                {% if leave.md_approved_by %}
+                <span class="pipe-by">{{ leave.md_approved_by.get_full_name|default:leave.md_approved_by.username }}{% if leave.md_approved_at %} · {{ leave.md_approved_at|date:"M d, H:i" }}{% endif %}</span>
+                {% endif %}
+            </div>
+
+            <!-- Stage 3: HR -->
+            {% if leave.status == 'MD_Approved' %}
+            <div class="pipe-step s-active">
+            {% elif leave.status == 'Approved' %}
+            <div class="pipe-step s-done">
+            {% elif leave.status == 'Rejected' and leave.approved_by %}
+            <div class="pipe-step s-rejected">
+            {% else %}
+            <div class="pipe-step s-waiting">
+            {% endif %}
+                <div class="pipe-badge">
+                    {% if leave.status == 'MD_Approved' %}<i class="fas fa-clock"></i>
+                    {% elif leave.status == 'Approved' %}<i class="fas fa-check-double"></i>
+                    {% elif leave.status == 'Rejected' and leave.approved_by %}<i class="fas fa-times"></i>
+                    {% else %}<i class="fas fa-hourglass"></i>{% endif %}
+                </div>
+                <span class="pipe-role">Stage 3 · HR</span>
+                <span class="pipe-status">
+                    {% if leave.status == 'MD_Approved' %}Awaiting
+                    {% elif leave.status == 'Approved' %}Approved ✓
+                    {% elif leave.status == 'Rejected' and leave.approved_by %}Rejected
+                    {% else %}Waiting{% endif %}
+                </span>
+                {% if leave.approved_by %}
+                <span class="pipe-by">{{ leave.approved_by.get_full_name|default:leave.approved_by.username }}</span>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Employee + Leave Details -->
+    <div class="detail-card">
+        <div class="emp-header">
+            <div class="emp-avatar">{{ leave.employee.emp_name|slice:":2"|upper }}</div>
+            <div>
+                <div class="emp-name">{{ leave.employee.emp_name }}</div>
+                <div class="emp-meta">ID: {{ leave.employee.emp_id }} · {{ leave.employee.department|default:"—" }} · {{ leave.employee.designation|default:"—" }}</div>
+            </div>
+            <div class="ms-auto">
+                <span class="leave-type-badge
+                    {% if 'sick' in leave.leave_type.name|lower %}sick
+                    {% elif 'annual' in leave.leave_type.name|lower %}annual
+                    {% elif 'personal' in leave.leave_type.name|lower %}personal
+                    {% elif 'maternity' in leave.leave_type.name|lower %}maternity
+                    {% else %}annual{% endif %}">
+                    <i class="fas fa-tag"></i> {{ leave.leave_type.name }}
+                </span>
+            </div>
+        </div>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="d-item">
+                    <span class="d-label">Expected From</span>
+                    <span class="d-value"><i class="fas fa-calendar-day" style="color:#6366f1;margin-right:4px;"></i>{{ leave.expected_from|date:"M d, Y" }}</span>
+                </div>
+                <div class="d-item">
+                    <span class="d-label">Expected To</span>
+                    <span class="d-value"><i class="fas fa-calendar-day" style="color:#6366f1;margin-right:4px;"></i>{{ leave.expected_to|date:"M d, Y" }}</span>
+                </div>
+                <div class="d-item">
+                    <span class="d-label">Days Requested</span>
+                    <span class="d-value"><i class="fas fa-moon" style="color:#f59e0b;margin-right:4px;"></i>{{ leave.days }} days</span>
+                </div>
+                <div class="d-item">
+                    <span class="d-label">Reported To</span>
+                    <span class="d-value"><i class="fas fa-user-tie" style="color:#10b981;margin-right:4px;"></i>{{ leave.reported_to|default:"—" }}</span>
+                </div>
+                <div class="d-item">
+                    <span class="d-label">Applied On</span>
+                    <span class="d-value"><i class="fas fa-clock" style="color:#94a3b8;margin-right:4px;"></i>{{ leave.created_at|date:"M d, Y" }}</span>
+                </div>
+                <div class="d-item">
+                    <span class="d-label">Current Status</span>
+                    <span class="d-value">{{ leave.get_status_display }}</span>
+                </div>
+            </div>
+            {% if leave.reason %}
+            <div class="reason-box">
+                <strong style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Reason</strong><br>
+                {{ leave.reason }}
+            </div>
+            {% endif %}
+            {% if leave.rejection_reason %}
+            <div class="rejection-box">
+                <strong><i class="fas fa-exclamation-circle"></i> Rejection Reason:</strong><br>
+                {{ leave.rejection_reason }}
+            </div>
+            {% endif %}
+            {% if leave.leave_application %}
+            <div style="margin-top:1rem;">
+                <a href="{{ leave.leave_application.url }}" target="_blank" class="btn btn-back" style="font-size:0.82rem;padding:0.4rem 1rem;">
+                    <i class="fas fa-paperclip"></i> View Application Document
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Action Section — only shown if this leave is in the current user's queue -->
+    {% if approver_role and approver_role.role == 'Head' and leave.status == 'Pending' %}
+    <div class="action-card">
+        <div class="action-title"><i class="fas fa-user-tie" style="color:#d97706;margin-right:6px;"></i>Your Decision — Stage 1 (Department Head)</div>
+        <form method="post" id="approvalForm">
+            {% csrf_token %}
+            <div class="reject-section" id="rejectSection">
+                <label style="font-weight:600;color:#dc2626;font-size:0.88rem;"><i class="fas fa-comment-times"></i> Rejection Reason</label>
+                <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to Manager?')">
+                    <i class="fas fa-check-circle"></i> Approve — Forward to Manager
+                </button>
+                <button type="button" class="btn btn-reject" onclick="toggleReject()">
+                    <i class="fas fa-times-circle"></i> Reject
+                </button>
+                <button type="submit" name="action" value="reject" class="btn btn-confirm-reject" id="confirmRejectBtn" style="display:none;">
+                    <i class="fas fa-ban"></i> Confirm Rejection
+                </button>
+                <a href="{% url 'pending_leaves' %}" class="btn btn-back"><i class="fas fa-arrow-left"></i> Back</a>
+            </div>
+        </form>
+    </div>
+
+    {% elif approver_role and approver_role.role == 'Manager' and leave.status == 'Head_Approved' %}
+    <div class="action-card">
+        <div class="action-title"><i class="fas fa-briefcase" style="color:#7c3aed;margin-right:6px;"></i>Your Decision — Stage 2 (Manager)</div>
+        <form method="post" id="approvalForm">
+            {% csrf_token %}
+            <div class="reject-section" id="rejectSection">
+                <label style="font-weight:600;color:#dc2626;font-size:0.88rem;"><i class="fas fa-comment-times"></i> Rejection Reason</label>
+                <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to MD?')">
+                    <i class="fas fa-check-circle"></i> Approve — Forward to MD
+                </button>
+                <button type="button" class="btn btn-reject" onclick="toggleReject()">
+                    <i class="fas fa-times-circle"></i> Reject
+                </button>
+                <button type="submit" name="action" value="reject" class="btn btn-confirm-reject" id="confirmRejectBtn" style="display:none;">
+                    <i class="fas fa-ban"></i> Confirm Rejection
+                </button>
+                <a href="{% url 'pending_leaves' %}" class="btn btn-back"><i class="fas fa-arrow-left"></i> Back</a>
+            </div>
+        </form>
+    </div>
+
+    {% elif approver_role and approver_role.role == 'MD' and leave.status == 'Head_Approved' %}
+    <div class="action-card">
+        <div class="action-title"><i class="fas fa-crown" style="color:#2563eb;margin-right:6px;"></i>Your Decision — Stage 3 (Managing Director)</div>
+        <form method="post" id="approvalForm">
+            {% csrf_token %}
+            <div class="reject-section" id="rejectSection">
+                <label style="font-weight:600;color:#dc2626;font-size:0.88rem;"><i class="fas fa-comment-times"></i> Rejection Reason</label>
+                <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to HR?')">
+                    <i class="fas fa-check-circle"></i> Approve — Forward to HR
+                </button>
+                <button type="button" class="btn btn-reject" onclick="toggleReject()">
+                    <i class="fas fa-times-circle"></i> Reject
+                </button>
+                <button type="submit" name="action" value="reject" class="btn btn-confirm-reject" id="confirmRejectBtn" style="display:none;">
+                    <i class="fas fa-ban"></i> Confirm Rejection
+                </button>
+                <a href="{% url 'pending_leaves' %}" class="btn btn-back"><i class="fas fa-arrow-left"></i> Back</a>
+            </div>
+        </form>
+    </div>
+
+    {% elif approver_role and approver_role.role == 'HR' and leave.status == 'MD_Approved' %}
+    <div class="action-card">
+        <div class="action-title"><i class="fas fa-shield-check" style="color:#16a34a;margin-right:6px;"></i>Your Decision — Stage 4 (HR Final Approval)</div>
+        <form method="post" id="approvalForm">
+            {% csrf_token %}
+            <div class="reject-section" id="rejectSection">
+                <label style="font-weight:600;color:#dc2626;font-size:0.88rem;"><i class="fas fa-comment-times"></i> Rejection Reason</label>
+                <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Give final approval for this leave?')">
+                    <i class="fas fa-check-double"></i> Final Approve
+                </button>
+                <button type="button" class="btn btn-reject" onclick="toggleReject()">
+                    <i class="fas fa-times-circle"></i> Reject
+                </button>
+                <button type="submit" name="action" value="reject" class="btn btn-confirm-reject" id="confirmRejectBtn" style="display:none;">
+                    <i class="fas fa-ban"></i> Confirm Rejection
+                </button>
+                <a href="{% url 'pending_leaves' %}" class="btn btn-back"><i class="fas fa-arrow-left"></i> Back</a>
+            </div>
+        </form>
+    </div>
+
+    {% else %}
+    <div class="action-card" style="background:#f8fafc;">
+        <p style="color:#64748b;margin:0;display:flex;align-items:center;gap:0.5rem;">
+            <i class="fas fa-info-circle" style="color:#3b82f6;"></i>
+            This leave is <strong style="margin:0 4px;">{{ leave.get_status_display }}</strong>. No action required from you at this stage.
+        </p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'pending_leaves' %}" class="btn btn-back"><i class="fas fa-arrow-left"></i> Back to Pending Approvals</a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleReject() {
+    const sec = document.getElementById('rejectSection');
+    const btn = document.getElementById('confirmRejectBtn');
+    const show = sec.style.display !== 'block';
+    sec.style.display = show ? 'block' : 'none';
+    btn.style.display  = show ? 'inline-flex' : 'none';
+}
+document.getElementById('approvalForm')?.addEventListener('submit', function(e) {
+    if (e.submitter?.value === 'reject') {
+        const reason = document.getElementById('rejectReason')?.value.trim();
+        if (!reason) { e.preventDefault(); alert('Please provide a rejection reason.'); }
+    }
+});
+</script>
+{% endblock %}

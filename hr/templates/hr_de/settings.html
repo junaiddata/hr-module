@@ -1,0 +1,216 @@
+{% extends "hr_de/base.html" %}
+
+{% block title %}Manage Settings - HR Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page Container */
+    .settings-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 3rem 2rem;
+    }
+    
+    /* Page Header */
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+        color: var(--text-secondary);
+    }
+    
+    /* Settings Grid */
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-top: 3rem;
+    }
+    
+    /* Setting Card */
+    .setting-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .setting-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
+    }
+    
+    /* Card Icon */
+    .card-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-icon.leave {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .card-icon.mol {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+    }
+
+    .card-icon.department {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .card-icon.md {
+        background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+        color: white;
+    }
+
+    .card-icon.bulk {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    
+    /* Card Content */
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-description {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+    
+    /* Arrow Icon */
+    .card-arrow {
+        margin-top: auto;
+        color: var(--accent-primary);
+        font-size: 1.25rem;
+        opacity: 0;
+        transform: translateX(-5px);
+        transition: all 0.3s ease;
+    }
+    
+    .setting-card:hover .card-arrow {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .settings-container {
+            padding: 2rem 1rem;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+        }
+        
+        .settings-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">Manage Settings</h1>
+        <p class="page-subtitle">Configure system choice fields and options</p>
+    </div>
+    
+    <!-- Settings Grid -->
+    <div class="settings-grid">
+        <!-- Leave Types Card -->
+        <a href="/leave_types/" class="setting-card">
+            <div class="card-icon leave">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <h2 class="card-title">Leave Types</h2>
+            <p class="card-description">
+                Manage different types of leaves available in the system such as annual, sick, emergency leaves
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+        
+        <!-- MOLs Card -->
+        <a href="/mols/" class="setting-card">
+            <div class="card-icon mol">
+                <i class="fas fa-building"></i>
+            </div>
+            <h2 class="card-title">MOL Options</h2>
+            <p class="card-description">
+                Configure MOL categories and related settings for employee management
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+
+        <!-- Departments Card -->
+        <a href="{% url 'department_list' %}" class="setting-card">
+            <div class="card-icon department">
+                <i class="fas fa-sitemap"></i>
+            </div>
+            <h2 class="card-title">Departments</h2>
+            <p class="card-description">
+                Add, edit or remove departments used across employee records and role assignments
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+
+        <!-- MD Accounts Card -->
+        <a href="{% url 'md_account_list' %}" class="setting-card">
+            <div class="card-icon md">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <h2 class="card-title">MD Accounts</h2>
+            <p class="card-description">
+                Create and manage Managing Director system accounts with full view access
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+
+        <!-- Bulk Upload Card -->
+        <a href="{% url 'employee_upload' %}" class="setting-card">
+            <div class="card-icon bulk">
+                <i class="fas fa-file-upload"></i>
+            </div>
+            <h2 class="card-title">Bulk Upload Employees</h2>
+            <p class="card-description">
+                Import multiple employees at once by uploading a filled Excel template
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}

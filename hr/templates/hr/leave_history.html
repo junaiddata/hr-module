@@ -1,0 +1,65 @@
+{% extends "hr/base.html" %}
+
+{% block content %}
+
+<h3>Leave History</h3>
+
+<a href="{% url 'add_leave' %}" class="btn btn-primary mb-2">Add New Leave</a>
+
+
+<form method="get" class="row mb-3">
+    <div class="col-md-4">
+        <input type="text" name="q" class="form-control" placeholder="Search by Employee Name or ID" value="{{ query }}">
+    </div>
+    <div class="col-md-4">
+        <select name="leave_type" class="form-select">
+            <option value="">All Leave Types</option>
+            {% for lt in leave_types %}
+                <option value="{{ lt.id }}" {% if selected_type == lt.id|stringformat:"s" %}selected{% endif %}>
+                    {{ lt.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
+    <div class="col-md-2">
+        <a href="{% url 'leave_history' %}" class="btn btn-secondary">Reset</a>
+    </div>
+</form>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>Expected</th>
+            <th>Actual</th>
+            <th>Days</th>
+            <th>Actual Days</th>
+            <th>Reported To</th>
+            <th>Rejoined</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for leave in leaves %}
+        <tr>
+            <td>{{ leave.employee.emp_name }}</td>
+            <td>{{ leave.leave_type.name }}</td>
+            <td>{{ leave.expected_from }} to {{ leave.expected_to }}</td>
+            <td>{{ leave.actual_from }} to {{ leave.actual_to }}</td>
+            <td>{{ leave.days }}</td>
+            <td>{{ leave.actual_days }}</td>
+            <td>{{ leave.reported_to }}</td>
+            <td>{{ leave.rejoined_on }}</td>
+            <td>
+                <a href="{% url 'edit_leave' leave.id %}" class="btn btn-sm btn-warning">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+

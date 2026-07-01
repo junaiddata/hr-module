@@ -1,0 +1,163 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Payroll Runs{% endblock %}
+
+{% block extra_css %}
+<style>
+.pw { padding: 2rem; }
+.page-hdr {
+    background: var(--gradient-primary);
+    border-radius: 14px; padding: 1.5rem 2rem; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem; margin-bottom: 1.75rem;
+}
+.page-hdr h1 { font-size: 1.35rem; font-weight: 700; margin: 0; }
+.page-hdr .sub { font-size: .83rem; opacity: .85; margin-top: .2rem; }
+.btn-new {
+    background: #fff; color: var(--accent-primary);
+    padding: .55rem 1.25rem; border-radius: 8px;
+    font-weight: 700; font-size: .88rem; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .45rem;
+}
+
+/* Stats row */
+.stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.stat-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 1rem 1.5rem;
+    flex: 1; min-width: 150px; text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+.stat-card .n { font-size: 1.8rem; font-weight: 800; color: var(--accent-primary); }
+.stat-card .l { font-size: .78rem; color: var(--text-secondary); margin-top: .2rem; }
+
+/* Table card */
+.card-box {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.card-box-hdr {
+    padding: .9rem 1.25rem; border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: .5rem;
+}
+.card-box-hdr h2 { font-size: .92rem; font-weight: 700; margin: 0; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+    padding: .65rem 1rem; font-size: .7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em;
+    background: var(--bg-secondary); color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color); text-align: left;
+}
+tbody td {
+    padding: .8rem 1rem; border-bottom: 1px solid var(--border-color);
+    font-size: .875rem; color: var(--text-primary); vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--bg-secondary); }
+
+.badge { display: inline-block; padding: .18rem .65rem; border-radius: 20px; font-size: .73rem; font-weight: 600; }
+.b-draft     { background: rgba(245,158,11,.12); color: #d97706; }
+.b-confirmed { background: rgba(16,185,129,.12); color: #059669; }
+
+.btn-sm {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .25rem .65rem; border-radius: 6px;
+    font-size: .78rem; font-weight: 600; text-decoration: none;
+}
+.btn-view   { background: rgba(59,130,246,.08);  color: #2563eb; }
+.btn-view:hover { background: rgba(59,130,246,.18); }
+.btn-del    { background: rgba(220,38,38,.08); color: #dc2626; }
+.btn-del:hover { background: rgba(220,38,38,.18); }
+.empty-msg  { text-align: center; padding: 2.5rem; color: var(--text-tertiary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pw">
+    <div class="page-hdr">
+        <div>
+            <h1><i class="fas fa-money-bill-wave" style="margin-right:.5rem;"></i>Payroll</h1>
+            <div class="sub">Manage monthly payroll runs for all employees</div>
+        </div>
+        <a href="{% url 'payroll_create' %}" class="btn-new">
+            <i class="fas fa-plus"></i> New Payroll Run
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-row">
+        <div class="stat-card">
+            <div class="n">{{ runs|length }}</div>
+            <div class="l">Total Runs</div>
+        </div>
+        <div class="stat-card">
+            <div class="n" style="color:#d97706;">{{ draft_count }}</div>
+            <div class="l">Draft</div>
+        </div>
+        <div class="stat-card">
+            <div class="n" style="color:#059669;">{{ confirmed_count }}</div>
+            <div class="l">Confirmed</div>
+        </div>
+    </div>
+
+    <div class="card-box">
+        <div class="card-box-hdr">
+            <i class="fas fa-list" style="color:var(--accent-primary);"></i>
+            <h2>All Payroll Runs</h2>
+        </div>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Period</th>
+                        <th>Employees</th>
+                        <th>Total Gross</th>
+                        <th>Total Net</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                    <tr>
+                        <td style="color:var(--text-tertiary);">{{ forloop.counter }}</td>
+                        <td><strong>{{ run.get_month_display }} {{ run.year }}</strong></td>
+                        <td style="text-align:center;">{{ run.entries.count }}</td>
+                        <td>AED {{ run.total_gross|floatformat:2 }}</td>
+                        <td><strong>AED {{ run.total_net|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if run.status == 'Draft' %}
+                            <span class="badge b-draft">Draft</span>
+                            {% else %}
+                            <span class="badge b-confirmed">Confirmed</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ run.created_by.get_full_name|default:run.created_by.username }}</td>
+                        <td style="color:var(--text-tertiary);font-size:.8rem;">{{ run.created_at|date:"d M Y" }}</td>
+                        <td>
+                            <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+                                <a href="{% url 'payroll_detail' run.pk %}" class="btn-sm btn-view">
+                                    <i class="fas fa-eye"></i> Open
+                                </a>
+                                {% if run.status == 'Draft' %}
+                                <a href="{% url 'payroll_delete' run.pk %}" class="btn-sm btn-del">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="empty-msg">
+                        <i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:.5rem;"></i>
+                        No payroll runs yet. <a href="{% url 'payroll_create' %}" style="color:var(--accent-primary);font-weight:600;">Create the first one →</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

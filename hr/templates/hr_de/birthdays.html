@@ -1,0 +1,149 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}Upcoming Birthdays{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bd-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+    .bd-top {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem;
+    }
+    .bd-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+    .bd-title i { color: #ec4899; }
+    .bd-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+    .bd-export {
+        display: inline-flex; align-items: center; gap: .5rem;
+        padding: .6rem 1.2rem; border-radius: 10px;
+        background: var(--gradient-primary); color: #fff; text-decoration: none;
+        font-weight: 600; font-size: .88rem; border: none;
+        box-shadow: 0 4px 12px rgba(8,11,177,.22); transition: all .18s;
+    }
+    .bd-export:hover { color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(8,11,177,.3); }
+
+    .bd-filter {
+        display: flex; align-items: flex-end; gap: .9rem; flex-wrap: wrap;
+        background: var(--bg-primary); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 1rem 1.15rem; margin-bottom: 1.75rem;
+    }
+    .bd-field { display: flex; flex-direction: column; gap: .3rem; }
+    .bd-field label { font-size: .74rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+    .bd-field .form-control { border: 1.5px solid var(--border-color); border-radius: 9px; padding: .5rem .7rem; font-size: .88rem; }
+    .bd-filter-btn {
+        display: inline-flex; align-items: center; gap: .45rem;
+        padding: .55rem 1.1rem; border-radius: 9px; border: none;
+        background: var(--gradient-primary); color: #fff; font-weight: 600; font-size: .85rem; cursor: pointer;
+    }
+    .bd-filter-btn:hover { opacity: .92; }
+    .bd-reset { font-size: .82rem; font-weight: 600; color: var(--text-secondary); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; padding: .55rem .5rem; }
+    .bd-reset:hover { color: var(--accent-primary); }
+
+    .bd-section { margin-bottom: 2rem; }
+    .bd-section-head {
+        display: flex; align-items: center; gap: .6rem;
+        font-size: 1.05rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+    .bd-count {
+        font-size: .74rem; font-weight: 700; color: var(--accent-primary);
+        background: rgba(8,11,177,.08); border-radius: 9999px; padding: .15rem .6rem;
+    }
+
+    .bd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+
+    .bd-card {
+        display: flex; align-items: center; gap: 1rem;
+        background: var(--bg-primary); border: 1px solid var(--border-color);
+        border-radius: 14px; padding: 1rem 1.15rem; box-shadow: var(--shadow-sm);
+        transition: transform .15s, box-shadow .15s;
+    }
+    .bd-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .bd-card.today { border-color: #ec4899; background: linear-gradient(0deg, rgba(236,72,153,.05), rgba(236,72,153,.05)), var(--bg-primary); }
+
+    .bd-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border-color); }
+    .bd-avatar-fallback {
+        width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+        background: var(--gradient-primary); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 1.2rem;
+    }
+    .bd-info { flex: 1; min-width: 0; }
+    .bd-name { font-weight: 700; color: var(--text-primary); font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-meta { font-size: .78rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-right { text-align: right; flex-shrink: 0; }
+    .bd-date { font-weight: 700; color: var(--text-primary); font-size: .9rem; }
+    .bd-date .day { font-size: 1.15rem; color: #ec4899; }
+    .bd-turns { font-size: .72rem; color: var(--text-tertiary); }
+
+    .bd-badge {
+        display: inline-block; margin-top: .35rem;
+        font-size: .68rem; font-weight: 700; padding: .12rem .5rem; border-radius: 9999px;
+    }
+    .badge-today { background: #fce7f3; color: #be185d; }
+    .badge-soon  { background: #fef9c3; color: #854d0e; }
+    .badge-upc   { background: #dbeafe; color: #1d4ed8; }
+    .badge-past  { background: var(--bg-tertiary); color: var(--text-tertiary); }
+
+    .bd-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; border: 1px dashed var(--border-color); border-radius: 12px; font-size: .9rem; }
+
+    @media (max-width: 640px) {
+        .bd-wrap { padding: 1.25rem; }
+        .bd-grid { grid-template-columns: 1fr; }
+        .bd-export { width: 100%; justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bd-wrap">
+
+    <div class="bd-top">
+        <div>
+            <h1 class="bd-title"><i class="fas fa-cake-candles"></i> {% if month_mode %}Birthdays{% else %}Upcoming Birthdays{% endif %}</h1>
+            <p class="bd-sub">
+                {% if month_mode %}Active employees with birthdays in the selected month{% else %}Active employees with birthdays this month and next month{% endif %} · {{ total }} total
+            </p>
+        </div>
+        <a href="?export=pdf{% if month_mode %}&month={{ selected_month }}{% endif %}" class="bd-export"><i class="fas fa-file-pdf"></i> Export PDF</a>
+    </div>
+
+    <!-- Month filter -->
+    <form method="get" class="bd-filter">
+        <div class="bd-field">
+            <label>Month</label>
+            <select name="month" class="form-control" onchange="this.form.submit()">
+                <option value="">This &amp; next month (default)</option>
+                {% for num, name in months %}
+                <option value="{{ num }}" {% if selected_month == num %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="bd-filter-btn"><i class="fas fa-filter"></i> Show</button>
+        {% if month_mode %}
+        <a href="{% url 'birthdays' %}" class="bd-reset"><i class="fas fa-rotate-left"></i> Reset to default</a>
+        {% endif %}
+    </form>
+
+    {% for title, rows in sections %}
+    <div class="bd-section">
+        <div class="bd-section-head">
+            <i class="fas fa-calendar-day" style="color:#ec4899;"></i>
+            {{ title }}
+            <span class="bd-count">{{ rows|length }}</span>
+        </div>
+        {% if rows %}
+        <div class="bd-grid">
+            {% for r in rows %}
+            {% include "hr_de/_birthday_card.html" with r=r %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bd-empty">No birthdays in this period.</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

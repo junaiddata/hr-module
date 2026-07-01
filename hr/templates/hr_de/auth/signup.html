@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - HR Management System</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #0e11c1;
+            --primary-dark: #150f87;
+            --secondary: #19034f;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --border-color: #e2e8f0;
+            --error: #ef4444;
+            --success: #10b981;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0021b1 0%, #230793 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        /* Signup Container */
+        .signup-container {
+            width: 100%;
+            max-width: 520px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        /* Logo Section */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .logo-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Signup Card */
+        .signup-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        /* Progress Steps */
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .step {
+            width: 60px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            transition: background 0.3s ease;
+        }
+        
+        .step.active {
+            background: var(--primary);
+        }
+        
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-label .required {
+            color: var(--error);
+        }
+        
+        .input-group {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            font-size: 1rem;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: var(--bg-primary);
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .form-input::placeholder {
+            color: var(--text-tertiary);
+        }
+        
+        .form-input.error {
+            border-color: var(--error);
+        }
+        
+        /* Password Strength Indicator */
+        .password-strength {
+            margin-top: 0.5rem;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .password-strength-bar {
+            height: 100%;
+            width: 0;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+        
+        .password-strength-bar.weak {
+            width: 33%;
+            background: var(--error);
+        }
+        
+        .password-strength-bar.medium {
+            width: 66%;
+            background: #f59e0b;
+        }
+        
+        .password-strength-bar.strong {
+            width: 100%;
+            background: var(--success);
+        }
+        
+        .password-hint {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+        
+        /* Password Toggle */
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+            background: none;
+            border: none;
+            padding: 0.25rem;
+        }
+        
+        .password-toggle:hover {
+            color: var(--text-secondary);
+        }
+        
+        /* Terms Checkbox */
+        .terms-wrapper {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+        }
+        
+        .checkbox-input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            margin-top: 2px;
+        }
+        
+        .terms-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .terms-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .terms-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Submit Button */
+        .btn-signup {
+            width: 100%;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-signup:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-signup:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        /* Login Link */
+        .login-section {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .login-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .login-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+        
+        .login-link:hover {
+            color: var(--primary-dark);
+        }
+        
+        /* Alert Messages */
+        .alert {
+            padding: 0.875rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+        
+        /* Loading State */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 540px) {
+            .signup-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-title {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <!-- Logo Section -->
+        <div class="logo-section">
+            <div class="logo-wrapper">
+                <div class="logo-icon">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <h1 class="logo-text">HR System</h1>
+            </div>
+        </div>
+        
+        <!-- Signup Card -->
+        <div class="signup-card">
+            <div class="card-header">
+                <h2 class="card-title">Create Account</h2>
+                <p class="card-subtitle">Join us to access the HR Management System</p>
+            </div>
+            
+            <!-- Progress Steps -->
+            <div class="progress-steps">
+                <div class="step active"></div>
+                <div class="step active"></div>
+                <div class="step"></div>
+            </div>
+            
+            <!-- Alert Messages -->
+            {% for message in messages %}
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+            
+            <form method="post" id="signupForm">
+                {% csrf_token %}
+                
+                <div class="form-grid">
+                    <!-- First Name -->
+                    <div class="form-group">
+                        <label for="first_name" class="form-label">First Name <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-user input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="first_name"
+                                name="first_name" 
+                                class="form-input" 
+                                placeholder="John"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Last Name -->
+                    <div class="form-group">
+                        <label for="last_name" class="form-label">Last Name <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-user input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="last_name"
+                                name="last_name" 
+                                class="form-input" 
+                                placeholder="Doe"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Email -->
+                    <div class="form-group full-width">
+                        <label for="email" class="form-label">Email Address <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input 
+                                type="email" 
+                                id="email"
+                                name="email" 
+                                class="form-input" 
+                                placeholder="john.doe@example.com"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Username -->
+                    <div class="form-group full-width">
+                        <label for="username" class="form-label">Username <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-at input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="username"
+                                name="username" 
+                                class="form-input" 
+                                placeholder="johndoe"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Password -->
+                    <div class="form-group full-width">
+                        <label for="password" class="form-label">Password <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input 
+                                type="password" 
+                                id="password"
+                                name="password" 
+                                class="form-input" 
+                                placeholder="Create a strong password"
+                                required
+                                onkeyup="checkPasswordStrength()"
+                            >
+                            <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                                <i class="fas fa-eye" id="passwordToggle"></i>
+                            </button>
+                        </div>
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="strengthBar"></div>
+                        </div>
+                        <p class="password-hint">Use 8+ characters with mixed case, numbers & symbols</p>
+                                        </div>
+                    
+                    <!-- Confirm Password -->
+                    <div class="form-group full-width">
+                        <label for="confirm_password" class="form-label">Confirm Password <span class="required">*</span></label>
+                        <div class="input-group">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input 
+                                type="password" 
+                                id="confirm_password"
+                                name="confirm_password" 
+                                class="form-input" 
+                                placeholder="Re-enter your password"
+                                required
+                                onkeyup="checkPasswordMatch()"
+                            >
+                            <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
+                                <i class="fas fa-eye" id="confirmPasswordToggle"></i>
+                            </button>
+                        </div>
+                        <p class="password-hint" id="matchHint" style="color: var(--error); display: none;">
+                            <i class="fas fa-times-circle"></i> Passwords do not match
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Terms and Conditions
+                <div class="terms-wrapper">
+                    <input type="checkbox" id="terms" class="checkbox-input" required>
+                    <label for="terms" class="terms-label">
+                        I agree to the <a href="#" class="terms-link">Terms of Service</a> and 
+                        <a href="#" class="terms-link">Privacy Policy</a>
+                    </label>
+                </div> -->
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn-signup" id="signupBtn">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Create Account</span>
+                </button>
+            </form>
+            
+            <!-- Login Link -->
+            <div class="login-section">
+                <p class="login-text">
+                    Already have an account? 
+                    <a href="{% url 'login' %}" class="login-link">Sign in instead</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+// Toggle password visibility
+function togglePassword(fieldId) {
+    const passwordInput = document.getElementById(fieldId);
+    const toggleIcon = document.getElementById(fieldId + 'Toggle');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+
+// Check password strength
+function checkPasswordStrength() {
+    const password = document.getElementById('password').value;
+    const strengthBar = document.getElementById('strengthBar');
+    let strength = 0;
+    
+    // Check length
+    if (password.length >= 8) strength++;
+    if (password.length >= 12) strength++;
+    
+    // Check for mixed case
+    if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
+    
+    // Check for numbers
+    if (password.match(/\d/)) strength++;
+    
+    // Check for special characters
+    if (password.match(/[^a-zA-Z\d]/)) strength++;
+    
+    // Update strength bar
+    strengthBar.className = 'password-strength-bar';
+    if (strength <= 2) {
+        strengthBar.classList.add('weak');
+    } else if (strength <= 4) {
+        strengthBar.classList.add('medium');
+    } else {
+        strengthBar.classList.add('strong');
+    }
+}
+
+// Check if passwords match
+function checkPasswordMatch() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    const matchHint = document.getElementById('matchHint');
+    const confirmInput = document.getElementById('confirm_password');
+    
+    if (confirmPassword && password !== confirmPassword) {
+        matchHint.style.display = 'block';
+        matchHint.style.color = 'var(--error)';
+        matchHint.innerHTML = '<i class="fas fa-times-circle"></i> Passwords do not match';
+        confirmInput.classList.add('error');
+    } else if (confirmPassword && password === confirmPassword) {
+        matchHint.style.display = 'block';
+        matchHint.style.color = 'var(--success)';
+        matchHint.innerHTML = '<i class="fas fa-check-circle"></i> Passwords match';
+        confirmInput.classList.remove('error');
+    } else {
+        matchHint.style.display = 'none';
+        confirmInput.classList.remove('error');
+    }
+}
+
+// Form validation
+document.getElementById('signupForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    // Validate passwords match
+    if (password !== confirmPassword) {
+        e.preventDefault();
+        alert('Passwords do not match!');
+        return;
+    }
+    
+    // Validate password strength
+    if (password.length < 8) {
+        e.preventDefault();
+        alert('Password must be at least 8 characters long!');
+        return;
+    }
+    
+    // Show loading state
+    const signupBtn = document.getElementById('signupBtn');
+    signupBtn.disabled = true;
+    signupBtn.innerHTML = '<span class="spinner"></span> Creating account...';
+    
+    // Form will submit normally if validation passes
+});
+
+// Update progress steps based on filled fields
+function updateProgress() {
+    const inputs = document.querySelectorAll('.form-input');
+    const steps = document.querySelectorAll('.step');
+    let filledCount = 0;
+    
+    inputs.forEach(input => {
+        if (input.value) filledCount++;
+    });
+    
+    const progress = Math.floor((filledCount / inputs.length) * 3);
+    
+    steps.forEach((step, index) => {
+        if (index < progress) {
+            step.classList.add('active');
+        } else {
+            step.classList.remove('active');
+        }
+    });
+}
+
+// Add event listeners to all inputs for progress update
+document.querySelectorAll('.form-input').forEach(input => {
+    input.addEventListener('input', updateProgress);
+});
+
+// Auto-capitalize names
+document.getElementById('first_name').addEventListener('input', function() {
+    this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+});
+
+document.getElementById('last_name').addEventListener('input', function() {
+    this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+});
+
+// Username validation (lowercase, no spaces)
+document.getElementById('username').addEventListener('input', function() {
+    this.value = this.value.toLowerCase().replace(/\s/g, '');
+});
+    </script>
+</body>
+</html>

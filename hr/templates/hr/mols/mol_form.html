@@ -1,0 +1,18 @@
+<!-- templates/hr/gender_form.html -->
+{% extends "hr/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>{% if mol %}Edit MOL{% else %}Add MOL{% endif %}</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="mol" class="form-label">MOL name</label>
+            <input type="text" class="form-control" name="mol" id="mol"
+                   value="{{ mol.mol|default:'' }}" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{% url 'mol_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

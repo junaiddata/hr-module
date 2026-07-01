@@ -1,0 +1,217 @@
+{% extends 'hr_de/base.html' %}
+{% block title %}Leave History — Department Head{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-wrapper { padding: 2rem; }
+
+.page-header {
+    background: var(--gradient-primary);
+    border-radius: 14px;
+    padding: 1.5rem 2rem;
+    color: #fff;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+}
+.page-header h1 { font-size: 1.35rem; font-weight: 700; margin: 0; }
+.page-header .sub { font-size: .84rem; opacity: .85; margin-top: .2rem; }
+
+/* Search / filter bar */
+.filter-bar {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+    box-shadow: var(--shadow-sm);
+}
+.filter-bar input, .filter-bar select {
+    padding: .5rem .8rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: .875rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    flex: 1; min-width: 160px;
+}
+.filter-bar input:focus, .filter-bar select:focus { outline: none; border-color: var(--accent-primary); }
+.filter-bar button {
+    padding: .5rem 1.1rem;
+    background: var(--gradient-primary); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: .875rem; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: .4rem;
+}
+
+/* Table card */
+.card-box {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+.card-box-header {
+    padding: .9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: .5rem;
+}
+.card-box-header h2 { font-size: .92rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+    padding: .65rem 1rem;
+    font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    background: #f8fafc; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap;
+}
+tbody td {
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: .865rem; vertical-align: middle; color: var(--text-primary);
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f8fafc; }
+
+.status-badge {
+    display: inline-block; padding: .18rem .6rem;
+    border-radius: 20px; font-size: .73rem; font-weight: 600; white-space: nowrap;
+}
+.s-pending      { background:rgba(245,158,11,.12);  color:#d97706; }
+.s-head         { background:rgba(59,130,246,.12);  color:#2563eb; }
+.s-md           { background:rgba(139,92,246,.12);  color:#7c3aed; }
+.s-approved     { background:rgba(16,185,129,.12);  color:#059669; }
+.s-rejected     { background:rgba(239,68,68,.12);   color:#dc2626; }
+
+.btn-sm {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .25rem .65rem; border-radius: 6px;
+    font-size: .76rem; font-weight: 600; text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.btn-rejoin  { background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.2); }
+.btn-rejoin:hover  { background:rgba(16,185,129,.2); }
+.btn-rejoin-done { background:rgba(148,163,184,.1); color:#64748b; border:1px solid var(--border-color); }
+.btn-rejoin-done:hover { background:rgba(148,163,184,.2); }
+
+.rejoined-date { font-size:.76rem; color: var(--text-secondary); margin-top:.15rem; }
+.actual-days   { font-size:.76rem; font-weight:600; color: var(--accent-primary); margin-top:.1rem; }
+
+.empty-row td { text-align: center; padding: 2rem; color: var(--text-tertiary); }
+
+@media (max-width:640px) { .page-wrapper { padding: 1rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-history" style="margin-right:.5rem;"></i>Leave History</h1>
+            <div class="sub">All leave records for your department</div>
+        </div>
+        <a href="{% url 'employee_home' %}" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);color:#fff;padding:.4rem .9rem;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;">
+            <i class="fas fa-home" style="margin-right:.35rem;"></i>Dashboard
+        </a>
+    </div>
+
+    <!-- Filter bar -->
+    <form method="get" class="filter-bar">
+        <input type="text" name="q" value="{{ query|default:'' }}" placeholder="Search employee name or ID…">
+        <select name="leave_type">
+            <option value="">All Leave Types</option>
+            {% for lt in leave_types %}
+            <option value="{{ lt.pk }}" {% if selected_type == lt.pk|stringformat:"s" %}selected{% endif %}>{{ lt.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    <!-- Table -->
+    <div class="card-box">
+        <div class="card-box-header">
+            <i class="fas fa-calendar-days" style="color:var(--accent-primary);"></i>
+            <h2>Leave Records ({{ leaves|length }})</h2>
+        </div>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Applied Days</th>
+                        <th>Status</th>
+                        <th>Rejoining / Actual Days</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leaves %}
+                    <tr>
+                        <td style="color:var(--text-tertiary);">{{ forloop.counter }}</td>
+                        <td>
+                            <strong>{{ leave.employee.emp_name }}</strong><br>
+                            <span style="font-size:.75rem;color:var(--text-tertiary);">{{ leave.employee.emp_id }}</span>
+                        </td>
+                        <td>{{ leave.leave_type.name|default:"—" }}</td>
+                        <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                        <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                        <td style="font-weight:600;text-align:center;">{{ leave.days }}</td>
+                        <td>
+                            {% if leave.status == 'Pending' %}
+                                <span class="status-badge s-pending">Pending</span>
+                            {% elif leave.status == 'Head_Approved' %}
+                                <span class="status-badge s-head">Head Approved</span>
+                            {% elif leave.status == 'MD_Approved' %}
+                                <span class="status-badge s-md">MD Approved</span>
+                            {% elif leave.status == 'Approved' %}
+                                <span class="status-badge s-approved">Approved</span>
+                            {% elif leave.status == 'Rejected' %}
+                                <span class="status-badge s-rejected">Rejected</span>
+                            {% else %}
+                                <span class="status-badge s-pending">{{ leave.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if leave.rejoined_on %}
+                                <div class="rejoined-date"><i class="fas fa-calendar-check" style="color:#10b981;"></i> {{ leave.rejoined_on|date:"d M Y" }}</div>
+                                {% if leave.actual_days %}
+                                <div class="actual-days"><i class="fas fa-clock"></i> {{ leave.actual_days }} actual day{{ leave.actual_days|pluralize }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span style="color:var(--text-tertiary);font-size:.8rem;">Not set</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if leave.status != 'Rejected' %}
+                            <a href="{% url 'set_rejoining_date' leave.pk %}"
+                               class="btn-sm {% if leave.rejoined_on %}btn-rejoin-done{% else %}btn-rejoin{% endif %}">
+                                <i class="fas fa-undo-alt"></i>
+                                {% if leave.rejoined_on %}Update{% else %}Set Rejoining{% endif %}
+                            </a>
+                            {% else %}
+                            <span style="color:var(--text-tertiary);font-size:.78rem;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="9">
+                            <i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:.5rem;"></i>
+                            No leave records found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "hr_de/base.html" %}
+
+{% block content %}
+<style>
+    .button-container {
+        display: flex;
+        gap: 20px;
+        margin-top: 40px;
+        justify-content: center;
+    }
+    .btn {
+        padding: 16px 32px;
+        font-size: 18px;
+        border: none;
+        border-radius: 6px;
+        background-color: #1976d2;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn:hover {
+        background-color: #1565c0;
+    }
+</style>
+<div class="button-container">
+    <a href="/leave_types/" class="btn">Leave Types</a>
+    <a href="/mols/" class="btn">MOLs</a>
+</div>
+{% endblock %}

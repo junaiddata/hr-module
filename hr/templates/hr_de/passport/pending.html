@@ -1,0 +1,74 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Pending Passport Requests{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { background:linear-gradient(135deg,#0a0a85 0%,#1e15bb9e 100%); padding:2rem 0; margin-bottom:2rem; border-radius:0 0 20px 20px; }
+    .page-title  { color:#fff; font-size:1.75rem; font-weight:700; display:flex; align-items:center; gap:.75rem; }
+    .req-table { width:100%; background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    .req-table thead { background:#f8fafc; border-bottom:2px solid #e2e8f0; }
+    .req-table th { padding:.85rem 1rem; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#475569; }
+    .req-table td { padding:.85rem 1rem; font-size:.88rem; color:#334155; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+    .req-table tbody tr:last-child td { border-bottom:none; }
+    .emp-avatar { width:34px; height:34px; background:linear-gradient(135deg,#2208cd,#120aa09e); color:#fff; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:.78rem; }
+    .empty-state { text-align:center; padding:4rem 2rem; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title"><i class="fas fa-passport"></i>Pending Passport Requests</h1>
+        <p style="color:rgba(255,255,255,.8);margin:.25rem 0 0;">Review and approve employee passport custody requests</p>
+    </div>
+</div>
+
+<div class="container pb-5">
+    {% if requests %}
+    <table class="req-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Dept</th>
+                <th>Needed From</th>
+                <th>Expected Return</th>
+                <th>Reason</th>
+                <th>Requested</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requests %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:.6rem;">
+                        <span class="emp-avatar">{{ req.employee.emp_name|slice:":2"|upper }}</span>
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;">{{ req.employee.emp_name }}</div>
+                            <div style="font-size:.72rem;color:#64748b;">{{ req.employee.emp_id }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="font-size:.82rem;">{{ req.employee.department|default:"—" }}</td>
+                <td style="font-size:.82rem;">{{ req.needed_from|date:"M d, Y"|default:"—" }}</td>
+                <td style="font-size:.82rem;">{{ req.expected_return|date:"M d, Y"|default:"—" }}</td>
+                <td style="max-width:260px;font-size:.83rem;color:#475569;">{{ req.reason|truncatechars:80 }}</td>
+                <td style="font-size:.8rem;color:#64748b;white-space:nowrap;">{{ req.created_at|date:"M d, Y" }}</td>
+                <td>
+                    <a href="{% url 'passport_approve' req.pk %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-gavel me-1"></i>Review
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-passport" style="font-size:2.5rem;display:block;margin-bottom:1rem;"></i>
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:.4rem;color:#334155;">No Pending Requests</div>
+        <div style="font-size:.875rem;">All passport requests have been processed.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,322 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{{ run }} -- Payroll Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+.pw { padding: 2rem; }
+
+.run-hdr {
+    background: var(--gradient-primary);
+    border-radius: 14px; padding: 1.5rem 2rem; color: #fff;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+}
+.run-hdr h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .2rem; }
+.run-hdr .sub { font-size: .82rem; opacity: .85; }
+.run-actions { display: flex; gap: .65rem; flex-wrap: wrap; align-items: center; }
+.btn-white {
+    background: rgba(255,255,255,.18); color: #fff;
+    border: 1px solid rgba(255,255,255,.3); padding: .45rem 1rem;
+    border-radius: 8px; font-size: .83rem; font-weight: 600;
+    text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
+}
+.btn-white:hover { background: rgba(255,255,255,.3); }
+.btn-confirm {
+    background: #fff; color: #059669;
+    border: none; padding: .5rem 1.25rem;
+    border-radius: 8px; font-size: .85rem; font-weight: 700;
+    cursor: pointer; display: inline-flex; align-items: center; gap: .4rem;
+}
+.btn-confirm:hover { background: #f0fdf4; }
+.btn-del-run {
+    background: rgba(220,38,38,.15); color: #fff;
+    border: 1px solid rgba(220,38,38,.4); padding: .45rem 1rem;
+    border-radius: 8px; font-size: .83rem; font-weight: 600;
+    text-decoration: none; display: inline-flex; align-items: center; gap: .4rem;
+}
+.btn-del-run:hover { background: rgba(220,38,38,.3); color: #fff; }
+
+.summary-strip { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+.sum-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 1rem 1.5rem;
+    flex: 1; min-width: 150px; text-align: center; box-shadow: var(--shadow-sm);
+}
+.sum-card .n { font-size: 1.5rem; font-weight: 800; color: var(--accent-primary); }
+.sum-card .l { font-size: .76rem; color: var(--text-secondary); margin-top: .2rem; }
+.sum-card .n.green { color: #059669; }
+.sum-card .n.amber { color: #d97706; }
+
+/* MOL group */
+.mol-block { margin-bottom: 1.25rem; border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); background: #fff; }
+.mol-header {
+    background: linear-gradient(90deg, #f1f5f9, #e2e8f0);
+    padding: .7rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+}
+.mol-header .mol-name { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #334155; display: flex; align-items: center; gap: .5rem; }
+.mol-header .mol-count { font-size: .74rem; color: #64748b; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+    padding: .55rem .85rem; font-size: .66rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+    background: var(--bg-secondary); color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color); white-space: nowrap;
+}
+tbody td {
+    padding: .7rem .85rem; border-bottom: 1px solid var(--border-color);
+    font-size: .84rem; color: var(--text-primary); vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #fafafa; }
+
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.addition { color: #059669; }
+.deduction { color: #dc2626; }
+.net-col { font-weight: 800; color: var(--accent-primary); }
+
+.mol-subtotal td {
+    background: #f0f9ff;
+    font-weight: 700; font-size: .8rem; color: #1e40af;
+    border-top: 1.5px solid #bfdbfe !important;
+    border-bottom: none !important;
+}
+
+.btn-sm {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .22rem .6rem; border-radius: 6px;
+    font-size: .74rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.btn-edit    { background: rgba(99,102,241,.08); color: #4f46e5; }
+.btn-edit:hover { background: rgba(99,102,241,.18); }
+.btn-payslip { background: rgba(16,185,129,.08); color: #059669; }
+.btn-payslip:hover { background: rgba(16,185,129,.18); }
+.btn-remove  { background: rgba(220,38,38,.08); color: #dc2626; border: none; cursor: pointer; }
+.btn-remove:hover { background: rgba(220,38,38,.18); }
+
+.badge-confirmed { background: rgba(16,185,129,.12); color: #059669; padding: .15rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+.badge-draft     { background: rgba(245,158,11,.12); color: #d97706; padding: .15rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+
+/* Monthly deductions panel */
+.deduct-panel { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.5rem; box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; }
+.dp-title { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #dc2626; margin-bottom: .9rem; display: flex; align-items: center; gap: .5rem; }
+.dp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; }
+.dp-item { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: .75rem 1rem; }
+.dp-item .dp-l { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-tertiary); margin-bottom: .25rem; }
+.dp-item .dp-v { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dp-item.dp-advance { background: #fff7ed; border-color: #fed7aa; }
+.dp-item.dp-total { background: #fef2f2; border-color: #fecaca; }
+.dp-formula { margin-top: 1rem; padding-top: .9rem; border-top: 1px dashed var(--border-color); font-size: .85rem; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+.grand-totals { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.1rem 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; box-shadow: var(--shadow-sm); margin-bottom: 1rem; }
+.gt-item .gt-l { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: .2rem; }
+.gt-item .gt-v { font-size: 1.2rem; font-weight: 800; }
+
+@media (max-width:640px) { .pw { padding: 1rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pw">
+
+    <!-- Run header -->
+    <div class="run-hdr">
+        <div>
+            <h1><i class="fas fa-money-bill-wave" style="margin-right:.5rem;"></i>{{ run }}</h1>
+            <div class="sub">
+                {{ entries.count }} employees &nbsp;&middot;&nbsp;
+                {% if run.status == 'Draft' %}<span class="badge-draft" style="color:#fbbf24;">Draft</span>
+                {% else %}<span class="badge-confirmed" style="color:#6ee7b7;">Confirmed</span> &nbsp;&middot;&nbsp; {{ run.confirmed_at|date:"d M Y, H:i" }}
+                {% endif %}
+            </div>
+        </div>
+        <div class="run-actions">
+            <a href="{% url 'payroll_list' %}" class="btn-white"><i class="fas fa-arrow-left"></i> Back</a>
+            {% if run.status == 'Draft' %}
+            <a href="{% url 'payroll_delete' run.pk %}" class="btn-del-run">
+                <i class="fas fa-trash-alt"></i> Delete Run
+            </a>
+            <form method="post" action="{% url 'payroll_confirm' run.pk %}" style="margin:0;"
+                  onsubmit="return confirm('Confirm and lock this payroll run? This cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="btn-confirm"><i class="fas fa-lock"></i> Confirm &amp; Lock</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-strip">
+        <div class="sum-card">
+            <div class="n">{{ entries.count }}</div>
+            <div class="l">Employees</div>
+        </div>
+        <div class="sum-card">
+            <div class="n" style="color:#6366f1;">{{ mol_groups|length }}</div>
+            <div class="l">MOL Groups</div>
+        </div>
+        <div class="sum-card">
+            <div class="n amber">AED {{ run.total_gross|floatformat:2 }}</div>
+            <div class="l">Total Gross</div>
+        </div>
+        <div class="sum-card">
+            <div class="n green">AED {{ run.total_net|floatformat:2 }}</div>
+            <div class="l">Total Net Payable</div>
+        </div>
+    </div>
+
+    <!-- Monthly Deductions breakdown -->
+    <div class="deduct-panel">
+        <div class="dp-title"><i class="fas fa-arrow-down-wide-short"></i> Monthly Deductions</div>
+        <div class="dp-grid">
+            <div class="dp-item">
+                <div class="dp-l">Loan</div>
+                <div class="dp-v">AED {{ run.total_loan_deductions|floatformat:2 }}</div>
+            </div>
+            <div class="dp-item dp-advance">
+                <div class="dp-l"><i class="fas fa-hand-holding-usd me-1"></i>Advance Salary Recovery</div>
+                <div class="dp-v" style="color:#ea580c;">AED {{ run.total_advance_deductions|floatformat:2 }}</div>
+            </div>
+            <div class="dp-item">
+                <div class="dp-l">Other</div>
+                <div class="dp-v">AED {{ run.total_other_deductions|floatformat:2 }}</div>
+            </div>
+            <div class="dp-item dp-total">
+                <div class="dp-l">Total Deductions</div>
+                <div class="dp-v" style="color:#dc2626;">AED {{ run.total_deductions|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="dp-formula">
+            Gross AED {{ run.total_gross|floatformat:2 }}
+            {% if run.total_additions %}<span style="color:#059669;">+ Additions AED {{ run.total_additions|floatformat:2 }}</span>{% endif %}
+            <span style="color:#dc2626;">&minus; Deductions AED {{ run.total_deductions|floatformat:2 }}</span>
+            = <strong style="color:#059669;">Net AED {{ run.total_net|floatformat:2 }}</strong>
+        </div>
+    </div>
+
+    <!-- MOL groups -->
+    {% for group in mol_groups %}
+    <div class="mol-block">
+        <div class="mol-header">
+            <div class="mol-name">
+                <i class="fas fa-building" style="color:#6366f1;"></i>
+                {{ group.mol_label }}
+            </div>
+            <span class="mol-count">{{ group.entries|length }} employee{{ group.entries|length|pluralize }}</span>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Employee</th>
+                        <th>Dept</th>
+                        <th class="num">Basic</th>
+                        <th class="num">HRA</th>
+                        <th class="num">Transport</th>
+                        <th class="num">Others</th>
+                        <th class="num" style="color:#059669;">+ Bonus</th>
+                        <th class="num" style="color:#059669;">+ OT Pay</th>
+                        <th class="num" style="color:#059669;">+ Add.</th>
+                        <th class="num" style="color:#dc2626;">- Loan</th>
+                        <th class="num" style="color:#dc2626;">- Ded.</th>
+                        <th class="num" style="color:#dc2626;">- Advance</th>
+                        <th class="num">Gross</th>
+                        <th class="num">Net</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in group.entries %}
+                    <tr>
+                        <td style="color:var(--text-tertiary);">{{ forloop.counter }}</td>
+                        <td>
+                            <strong>{{ entry.employee.emp_name }}</strong><br>
+                            <span style="font-size:.73rem;color:var(--text-tertiary);">{{ entry.employee.emp_id }}</span>
+                        </td>
+                        <td style="font-size:.81rem;">{{ entry.employee.department.name|default:"--" }}</td>
+                        <td class="num">{{ entry.basic|floatformat:2 }}</td>
+                        <td class="num">{{ entry.hra|floatformat:2 }}</td>
+                        <td class="num">{{ entry.transport|floatformat:2 }}</td>
+                        <td class="num">{{ entry.others|floatformat:2 }}</td>
+                        <td class="num addition">{% if entry.bonus %}+{{ entry.bonus|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num addition">{% if entry.overtime_pay %}+{{ entry.overtime_pay|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num addition">{% if entry.other_additions %}+{{ entry.other_additions|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num deduction">{% if entry.loan_deduction %}-{{ entry.loan_deduction|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num deduction">{% if entry.other_deductions %}-{{ entry.other_deductions|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num deduction">{% if entry.advance_deduction %}-{{ entry.advance_deduction|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num">{{ entry.gross_salary|floatformat:2 }}</td>
+                        <td class="num net-col">{{ entry.net_salary|floatformat:2 }}</td>
+                        <td>
+                            <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;">
+                                {% if run.status == 'Draft' %}
+                                <a href="{% url 'payroll_entry_update' entry.pk %}" class="btn-sm btn-edit" title="Edit">
+                                    <i class="fas fa-pen"></i>
+                                </a>
+                                <form method="post" action="{% url 'payroll_entry_remove' entry.pk %}" style="margin:0;"
+                                      onsubmit="return confirm('Remove {{ entry.employee.emp_name }} from this payroll run?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-sm btn-remove" title="Remove from run">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <a href="{% url 'payslip' entry.pk %}" class="btn-sm btn-payslip" target="_blank" title="Payslip">
+                                    <i class="fas fa-receipt"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- MOL subtotal -->
+                    <tr class="mol-subtotal">
+                        <td colspan="13" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
+                            {{ group.mol_label }} SUBTOTAL
+                        </td>
+                        <td class="num">AED {{ group.total_gross|floatformat:2 }}</td>
+                        <td class="num" style="color:#1e40af;">AED {{ group.total_net|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <div style="background:#fff;border:1px solid var(--border-color);border-radius:14px;padding:2rem;text-align:center;color:var(--text-tertiary);">
+        No entries found.
+    </div>
+    {% endfor %}
+
+    <!-- Grand totals bar -->
+    {% if mol_groups %}
+    <div class="grand-totals">
+        <div class="gt-item">
+            <div class="gt-l">Grand Total Gross</div>
+            <div class="gt-v" style="color:#d97706;">AED {{ run.total_gross|floatformat:2 }}</div>
+        </div>
+        <div class="gt-item">
+            <div class="gt-l">Grand Total Net Payable</div>
+            <div class="gt-v" style="color:#059669;">AED {{ run.total_net|floatformat:2 }}</div>
+        </div>
+        <div class="gt-item">
+            <div class="gt-l">Total Employees</div>
+            <div class="gt-v" style="color:var(--accent-primary);">{{ entries.count }}</div>
+        </div>
+        <div class="gt-item">
+            <div class="gt-l">MOL Groups</div>
+            <div class="gt-v" style="color:#6366f1;">{{ mol_groups|length }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if run.notes %}
+    <div style="font-size:.82rem;color:var(--text-secondary);">
+        <strong>Notes:</strong> {{ run.notes }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
