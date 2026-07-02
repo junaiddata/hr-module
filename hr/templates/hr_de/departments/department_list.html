@@ -22,6 +22,21 @@
     .btn-delete:hover { background: rgba(239,68,68,0.2); }
     .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .empty-icon { font-size: 3rem; color: var(--text-tertiary); margin-bottom: 1rem; }
+    /* Section headings */
+    .section { margin-bottom: 2.5rem; }
+    .section-head { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 1rem; }
+    .section-head h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0; }
+    .section-head .count { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); background: var(--bg-tertiary); padding: 0.15rem 0.6rem; border-radius: 999px; }
+    .section-head .sec-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: #fff; }
+    .section-head .sec-icon.dept { background: var(--gradient-primary); }
+    .section-head .sec-icon.shop { background: linear-gradient(135deg, #f59e0b, #f97316); }
+    /* Shops card grid */
+    .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+    .shop-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-left: 3px solid #f59e0b; border-radius: 12px; padding: 1rem 1.25rem; box-shadow: var(--shadow-sm); transition: all 0.2s ease; }
+    .shop-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .shop-card .shop-name { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem; }
+    .shop-card .shop-name i { color: #f59e0b; }
+    .shop-card .actions { justify-content: flex-start; }
 </style>
 {% endblock %}
 
@@ -34,44 +49,79 @@
         </a>
     </div>
 
-    <table class="mol-table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Department Name</th>
-                <th width="200">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for dept in departments %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ dept.name }}</td>
-                <td>
-                    <div class="actions">
-                        <a href="{% url 'department_edit' dept.pk %}" class="btn-edit">
-                            <i class="fas fa-edit"></i> Edit
-                        </a>
-                        <form method="post" action="{% url 'department_delete' dept.pk %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn-delete" onclick="return confirm('Delete {{ dept.name }}? Employees assigned to it will lose their department.')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="3">
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-sitemap"></i></div>
-                        <p>No departments yet. Add one to get started.</p>
-                    </div>
-                </td>
-            </tr>
+    <div class="section">
+        <div class="section-head">
+            <span class="sec-icon dept"><i class="fas fa-sitemap"></i></span>
+            <h2>Departments</h2>
+            <span class="count">{{ departments|length }}</span>
+        </div>
+        <table class="mol-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Department Name</th>
+                    <th width="200">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dept in departments %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ dept.name }}</td>
+                    <td>
+                        <div class="actions">
+                            <a href="{% url 'department_edit' dept.pk %}" class="btn-edit">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <form method="post" action="{% url 'department_delete' dept.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete {{ dept.name }}? Employees assigned to it will lose their department.')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3">
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-sitemap"></i></div>
+                            <p>No departments yet. Add one to get started.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if shops %}
+    <div class="section">
+        <div class="section-head">
+            <span class="sec-icon shop"><i class="fas fa-store"></i></span>
+            <h2>Shops &amp; Stores</h2>
+            <span class="count">{{ shops|length }}</span>
+        </div>
+        <div class="shop-grid">
+            {% for dept in shops %}
+            <div class="shop-card">
+                <div class="shop-name"><i class="fas fa-store"></i> {{ dept.name }}</div>
+                <div class="actions">
+                    <a href="{% url 'department_edit' dept.pk %}" class="btn-edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <form method="post" action="{% url 'department_delete' dept.pk %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-delete" onclick="return confirm('Delete {{ dept.name }}? Employees assigned to it will lose their department.')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

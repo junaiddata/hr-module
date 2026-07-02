@@ -1,0 +1,165 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+.att-wrap { max-width: 720px; margin: 2rem auto; padding: 0 1rem 3rem; }
+
+.att-hero {
+    background: var(--gradient-primary); color: #fff;
+    border-radius: 18px; padding: 2rem 1.75rem; text-align: center;
+    box-shadow: var(--shadow-md); position: relative; overflow: hidden;
+}
+.att-hero::after {
+    content: ''; position: absolute; right: -40px; top: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: rgba(255,255,255,.08);
+}
+.att-date { font-size: .9rem; opacity: .85; font-weight: 600; letter-spacing: .03em; }
+.att-clock { font-size: 2.9rem; font-weight: 800; line-height: 1.1; margin: .35rem 0 .1rem; font-variant-numeric: tabular-nums; }
+.att-greeting { font-size: .95rem; opacity: .9; margin-bottom: 1.5rem; }
+
+.checkin-btn {
+    background: #fff; color: var(--accent-primary);
+    border: none; border-radius: 14px; padding: 1.1rem 2.5rem;
+    font-size: 1.05rem; font-weight: 800; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .7rem;
+    box-shadow: 0 8px 22px rgba(0,0,0,.18); transition: transform .15s, box-shadow .15s;
+}
+.checkin-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,.24); }
+.checkin-btn i { font-size: 1.3rem; }
+
+.done-badge {
+    display: inline-flex; align-items: center; gap: .6rem;
+    background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.4);
+    border-radius: 14px; padding: 1rem 1.75rem; font-size: 1rem; font-weight: 700;
+}
+.done-badge i { font-size: 1.4rem; }
+.done-sub { font-size: .82rem; opacity: .85; margin-top: .6rem; font-weight: 500; }
+
+.no-link {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; padding: 2rem; text-align: center; margin-top: 1.5rem;
+    color: var(--text-secondary);
+}
+.no-link i { font-size: 2rem; color: #f59e0b; display: block; margin-bottom: .75rem; }
+
+/* Recent history */
+.hist-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 16px; margin-top: 1.75rem; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.hist-head { padding: 1rem 1.4rem; border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: .55rem; font-weight: 700; color: var(--text-primary); }
+.hist-head i { color: var(--accent-primary); }
+.hist-row {
+    display: flex; align-items: center; gap: 1rem; padding: .8rem 1.4rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-date { font-size: .86rem; font-weight: 600; color: var(--text-primary); width: 130px; flex-shrink: 0; }
+.hist-day  { font-size: .74rem; color: var(--text-tertiary); }
+.hist-time { margin-left: auto; font-size: .82rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.st-pill {
+    font-size: .7rem; font-weight: 700; padding: .18rem .6rem; border-radius: 9999px;
+    display: inline-flex; align-items: center; gap: .3rem;
+}
+.st-present  { background: rgba(16,185,129,.12); color: #10b981; }
+.st-leave    { background: rgba(59,130,246,.12); color: #3b82f6; }
+.st-absent   { background: rgba(239,68,68,.12);  color: #ef4444; }
+.st-half_day { background: rgba(245,158,11,.12); color: #f59e0b; }
+.st-holiday  { background: rgba(139,92,246,.12); color: #8b5cf6; }
+.st-week_off { background: var(--bg-tertiary);   color: var(--text-tertiary); }
+.hist-empty { padding: 2rem; text-align: center; color: var(--text-tertiary); font-size: .88rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="att-wrap">
+
+    <!-- Hero / check-in -->
+    <div class="att-hero">
+        <div class="att-date">{{ today|date:"l, d F Y" }}</div>
+        <div class="att-clock" id="liveClock">{{ now|date:"h:i:s A" }}</div>
+
+        {% if employee %}
+            {% if todays %}
+                <div class="att-greeting">You're all set for today, {{ employee.emp_name.split.0 }} 👋</div>
+                <div class="done-badge">
+                    <i class="fas fa-circle-check"></i>
+                    <div>
+                        Checked in
+                        <div class="done-sub">
+                            {% if todays.check_in %}at {{ todays.check_in|time:"h:i A" }}{% else %}today{% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="att-greeting">Tap below to record your attendance for today.</div>
+                <form method="post" action="{% url 'attendance_mark' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="checkin-btn">
+                        <i class="fas fa-fingerprint"></i> Check In Now
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    {% if not employee %}
+    <div class="no-link">
+        <i class="fas fa-triangle-exclamation"></i>
+        <p>Your login isn't linked to an employee profile yet, so attendance can't be recorded.
+        Please contact HR to link your account.</p>
+    </div>
+    {% endif %}
+
+    <!-- Recent history -->
+    {% if employee %}
+    <div class="hist-card">
+        <div class="hist-head"><i class="fas fa-clock-rotate-left"></i> Recent Attendance</div>
+        {% for a in recent %}
+        <div class="hist-row">
+            <div>
+                <div class="hist-date">{{ a.date|date:"d M Y" }}</div>
+                <div class="hist-day">{{ a.date|date:"l" }}</div>
+            </div>
+            <span class="st-pill st-{{ a.status }}">
+                {% if a.status == 'present' %}<i class="fas fa-check"></i> Present
+                {% elif a.status == 'leave' %}<i class="fas fa-plane"></i> {{ a.leave_type.name|default:"Leave" }}
+                {% elif a.status == 'absent' %}<i class="fas fa-xmark"></i> Absent
+                {% elif a.status == 'half_day' %}<i class="fas fa-adjust"></i> Half Day
+                {% elif a.status == 'holiday' %}<i class="fas fa-umbrella-beach"></i> Holiday
+                {% elif a.status == 'week_off' %}<i class="fas fa-mug-hot"></i> Week Off
+                {% endif %}
+            </span>
+            {% if a.check_in %}<span class="hist-time"><i class="fas fa-arrow-right-to-bracket"></i> {{ a.check_in|time:"h:i A" }}</span>{% endif %}
+        </div>
+        {% empty %}
+        <div class="hist-empty">No attendance records yet. Your check-ins will appear here.</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Live ticking clock
+(function () {
+    const el = document.getElementById('liveClock');
+    if (!el) return;
+    function tick() {
+        const now = new Date();
+        let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+        const ap = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        const pad = n => String(n).padStart(2, '0');
+        el.textContent = `${pad(h)}:${pad(m)}:${pad(s)} ${ap}`;
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
+{% endblock %}

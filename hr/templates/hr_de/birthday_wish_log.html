@@ -1,0 +1,128 @@
+{% extends 'hr_de/base.html' %}
+{% load static %}
+
+{% block title %}Birthday Wish Log{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wl-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    .wl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .wl-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+    .wl-title i { color: #25d366; }
+    .wl-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+    .wl-back { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem 1.05rem; border-radius: 9px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-secondary); text-decoration: none; font-weight: 600; font-size: .85rem; }
+    .wl-back:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+    .wl-notready { display: flex; align-items: center; gap: .6rem; background: rgba(245,158,11,.08); border: 1px dashed rgba(245,158,11,.4); color: #b45309; border-radius: 10px; padding: .7rem 1.1rem; font-size: .85rem; margin-bottom: 1.5rem; }
+
+    .wl-tabs { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .wl-tab { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border-radius: 9px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); text-decoration: none; font-weight: 600; font-size: .85rem; }
+    .wl-tab:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+    .wl-tab.active { background: var(--gradient-primary); color: #fff; border-color: transparent; }
+    .wl-tab .c { font-size: .74rem; font-weight: 700; padding: .1rem .5rem; border-radius: 9999px; background: var(--bg-tertiary); color: var(--text-secondary); }
+    .wl-tab.active .c { background: rgba(255,255,255,.25); color: #fff; }
+
+    .wl-table { width: 100%; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+    .wl-table thead { background: var(--bg-tertiary); }
+    .wl-table th { padding: .8rem 1rem; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; }
+    .wl-table td { padding: .8rem 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-size: .86rem; vertical-align: top; }
+    .wl-table tbody tr:last-child td { border-bottom: none; }
+    .wl-table tbody tr:hover { background: var(--bg-hover); }
+
+    .wl-emp { font-weight: 600; }
+    .wl-dept { font-size: .76rem; color: var(--text-secondary); }
+    .pill { display: inline-flex; align-items: center; gap: .35rem; font-size: .74rem; font-weight: 700; padding: .18rem .6rem; border-radius: 9999px; }
+    .pill-sent { background: #dcfce7; color: #15803d; }
+    .pill-failed { background: #fee2e2; color: #b91c1c; }
+    .wl-err { color: #b91c1c; font-size: .78rem; }
+    .wl-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; color: var(--text-secondary); }
+
+    .wl-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; }
+    .wl-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; color: var(--text-tertiary); }
+
+    @media (max-width: 640px) { .wl-wrap { padding: 1.25rem; } .wl-hide-sm { display: none; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wl-wrap">
+
+    <div class="wl-top">
+        <div>
+            <h1 class="wl-title"><i class="fab fa-whatsapp"></i> Birthday Wish Log</h1>
+            <p class="wl-sub">Every WhatsApp birthday wish sent from the system · {{ total }} total</p>
+        </div>
+        <a href="{% url 'birthdays' %}" class="wl-back"><i class="fas fa-arrow-left"></i> Back to Birthdays</a>
+    </div>
+
+    {% if not whatsapp_ready %}
+    <div class="wl-notready">
+        <i class="fas fa-triangle-exclamation"></i>
+        WhatsApp isn't configured yet — set <code>WHATSAPP_ACCESS_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code> to start sending.
+    </div>
+    {% endif %}
+
+    <!-- Filter tabs -->
+    <div class="wl-tabs">
+        <a href="{% url 'birthday_wish_log' %}" class="wl-tab {% if not status %}active{% endif %}">
+            All <span class="c">{{ total }}</span>
+        </a>
+        <a href="?status=sent" class="wl-tab {% if status == 'sent' %}active{% endif %}">
+            <i class="fas fa-check"></i> Sent <span class="c">{{ sent_count }}</span>
+        </a>
+        <a href="?status=failed" class="wl-tab {% if status == 'failed' %}active{% endif %}">
+            <i class="fas fa-xmark"></i> Failed <span class="c">{{ failed_count }}</span>
+        </a>
+    </div>
+
+    {% if wishes %}
+    <table class="wl-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Status</th>
+                <th class="wl-hide-sm">Sent To</th>
+                <th>When</th>
+                <th class="wl-hide-sm">By</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for w in wishes %}
+            <tr>
+                <td>
+                    <div class="wl-emp">{{ w.employee.emp_name }}</div>
+                    {% if w.employee.department %}<div class="wl-dept">{{ w.employee.department.name }}</div>{% endif %}
+                </td>
+                <td>
+                    {% if w.status == 'sent' %}
+                        <span class="pill pill-sent"><i class="fas fa-check"></i> Sent</span>
+                    {% else %}
+                        <span class="pill pill-failed"><i class="fas fa-xmark"></i> Failed</span>
+                    {% endif %}
+                </td>
+                <td class="wl-hide-sm"><span class="wl-mono">{{ w.to_number|default:"—" }}</span></td>
+                <td>{{ w.sent_at|date:"d M Y, H:i" }}</td>
+                <td class="wl-hide-sm">
+                    {% if w.sent_by %}{{ w.sent_by.get_full_name|default:w.sent_by.username }}{% else %}<span class="wl-dept">Auto (daily job)</span>{% endif %}
+                </td>
+                <td>
+                    {% if w.status == 'sent' %}
+                        <span class="wl-mono" title="WhatsApp message id">{{ w.message_id|default:"—"|truncatechars:22 }}</span>
+                    {% else %}
+                        <span class="wl-err">{{ w.error|default:"Unknown error" }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="wl-empty">
+        <i class="fab fa-whatsapp"></i>
+        {% if status %}No {{ status }} wishes yet.{% else %}No birthday wishes have been sent yet.{% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

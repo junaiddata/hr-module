@@ -9,9 +9,12 @@ urlpatterns = [
     path('settings/', views.settings, name='settings'),
     path('notifications/', views.notification_list, name='notification_list'),
     path('notifications/<int:pk>/mark-read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
 
     path('employees/', views.employee_list, name='employee_list'),
     path('birthdays/', views.birthdays, name='birthdays'),
+    path('birthdays/wish/', views.birthday_wish_send, name='birthday_wish_send'),
+    path('birthdays/wish-log/', views.birthday_wish_log, name='birthday_wish_log'),
     path('employee/add/', views.employee_create, name='employee_create'),
     path('employee/<int:pk>/edit/', views.employee_edit, name='employee_edit'),
     path('employee/<int:pk>/', views.employee_detail, name='employee_detail'),
@@ -43,7 +46,6 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
-    path('change-password/', views.change_password, name='change_password'),
     path('forgot-password/', views.forgot_password, name='forgot_password'),
 
     path('mols/', views.mol_list, name='mol_list'),
@@ -82,8 +84,20 @@ urlpatterns = [
     path('my-leaves/', views.my_leaves, name='my_leaves'),
     path('my-leaves/apply/', views.submit_my_leave, name='submit_my_leave'),
 
+    # Attendance
+    path('attendance/mark/',        views.attendance_mark,        name='attendance_mark'),
+    path('attendance/grid/',        views.attendance_grid,        name='attendance_grid'),
+    path('attendance/cell-update/', views.attendance_cell_update, name='attendance_cell_update'),
+    path('attendance/bulk-update/', views.attendance_bulk_update, name='attendance_bulk_update'),
+    path('attendance/day-update/',  views.attendance_day_update,  name='attendance_day_update'),
+
     # HR: salary structure per employee
     path('employee/<int:emp_pk>/salary-structure/', views.salary_structure, name='salary_structure'),
+
+    # HR: salary revision (audit trail)
+    path('employee/<int:emp_id>/salary/revise/',  views.salary_revision_create, name='salary_revision_create'),
+    path('employee/<int:emp_id>/salary/history/', views.salary_history,          name='salary_history'),
+    path('salary-changes/',                        views.salary_all_revisions,   name='salary_all_revisions'),
 
     # Payroll (HR only)
     path('payroll/',                                views.payroll_list,          name='payroll_list'),

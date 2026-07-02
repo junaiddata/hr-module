@@ -424,9 +424,14 @@
                 <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">How the gross salary breaks down into Basic, HRA, Transport and Others. Used when generating payroll &amp; payslips.</span></span>
             </h2>
             {% if request.user.role.role == 'HR' %}
-            <a href="{% url 'salary_structure' employee.pk %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;">
-                <i class="fas fa-pen"></i> {% if employee.salary_structure %}Edit{% else %}Set Structure{% endif %}
-            </a>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                <a href="{% url 'salary_revision_create' emp_id=employee.pk %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;background:var(--gradient-primary);color:#fff;border-color:transparent;">
+                    <i class="fas fa-plus"></i> Revise Salary
+                </a>
+                <a href="{% url 'salary_history' emp_id=employee.pk %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;">
+                    <i class="fas fa-clock-rotate-left"></i> History
+                </a>
+            </div>
             {% endif %}
         </div>
         <div class="ed-card-body">

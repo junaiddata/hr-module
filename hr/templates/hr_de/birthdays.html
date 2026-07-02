@@ -88,6 +88,28 @@
 
     .bd-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; border: 1px dashed var(--border-color); border-radius: 12px; font-size: .9rem; }
 
+    /* WhatsApp wish */
+    .wa-row { margin-top: .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .wa-btn {
+        display: inline-flex; align-items: center; gap: .4rem;
+        padding: .35rem .7rem; border-radius: 8px; border: none; cursor: pointer;
+        background: #25d366; color: #fff; font-weight: 600; font-size: .76rem;
+        transition: opacity .15s, transform .15s;
+    }
+    .wa-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .wa-btn:disabled { opacity: .55; cursor: default; transform: none; }
+    .wa-btn.wa-resend { background: var(--bg-tertiary); color: var(--text-secondary); }
+    .wa-sent { display: inline-flex; align-items: center; gap: .35rem; font-size: .74rem; font-weight: 700; color: #16a34a; }
+    .wa-note { font-size: .72rem; color: var(--text-tertiary); font-style: italic; }
+    .wa-all {
+        display: inline-flex; align-items: center; gap: .5rem;
+        padding: .6rem 1.2rem; border-radius: 10px; border: none; cursor: pointer;
+        background: #25d366; color: #fff; font-weight: 600; font-size: .88rem;
+        box-shadow: 0 4px 12px rgba(37,211,102,.28); transition: all .18s;
+    }
+    .wa-all:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37,211,102,.36); }
+    .wa-all:disabled { opacity: .6; cursor: default; transform: none; }
+
     @media (max-width: 640px) {
         .bd-wrap { padding: 1.25rem; }
         .bd-grid { grid-template-columns: 1fr; }
@@ -106,7 +128,13 @@
                 {% if month_mode %}Active employees with birthdays in the selected month{% else %}Active employees with birthdays this month and next month{% endif %} · {{ total }} total
             </p>
         </div>
-        <a href="?export=pdf{% if month_mode %}&month={{ selected_month }}{% endif %}" class="bd-export"><i class="fas fa-file-pdf"></i> Export PDF</a>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            {% if whatsapp_ready %}
+            <button type="button" id="wa-send-all" class="wa-all"><i class="fab fa-whatsapp"></i> Send today's wishes</button>
+            {% endif %}
+            <a href="{% url 'birthday_wish_log' %}" class="bd-export" style="background:var(--bg-primary);color:var(--text-secondary);border:1px solid var(--border-color);box-shadow:none;"><i class="fas fa-clipboard-list"></i> Wish Log</a>
+            <a href="?export=pdf{% if month_mode %}&month={{ selected_month }}{% endif %}" class="bd-export"><i class="fas fa-file-pdf"></i> Export PDF</a>
+        </div>
     </div>
 
     <!-- Month filter -->
@@ -146,4 +174,89 @@
     {% endfor %}
 
 </div>
+
+{% if whatsapp_ready %}
+<script>
+(function () {
+    'use strict';
+    const URL = "{% url 'birthday_wish_send' %}";
+
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+
+    async function sendWish(btn) {
+        const empPk = btn.dataset.emp;
+        const name  = btn.dataset.name || 'employee';
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+        try {
+            const resp = await fetch(URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ employee_pk: empPk }),
+            });
+            const data = await resp.json();
+            const row = btn.closest('.wa-row');
+            if (data.ok) {
+                if (row) row.innerHTML = '<span class="wa-sent"><i class="fab fa-whatsapp"></i> Wish sent</span>';
+                showToast(data.message || ('Wish sent to ' + name), 'success');
+                return true;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = original;
+                showToast(data.error || 'Could not send wish.', 'danger');
+                return false;
+            }
+        } catch (e) {
+            btn.disabled = false;
+            btn.innerHTML = original;
+            showToast('Network error — please try again.', 'danger');
+            return false;
+        }
+    }
+
+    // Minimal toast (base.html toasts are server-side only)
+    function showToast(msg, type) {
+        let tc = document.getElementById('wa-toast-c');
+        if (!tc) {
+            tc = document.createElement('div');
+            tc.id = 'wa-toast-c';
+            tc.style.cssText = 'position:fixed;top:1.2rem;right:1.2rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;';
+            document.body.appendChild(tc);
+        }
+        const t = document.createElement('div');
+        const good = type === 'success';
+        t.style.cssText = 'min-width:260px;max-width:360px;padding:.8rem 1rem;border-radius:10px;font-size:.85rem;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.14);' +
+            (good ? 'background:#ecfdf5;border-left:4px solid #10b981;color:#065f46;'
+                  : 'background:#fef2f2;border-left:4px solid #ef4444;color:#7f1d1d;');
+        t.innerHTML = msg;
+        tc.appendChild(t);
+        setTimeout(() => t.remove(), 4200);
+    }
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.wa-btn');
+        if (btn) { e.preventDefault(); sendWish(btn); }
+    });
+
+    const allBtn = document.getElementById('wa-send-all');
+    if (allBtn) {
+        allBtn.addEventListener('click', async function () {
+            // Only un-sent today's cards (exclude resend buttons)
+            const btns = Array.from(document.querySelectorAll('.wa-btn:not(.wa-resend)'));
+            if (!btns.length) { showToast('No pending wishes to send.', 'success'); return; }
+            allBtn.disabled = true;
+            const label = allBtn.innerHTML;
+            allBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+            for (const b of btns) { await sendWish(b); }
+            allBtn.innerHTML = label;
+            allBtn.disabled = false;
+        });
+    }
+})();
+</script>
+{% endif %}
 {% endblock %}

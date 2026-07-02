@@ -1,191 +1,274 @@
-<!-- templates/hr/gender_form.html -->
 {% extends "hr_de/base.html" %}
-
-{% block title %}{% if mol %}Edit MOL{% else %}Add MOL{% endif %} - HR System{% endblock %}
+{% block title %}{% if mol %}Edit{% else %}Add{% endif %} MOL{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Container */
-    .form-container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-    
-    /* Header */
-    .page-header {
-        text-align: center;
-        margin-bottom: 2rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid var(--border-color);
-    }
-    
-    .page-title {
-        font-size: 1.75rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-    }
-    
-    .page-subtitle {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        margin-top: 0.5rem;
-    }
-    
-    /* Form Card */
-    .form-card {
-        background: var(--bg-primary);
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: var(--shadow-sm);
-        border: 1px solid var(--border-color);
-    }
-    
-    /* Form Elements */
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-label {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-bottom: 0.5rem;
-        display: block;
-    }
-    
-    .form-control {
-        border: 2px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        font-size: 0.95rem;
-        transition: all 0.2s ease;
-        background: var(--bg-primary);
-        width: 100%;
-    }
-    
-    .form-control:focus {
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        outline: none;
-    }
-    
-    .form-control::placeholder {
-        color: var(--text-tertiary);
-    }
-    
-    /* Action Buttons */
-    .form-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: flex-end;
-        margin-top: 2rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .btn-save {
-        background: var(--gradient-primary);
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 500;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .btn-save:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-    }
-    
-    .btn-cancel {
-        background: var(--bg-tertiary);
-        color: var(--text-secondary);
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 500;
-        border: 1px solid var(--border-color);
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.2s ease;
-    }
-    
-    .btn-cancel:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-    }
-    
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-        .form-container {
-            padding: 1rem;
-        }
-        
-        .form-card {
-            padding: 1.5rem;
-        }
-        
-        .form-actions {
-            flex-direction: column;
-        }
-        
-        .btn-save,
-        .btn-cancel {
-            width: 100%;
-            justify-content: center;
-        }
-    }
+.page-wrap { max-width: 820px; margin: 2rem auto; padding: 0 1rem 3rem; }
+
+/* Header */
+.page-header {
+    background: var(--gradient-primary); border-radius: 14px;
+    padding: 1.25rem 1.5rem; color: #fff;
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+.ph-icon {
+    width: 50px; height: 50px; border-radius: 12px;
+    background: rgba(255,255,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+}
+.ph-title { font-size: 1.2rem; font-weight: 700; }
+.ph-sub   { font-size: .82rem; opacity: .82; margin-top: .15rem; }
+
+/* Cards */
+.form-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm);
+    margin-bottom: 1.25rem;
+}
+.form-card-head {
+    background: var(--bg-secondary); padding: .85rem 1.4rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: .55rem;
+}
+.form-card-head h2 { font-size: .88rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.form-card-body { padding: 1.4rem; }
+
+/* Grid */
+.field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem; }
+.field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.15rem; }
+@media (max-width: 600px) {
+    .field-grid-2, .field-grid-3 { grid-template-columns: 1fr; }
+}
+
+/* Fields */
+.field-wrap { display: flex; flex-direction: column; gap: .35rem; }
+.field-label {
+    font-size: .73rem; font-weight: 700; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .04em;
+}
+.field-label .req { color: #ef4444; margin-left: .15rem; }
+.field-input, .field-select {
+    border: 1.5px solid var(--border-color); border-radius: 9px;
+    padding: .55rem .8rem; font-size: .9rem; color: var(--text-primary);
+    background: #fff; width: 100%; transition: border-color .18s;
+}
+.field-input:focus, .field-select:focus {
+    outline: none; border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(8,11,177,.07);
+}
+
+/* File upload */
+.file-wrap {
+    border: 1.5px dashed var(--border-color); border-radius: 9px;
+    padding: .85rem 1rem; text-align: center; cursor: pointer;
+    transition: border-color .18s, background .18s; position: relative;
+}
+.file-wrap:hover { border-color: var(--accent-primary); background: rgba(8,11,177,.03); }
+.file-wrap input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.file-icon { font-size: 1.4rem; color: var(--accent-primary); margin-bottom: .3rem; }
+.file-label { font-size: .82rem; font-weight: 600; color: var(--text-secondary); }
+.file-hint  { font-size: .72rem; color: var(--text-tertiary); margin-top: .15rem; }
+.file-chosen { font-size: .78rem; color: #10b981; font-weight: 600; margin-top: .25rem; display: none; }
+.existing-doc {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: .78rem; color: var(--accent-primary); font-weight: 600;
+    text-decoration: none; margin-top: .4rem;
+    padding: .2rem .55rem; background: rgba(8,11,177,.06); border-radius: 6px;
+}
+.existing-doc:hover { background: rgba(8,11,177,.12); color: var(--accent-primary); }
+
+/* Actions */
+.form-actions {
+    display: flex; gap: 1rem; justify-content: flex-end; flex-wrap: wrap;
+    padding-top: 1.25rem; border-top: 1px solid var(--border-color);
+    margin-top: 1.25rem;
+}
+.btn-save {
+    background: var(--gradient-primary); color: #fff;
+    padding: .65rem 1.75rem; border-radius: 9px; font-weight: 600;
+    border: none; cursor: pointer; font-size: .9rem;
+    display: inline-flex; align-items: center; gap: .5rem; transition: opacity .18s;
+}
+.btn-save:hover { opacity: .88; }
+.btn-cancel {
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    padding: .65rem 1.25rem; border-radius: 9px; font-weight: 500;
+    border: 1px solid var(--border-color); text-decoration: none;
+    display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="form-container">
+<div class="page-wrap">
+
     <!-- Header -->
     <div class="page-header">
-        <h1 class="page-title">{% if mol %}Edit MOL{% else %}Add MOL{% endif %}</h1>
-        <p class="page-subtitle">
-            {% if mol %}
-                Update the MOL information
-            {% else %}
-                Enter the details for a new MOL
-            {% endif %}
-        </p>
+        <div class="ph-icon"><i class="fas fa-building"></i></div>
+        <div>
+            <div class="ph-title">{% if mol %}Edit MOL — {{ mol.mol }}{% else %}Add New MOL{% endif %}</div>
+            <div class="ph-sub">Ministry of Labour / Sub-company registration details</div>
+        </div>
     </div>
-    
-    <!-- Form Card -->
-    <div class="form-card">
-        <form method="post">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="mol" class="form-label">MOL Name</label>
-                <input type="text" 
-                       class="form-control" 
-                       name="mol" 
-                       id="mol"
-                       value="{{ mol.mol|default:'' }}" 
-                       placeholder="Enter MOL name..."
-                       required>
-            </div>
 
-            <div class="form-actions">
-                <a href="{% url 'mol_list' %}" class="btn-cancel">
-                    <i class="fas fa-times"></i>
-                    Cancel
-                </a>
-                <button type="submit" class="btn-save">
-                    <i class="fas fa-save"></i>
-                    Save
-                </button>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- ── Company Information ────────────────────────────────────────── -->
+        <div class="form-card">
+            <div class="form-card-head">
+                <i class="fas fa-building" style="color:var(--accent-primary);"></i>
+                <h2>Company Information</h2>
             </div>
-        </form>
-    </div>
+            <div class="form-card-body">
+                <div class="field-grid-2">
+                    <div class="field-wrap">
+                        <label class="field-label">MOL / Company Name <span class="req">*</span></label>
+                        <input type="text" name="mol" class="field-input"
+                               value="{{ mol.mol|default:'' }}"
+                               placeholder="e.g. ABC Trading LLC" required>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Established Year</label>
+                        <input type="number" name="established_year" class="field-input"
+                               value="{{ mol.established_year|default:'' }}"
+                               placeholder="e.g. 2005" min="1900" max="2099">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Trade License ──────────────────────────────────────────────── -->
+        <div class="form-card">
+            <div class="form-card-head">
+                <i class="fas fa-file-certificate" style="color:#3b82f6;"></i>
+                <h2>Trade License</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="field-grid-2" style="margin-bottom:1.15rem;">
+                    <div class="field-wrap">
+                        <label class="field-label">License Number</label>
+                        <input type="text" name="trade_license_number" class="field-input"
+                               value="{{ mol.trade_license_number|default:'' }}"
+                               placeholder="e.g. CN-1234567">
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Expiry Date</label>
+                        <input type="date" name="trade_license_expiry" class="field-input"
+                               value="{{ mol.trade_license_expiry|date:'Y-m-d'|default:'' }}">
+                    </div>
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">License Document</label>
+                    <div class="file-wrap" onclick="document.getElementById('id_license_doc').click()">
+                        <input type="file" name="license_document" id="id_license_doc"
+                               accept=".pdf,.jpg,.jpeg,.png"
+                               onchange="showFile(this,'license_chosen')">
+                        <div class="file-icon"><i class="fas fa-file-arrow-up"></i></div>
+                        <div class="file-label">Click to upload Trade License</div>
+                        <div class="file-hint">PDF, JPG or PNG accepted</div>
+                        <div class="file-chosen" id="license_chosen"></div>
+                    </div>
+                    {% if mol.license_document %}
+                    <a href="{{ mol.license_document.url }}" target="_blank" class="existing-doc">
+                        <i class="fas fa-file-arrow-down"></i> Current: {{ mol.license_document.name|cut:"mol_documents/licenses/" }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tenancy Contract ───────────────────────────────────────────── -->
+        <div class="form-card">
+            <div class="form-card-head">
+                <i class="fas fa-file-contract" style="color:#8b5cf6;"></i>
+                <h2>Tenancy Contract</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="field-wrap" style="margin-bottom:1.15rem;">
+                    <label class="field-label">Contract Expiry Date</label>
+                    <input type="date" name="tenancy_contract_expiry" class="field-input"
+                           value="{{ mol.tenancy_contract_expiry|date:'Y-m-d'|default:'' }}"
+                           style="max-width:260px;">
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Tenancy Contract Document</label>
+                    <div class="file-wrap" onclick="document.getElementById('id_tenancy').click()">
+                        <input type="file" name="tenancy_contract" id="id_tenancy"
+                               accept=".pdf,.jpg,.jpeg,.png"
+                               onchange="showFile(this,'tenancy_chosen')">
+                        <div class="file-icon"><i class="fas fa-file-arrow-up"></i></div>
+                        <div class="file-label">Click to upload Tenancy Contract</div>
+                        <div class="file-hint">PDF, JPG or PNG accepted</div>
+                        <div class="file-chosen" id="tenancy_chosen"></div>
+                    </div>
+                    {% if mol.tenancy_contract %}
+                    <a href="{{ mol.tenancy_contract.url }}" target="_blank" class="existing-doc">
+                        <i class="fas fa-file-arrow-down"></i> Current: {{ mol.tenancy_contract.name|cut:"mol_documents/tenancy/" }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Establishment Card ────────────────────────────────────────────── -->
+        <div class="form-card">
+            <div class="form-card-head">
+                <i class="fas fa-id-badge" style="color:#10b981;"></i>
+                <h2>Establishment Card</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="field-wrap" style="margin-bottom:1.15rem;">
+                    <label class="field-label">Card Expiry Date</label>
+                    <input type="date" name="establishment_card_expiry" class="field-input"
+                           value="{{ mol.establishment_card_expiry|date:'Y-m-d'|default:'' }}"
+                           style="max-width:260px;">
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Establishment Card Document</label>
+                    <div class="file-wrap" onclick="document.getElementById('id_establishment').click()">
+                        <input type="file" name="establishment_card" id="id_establishment"
+                               accept=".pdf,.jpg,.jpeg,.png"
+                               onchange="showFile(this,'establishment_chosen')">
+                        <div class="file-icon"><i class="fas fa-file-arrow-up"></i></div>
+                        <div class="file-label">Click to upload Establishment Card</div>
+                        <div class="file-hint">PDF, JPG or PNG accepted</div>
+                        <div class="file-chosen" id="establishment_chosen"></div>
+                    </div>
+                    {% if mol.establishment_card %}
+                    <a href="{{ mol.establishment_card.url }}" target="_blank" class="existing-doc">
+                        <i class="fas fa-file-arrow-down"></i> Current: {{ mol.establishment_card.name|cut:"mol_documents/establishment/" }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+            <a href="{% url 'mol_list' %}" class="btn-cancel">
+                <i class="fas fa-arrow-left"></i> Cancel
+            </a>
+            <button type="submit" class="btn-save">
+                <i class="fas fa-save"></i> {% if mol %}Save Changes{% else %}Create MOL{% endif %}
+            </button>
+        </div>
+    </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showFile(input, labelId) {
+    const el = document.getElementById(labelId);
+    if (input.files && input.files[0]) {
+        el.textContent = '✓ ' + input.files[0].name;
+        el.style.display = 'block';
+    }
+}
+</script>
 {% endblock %}

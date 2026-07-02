@@ -227,7 +227,7 @@
             {% endif %}
 
             <!-- Deductions -->
-            {% if entry.loan_deduction or entry.other_deductions or entry.advance_deduction %}
+            {% if entry.loan_deduction or entry.other_deductions or entry.advance_deduction or entry.attendance_deduction %}
             <div class="section-title"><i class="fas fa-arrow-down" style="color:#dc2626;"></i> Monthly Deductions</div>
             {% if entry.loan_deduction %}
             <div class="comp-row">
@@ -247,6 +247,15 @@
                     <span class="dot" style="background:#f97316;"></span>Advance Salary Recovery
                 </span>
                 <span class="comp-value red">- AED {{ entry.advance_deduction|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if entry.attendance_deduction %}
+            <div class="comp-row">
+                <span class="comp-label">
+                    <span class="dot" style="background:#dc2626;"></span>Absence Deduction
+                    <span style="font-size:.7rem;color:#9ca3af;">({{ entry.absent_days }} absent{% if entry.half_days %}, {{ entry.half_days }} half-day{{ entry.half_days|pluralize }}{% endif %})</span>
+                </span>
+                <span class="comp-value red">- AED {{ entry.attendance_deduction|floatformat:2 }}</span>
             </div>
             {% endif %}
             {% endif %}

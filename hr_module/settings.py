@@ -28,6 +28,64 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# ── WhatsApp Cloud API (Meta) — birthday wishes ──────────────────────────────
+# Fill these in via environment / .env once the Meta app + template are ready.
+# NB: python-decouple keeps trailing inline "# comments" as part of the value,
+# so these helpers strip them defensively (a value with a real '#' is unaffected
+# for tokens/ids/codes, which never contain one).
+def _env_str(key, default=''):
+    return str(config(key, default=default)).split(' #', 1)[0].split('\t#', 1)[0].strip()
+
+def _env_bool(key, default):
+    raw = str(config(key, default=str(default))).split('#', 1)[0].strip().lower()
+    return raw in ('1', 'true', 'yes', 'on')
+
+WHATSAPP_ACCESS_TOKEN         = _env_str('WHATSAPP_ACCESS_TOKEN', '')
+WHATSAPP_PHONE_NUMBER_ID      = _env_str('WHATSAPP_PHONE_NUMBER_ID', '')
+WHATSAPP_API_VERSION          = _env_str('WHATSAPP_API_VERSION', 'v21.0')
+# The approved message template name + its language code, as created in Meta.
+WHATSAPP_BIRTHDAY_TEMPLATE      = _env_str('WHATSAPP_BIRTHDAY_TEMPLATE', 'birthday_wish')
+WHATSAPP_BIRTHDAY_TEMPLATE_LANG = _env_str('WHATSAPP_BIRTHDAY_TEMPLATE_LANG', 'en')
+# If your template has a {{1}} body variable, we pass the employee's first name.
+# Set to False if your template takes no variables.
+WHATSAPP_BIRTHDAY_NAME_PARAM  = _env_bool('WHATSAPP_BIRTHDAY_NAME_PARAM', True)
+# Default country code prepended to local numbers (UAE = 971).
+WHATSAPP_DEFAULT_COUNTRY_CODE = _env_str('WHATSAPP_DEFAULT_COUNTRY_CODE', '971')
+
+# ── Logging — self-rotating birthday-wish log (no cron cleanup needed) ────────
+# Writes to logs/birthday_wishes.log and rotates at ~1 MB, keeping 1 backup, so
+# the whole thing never exceeds 2 files / ~2 MB on disk.
+LOG_DIR = BASE_DIR / 'logs'
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'birthday': {
+            'format': '%(asctime)s [%(levelname)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'birthday_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOG_DIR / 'birthday_wishes.log'),
+            'maxBytes': 1_000_000,   # ~1 MB per file
+            'backupCount': 1,        # keep 1 old file -> 2 files max
+            'encoding': 'utf-8',
+            'formatter': 'birthday',
+        },
+    },
+    'loggers': {
+        'hr.birthday': {
+            'handlers': ['birthday_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 
 # Application definition
 
@@ -64,6 +122,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'hr.context_processors.notification_count',
             ],
         },
     },

@@ -476,8 +476,15 @@ def birthdays(request):
 
     from datetime import date
     import calendar
+    from .whatsapp import whatsapp_configured
 
     today = date.today()
+
+    # Employees already wished this year (to show "Sent" state on today's cards)
+    wished_ids = set(
+        BirthdayWish.objects.filter(year=today.year, status='sent')
+        .values_list('employee_id', flat=True)
+    )
 
     def _occurrence(dob, year):
         try:
@@ -493,6 +500,7 @@ def birthdays(request):
             'turning':    bday.year - e.dob.year,
             'days_until': (bday - today).days,
             'is_today':   e.dob.month == today.month and e.dob.day == today.day,
+            'wished':     e.pk in wished_ids,
         }
 
     def build(month, year):
@@ -542,6 +550,66 @@ def birthdays(request):
         'month_mode':    month_mode,
         'selected_month': sel_month if month_mode else 0,
         'months':        months,
+        'whatsapp_ready': whatsapp_configured(),
+    })
+
+
+@login_required
+def birthday_wish_send(request):
+    """AJAX: HR sends a WhatsApp birthday wish to one employee."""
+    if not _hr_only(request):
+        return JsonResponse({'ok': False, 'error': 'Not authorized.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required.'}, status=405)
+
+    from .whatsapp import send_birthday_wish, whatsapp_configured
+    import json as _json
+    try:
+        data = _json.loads(request.body or '{}')
+    except ValueError:
+        data = {}
+    emp_pk = data.get('employee_pk') or request.POST.get('employee_pk')
+
+    emp = Employee.objects.filter(pk=emp_pk, is_active=True).first()
+    if not emp:
+        return JsonResponse({'ok': False, 'error': 'Employee not found.'}, status=404)
+    if not whatsapp_configured():
+        return JsonResponse({
+            'ok': False,
+            'error': 'WhatsApp is not configured yet — add the token and phone number id in settings.',
+        }, status=400)
+
+    ok, info = send_birthday_wish(emp, sent_by=request.user)
+    if ok:
+        return JsonResponse({'ok': True, 'message': f'Birthday wish sent to {emp.emp_name}.'})
+    return JsonResponse({'ok': False, 'error': info}, status=400)
+
+
+@login_required
+def birthday_wish_log(request):
+    """HR view of the WhatsApp birthday-wish send history (sent + failed)."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    from .whatsapp import whatsapp_configured
+
+    base = (BirthdayWish.objects
+            .select_related('employee', 'employee__department', 'sent_by'))
+
+    # Counts across everything (for the filter tab badges)
+    sent_count = base.filter(status='sent').count()
+    failed_count = base.filter(status='failed').count()
+
+    status = request.GET.get('status')
+    wishes = base.filter(status=status) if status in ('sent', 'failed') else base
+
+    return render(request, 'hr_de/birthday_wish_log.html', {
+        'wishes':        list(wishes),
+        'sent_count':    sent_count,
+        'failed_count':  failed_count,
+        'total':         sent_count + failed_count,
+        'status':        status or '',
+        'whatsapp_ready': whatsapp_configured(),
     })
 
 
@@ -691,26 +759,52 @@ def _birthdays_pdf(sections, today, subtitle=''):
 
 @login_required
 def mol_list(request):
-    mols = Mol.objects.all()
+    mols = Mol.objects.all().order_by('mol')
     return render(request, 'hr_de/mols/mol_list.html', {'mols': mols})
 
 @login_required
 def mol_add(request):
     if request.method == 'POST':
-        mol_name = request.POST.get('mol')
-        Mol.objects.create(mol=mol_name)
+        def _f(key): return request.POST.get(key, '').strip() or None
+        mol = Mol(
+            mol=request.POST.get('mol', '').strip(),
+            established_year=_f('established_year'),
+            trade_license_number=_f('trade_license_number'),
+            trade_license_expiry=_f('trade_license_expiry'),
+            tenancy_contract_expiry=_f('tenancy_contract_expiry'),
+            establishment_card_expiry=_f('establishment_card_expiry'),
+        )
+        if 'license_document' in request.FILES:
+            mol.license_document = request.FILES['license_document']
+        if 'tenancy_contract' in request.FILES:
+            mol.tenancy_contract = request.FILES['tenancy_contract']
+        if 'establishment_card' in request.FILES:
+            mol.establishment_card = request.FILES['establishment_card']
+        mol.save()
+        messages.success(request, f"MOL '{mol.mol}' created successfully.")
         return redirect('mol_list')
-
     return render(request, 'hr_de/mols/mol_form.html')
 
+@login_required
 def mol_edit(request, pk):
     mol = get_object_or_404(Mol, pk=pk)
-
     if request.method == 'POST':
-        mol.mol = request.POST.get('mol')
+        def _f(key): return request.POST.get(key, '').strip() or None
+        mol.mol                       = request.POST.get('mol', '').strip()
+        mol.established_year          = _f('established_year')
+        mol.trade_license_number      = _f('trade_license_number')
+        mol.trade_license_expiry      = _f('trade_license_expiry')
+        mol.tenancy_contract_expiry   = _f('tenancy_contract_expiry')
+        mol.establishment_card_expiry = _f('establishment_card_expiry')
+        if 'license_document' in request.FILES:
+            mol.license_document = request.FILES['license_document']
+        if 'tenancy_contract' in request.FILES:
+            mol.tenancy_contract = request.FILES['tenancy_contract']
+        if 'establishment_card' in request.FILES:
+            mol.establishment_card = request.FILES['establishment_card']
         mol.save()
+        messages.success(request, f"MOL '{mol.mol}' updated successfully.")
         return redirect('mol_list')
-
     return render(request, 'hr_de/mols/mol_form.html', {'mol': mol})
 
 
@@ -726,8 +820,16 @@ def mol_delete(request, pk):
 
 @login_required
 def department_list(request):
-    departments = Department.objects.all().order_by('name')
-    return render(request, 'hr_de/departments/department_list.html', {'departments': departments})
+    all_depts = Department.objects.all().order_by('name')
+    # Split out shops/stores into their own section (name starts with SHOP or STORE)
+    shops, departments = [], []
+    for d in all_depts:
+        name = (d.name or '').strip().upper()
+        (shops if name.startswith('SHOP') or name.startswith('STORE') else departments).append(d)
+    return render(request, 'hr_de/departments/department_list.html', {
+        'departments': departments,
+        'shops': shops,
+    })
 
 @login_required
 def department_add(request):
@@ -1115,12 +1217,18 @@ def org_chart(request):
         head_emp_pks = {h['employee'].pk for h in heads if h['employee']}
         regular = [e for e in all_employees if e.pk not in head_emp_pks]
 
+        name = (dept.name or '').strip().upper()
         chart_data.append({
             'department': dept,
             'heads': heads,
             'employees': regular,
             'total': all_employees.count(),
+            'is_shop': name.startswith('SHOP') or name.startswith('STORE'),
         })
+
+    # Split shops/stores into their own section
+    shop_data = [c for c in chart_data if c['is_shop']]
+    chart_data = [c for c in chart_data if not c['is_shop']]
 
     # Company-level management only (dept=None) — dept-scoped HR heads show under their dept
     top_mgmt = Role.objects.filter(
@@ -1128,6 +1236,7 @@ def org_chart(request):
     ).select_related('user')
     return render(request, 'hr_de/org_chart.html', {
         'chart_data': chart_data,
+        'shop_data': shop_data,
         'top_mgmt': top_mgmt,
         'can_assign_head': user_role == 'HR',
     })
@@ -1469,6 +1578,23 @@ def payroll_create(request):
             messages.error(request, f"Payroll for {month}/{year} already exists.")
             return redirect('payroll_list')
 
+        # Attendance must be complete for the month before payroll can run
+        gaps = _attendance_incomplete(year, month)
+        if gaps:
+            total_missing = sum(m for _, m in gaps)
+            preview = ', '.join(
+                f"{e.emp_name} ({m} day{'s' if m != 1 else ''})" for e, m in gaps[:6]
+            )
+            more = '' if len(gaps) <= 6 else f", +{len(gaps) - 6} more"
+            month_name = dict(PayrollRun.MONTH_CHOICES).get(month, month)
+            messages.error(
+                request,
+                f"Cannot run payroll — attendance for {month_name} {year} is incomplete. "
+                f"{len(gaps)} employee(s) have {total_missing} unfilled day(s): {preview}{more}. "
+                f"Please complete the Attendance Sheet for every employee first."
+            )
+            return redirect('payroll_create')
+
         run = PayrollRun.objects.create(
             month=month, year=year, notes=notes, created_by=request.user
         )
@@ -1486,6 +1612,7 @@ def payroll_create(request):
             advance_ded, advance_obj = _pick_active_advance(emp)
 
             gross = s.total if s else 0
+            absent, half, att_ded = _attendance_deduction_for(emp, year, month, gross)
             entry = PayrollEntry(
                 payroll_run=run,
                 employee=emp,
@@ -1495,10 +1622,11 @@ def payroll_create(request):
                 others=s.others if s else 0,
                 advance_deduction=advance_ded,
                 advance_salary=advance_obj,
-                gross_salary=gross,
-                net_salary=gross - advance_ded,
+                absent_days=absent,
+                half_days=half,
+                attendance_deduction=att_ded,
             )
-            entry.save()
+            entry.compute_and_save()
             created += 1
 
         messages.success(request, f"Payroll run created with {created} employee entries.")
@@ -1511,6 +1639,97 @@ def payroll_create(request):
         'current_year':  today.year,
         'month_choices': PayrollRun.MONTH_CHOICES,
     })
+
+
+def _attendance_deduction_for(employee, year, month, gross):
+    """Return (absent_days, half_days, deduction) for an employee in a month.
+
+    Per-day rate = gross salary / total days in the month. Each absent day deducts
+    one full day; each half day deducts half a day.
+    """
+    import calendar
+    import datetime as dt
+    num_days = calendar.monthrange(year, month)[1]
+    first = dt.date(year, month, 1)
+    last  = dt.date(year, month, num_days)
+    qs = Attendance.objects.filter(employee=employee, date__range=(first, last))
+    absent = qs.filter(status='absent').count()
+    half   = qs.filter(status='half_day').count()
+    per_day = (gross / num_days) if (num_days and gross) else 0
+    deduction = round(per_day * absent + (per_day / 2.0) * half, 2)
+    return absent, half, deduction
+
+
+def _attendance_incomplete(year, month):
+    """Return [(employee, missing_days), ...] for active employees with blank
+    attendance days that must be filled before payroll can run.
+
+    A day counts as filled if it has an Attendance record, is covered by an
+    approved leave, or is a Sunday (auto week-off). Days before an employee's
+    joining date and days still in the future are not required.
+    """
+    import calendar
+    import datetime as dt
+    today    = timezone.localdate()
+    num_days = calendar.monthrange(year, month)[1]
+    first    = dt.date(year, month, 1)
+    last     = dt.date(year, month, num_days)
+    cutoff   = min(last, today)
+
+    employees = list(Employee.objects.filter(is_active=True))
+    emp_ids   = [e.id for e in employees]
+
+    have = set()
+    for eid, d in Attendance.objects.filter(
+        employee_id__in=emp_ids, date__range=(first, last)
+    ).values_list('employee_id', 'date'):
+        have.add((eid, d.day))
+
+    leave_days = set()
+    for lv in Leave.objects.filter(employee_id__in=emp_ids, status='Approved'):
+        f = lv.actual_from or lv.expected_from
+        t = lv.actual_to or lv.expected_to
+        if not f or not t:
+            continue
+        cur = max(f, first)
+        end = min(t, last)
+        while cur <= end:
+            leave_days.add((lv.employee_id, cur.day))
+            cur += dt.timedelta(days=1)
+
+    gaps = []
+    for emp in employees:
+        missing = 0
+        for d in range(1, num_days + 1):
+            dobj = dt.date(year, month, d)
+            if dobj > cutoff:
+                continue                              # future day — not yet required
+            if emp.joining_date and dobj < emp.joining_date:
+                continue                              # before joining — excused
+            if dobj.weekday() == 6:
+                continue                              # Sunday auto week-off
+            if (emp.id, d) in have or (emp.id, d) in leave_days:
+                continue
+            missing += 1
+        if missing:
+            gaps.append((emp, missing))
+    return gaps
+
+
+def _sync_attendance_deductions(run):
+    """Refresh attendance deductions on a DRAFT run from current attendance records."""
+    if run.status != 'Draft':
+        return
+    for entry in run.entries.select_related('employee'):
+        absent, half, ded = _attendance_deduction_for(
+            entry.employee, run.year, run.month, entry.gross_salary or 0
+        )
+        if (entry.absent_days != absent or entry.half_days != half
+                or round(entry.attendance_deduction, 2) != round(ded, 2)):
+            entry.absent_days          = absent
+            entry.half_days            = half
+            entry.attendance_deduction = ded
+            entry.compute_and_save()
 
 
 def _pick_active_advance(employee):
@@ -1547,8 +1766,9 @@ def payroll_detail(request, pk):
         return render(request, 'hr_de/unauthorized.html', status=403)
     run = get_object_or_404(PayrollRun, pk=pk)
 
-    # Draft runs auto-refresh advance deductions so newly approved advances appear
+    # Draft runs auto-refresh advance + attendance deductions so later edits appear
     _sync_advance_deductions(run)
+    _sync_attendance_deductions(run)
 
     entries = run.entries.select_related(
         'employee', 'employee__department', 'employee__mol', 'advance_salary'
@@ -1604,6 +1824,18 @@ def payroll_entry_update(request, entry_pk):
         entry.compute_and_save()
         messages.success(request, f"Updated payroll entry for {entry.employee.emp_name}.")
         return redirect('payroll_detail', pk=entry.payroll_run.pk)
+
+    # GET: refresh the attendance deduction from the current sheet so it displays live
+    if entry.payroll_run.status == 'Draft':
+        absent, half, ded = _attendance_deduction_for(
+            entry.employee, entry.payroll_run.year, entry.payroll_run.month, entry.gross_salary or 0
+        )
+        if (entry.absent_days != absent or entry.half_days != half
+                or round(entry.attendance_deduction, 2) != round(ded, 2)):
+            entry.absent_days          = absent
+            entry.half_days            = half
+            entry.attendance_deduction = ded
+            entry.compute_and_save()
 
     return render(request, 'hr_de/payroll/payroll_entry_edit.html', {'entry': entry})
 
@@ -2246,25 +2478,6 @@ def logout_view(request):
     logout(request)
     return redirect('home')
 
-@login_required
-def change_password(request):
-    if request.method == 'POST':
-        old = request.POST.get('old_password')
-        new = request.POST.get('new_password')
-        confirm = request.POST.get('confirm_password')
-        if not request.user.check_password(old):
-            messages.error(request, "Old password is incorrect.")
-        elif new != confirm:
-            messages.error(request, "New passwords do not match.")
-        else:
-            request.user.set_password(new)
-            request.user.save()
-            update_session_auth_hash(request, request.user)
-            messages.success(request, "Password changed successfully.")
-            return redirect('home')
-    return render(request, 'hr_de/auth/change_password.html')
-
-
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect
@@ -2300,22 +2513,174 @@ def forgot_password(request):
             messages.error(request, 'User with this email does not exist.')
     return render(request, 'hr_de/auth/forgot_password.html')
 
-# views.py
-def notification_list(request):
-    notifications = Notification.objects.filter(is_read=False).order_by('-created_at')  # hide read ones
-    return render(request, 'hr_de/notifications.html', {'notifications': notifications})
+# ── DOCUMENT EXPIRY NOTIFICATION HELPERS ────────────────────────────────────
 
+_DOC_FIELDS = [
+    ('PASSPORT',        'passport_expiry',        'Passport',        'fas fa-passport'),
+    ('VISA',            'visa_expiry',             'Visa',            'fas fa-stamp'),
+    ('EID',             'eid_expiry',              'Emirates ID',     'fas fa-id-card'),
+    ('LABOUR_CARD',     'labour_card_expiry',      'Labour Card',     'fas fa-briefcase'),
+    ('INSURANCE',       'insurance_expiry',        'Insurance',       'fas fa-shield-halved'),
+    ('DRIVING_LICENSE', 'driving_license_expiry',  'Driving License', 'fas fa-car'),
+]
+
+
+_MOL_DOC_FIELDS = [
+    ('MOL_TRADE_LICENSE', 'trade_license_expiry',      'Trade License'),
+    ('MOL_TENANCY',       'tenancy_contract_expiry',   'Tenancy Contract'),
+    ('MOL_ESTABLISHMENT', 'establishment_card_expiry', 'Establishment Card'),
+]
+
+
+def _expiry_urgency_and_text(expiry, today, label, subject):
+    days_left = (expiry - today).days
+    if days_left < 0:
+        urgency = 'critical'
+        title   = f"{label} EXPIRED — {subject}"
+        message = (
+            f"{subject}'s {label} expired on {expiry.strftime('%d %b %Y')} "
+            f"({abs(days_left)} day{'s' if abs(days_left) != 1 else ''} ago)."
+        )
+    elif days_left <= 7:
+        urgency = 'critical'
+        title   = f"{label} expiring in {days_left} day{'s' if days_left != 1 else ''} — {subject}"
+        message = (
+            f"{subject}'s {label} expires on {expiry.strftime('%d %b %Y')} "
+            f"— only {days_left} day{'s' if days_left != 1 else ''} remaining."
+        )
+    elif days_left <= 30:
+        urgency = 'warning'
+        title   = f"{label} expiring soon — {subject}"
+        message = (
+            f"{subject}'s {label} expires on {expiry.strftime('%d %b %Y')} "
+            f"({days_left} days left)."
+        )
+    else:
+        urgency = 'info'
+        title   = f"{label} expiry notice — {subject}"
+        message = (
+            f"{subject}'s {label} expires on {expiry.strftime('%d %b %Y')} "
+            f"({days_left} days left)."
+        )
+    return days_left, urgency, title, message
+
+
+def _generate_expiry_notifications():
+    today = timezone.now().date()
+
+    # ── Employee document expiries ───────────────────────────────────────────
+    for emp in Employee.objects.filter(is_active=True).select_related('department'):
+        for doc_key, expiry_field, doc_label, _ in _DOC_FIELDS:
+            expiry = getattr(emp, expiry_field, None)
+            if not expiry:
+                continue
+            days_left = (expiry - today).days
+            if days_left > 60:
+                continue
+
+            _, urgency, title, message = _expiry_urgency_and_text(expiry, today, doc_label, emp.emp_name)
+
+            existing = Notification.objects.filter(
+                employee=emp, doc_type=doc_key,
+                category='document_expiry', is_read=False,
+            ).first()
+
+            if existing:
+                if existing.urgency != urgency or existing.title != title:
+                    existing.urgency = urgency
+                    existing.title   = title
+                    existing.message = message
+                    existing.save()
+            else:
+                Notification.objects.create(
+                    employee=emp, title=title, message=message,
+                    category='document_expiry', urgency=urgency, doc_type=doc_key,
+                )
+
+    # ── MOL document expiries ────────────────────────────────────────────────
+    for mol in Mol.objects.all():
+        for doc_key, expiry_field, doc_label in _MOL_DOC_FIELDS:
+            expiry = getattr(mol, expiry_field, None)
+            if not expiry:
+                continue
+            days_left = (expiry - today).days
+            if days_left > 60:
+                continue
+
+            _, urgency, title, message = _expiry_urgency_and_text(expiry, today, doc_label, mol.mol)
+
+            existing = Notification.objects.filter(
+                mol=mol, doc_type=doc_key,
+                category='mol_document_expiry', is_read=False,
+            ).first()
+
+            if existing:
+                if existing.urgency != urgency or existing.title != title:
+                    existing.urgency = urgency
+                    existing.title   = title
+                    existing.message = message
+                    existing.save()
+            else:
+                Notification.objects.create(
+                    mol=mol, title=title, message=message,
+                    category='mol_document_expiry', urgency=urgency, doc_type=doc_key,
+                )
+
+
+def _cleanup_old_read_notifications():
+    """Delete read notifications older than 30 days."""
+    cutoff = timezone.now() - timezone.timedelta(days=30)
+    Notification.objects.filter(is_read=True, created_at__lt=cutoff).delete()
+
+
+@login_required
+def notification_list(request):
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    _generate_expiry_notifications()
+
+    _urgency_rank = {'critical': 0, 'warning': 1, 'info': 2}
+    unread = sorted(
+        Notification.objects.filter(is_read=False)
+            .select_related('employee', 'employee__department'),
+        key=lambda n: _urgency_rank.get(n.urgency, 3),
+    )
+    read = list(
+        Notification.objects.filter(is_read=True)
+            .select_related('employee', 'employee__department')
+            .order_by('-created_at')[:50]
+    )
+
+    critical_count = sum(1 for n in unread if n.urgency == 'critical')
+    warning_count  = sum(1 for n in unread if n.urgency == 'warning')
+
+    return render(request, 'hr_de/notifications.html', {
+        'unread':         unread,
+        'read':           read,
+        'unread_count':   len(unread),
+        'critical_count': critical_count,
+        'warning_count':  warning_count,
+    })
 
 
 @require_POST
 def mark_notification_read(request, pk):
     try:
-        notification = Notification.objects.get(pk=pk)
-        notification.soft_delete()
+        n = Notification.objects.get(pk=pk)
+        n.is_read = True
+        n.save()
+        _cleanup_old_read_notifications()
         return JsonResponse({'status': 'success'})
     except Notification.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
 
+
+@require_POST
+def mark_all_notifications_read(request):
+    Notification.objects.filter(is_read=False).update(is_read=True)
+    _cleanup_old_read_notifications()
+    return JsonResponse({'status': 'success'})
 
 
 ############ BULK UPLOAD EMPLOYEE DATA ############
@@ -2641,3 +3006,488 @@ def md_account_delete(request, pk):
     user_obj.delete()
     messages.success(request, f"MD account '{username}' deleted.")
     return redirect('md_account_list')
+
+
+# ── SALARY REVISION (AUDIT TRAIL) ────────────────────────────────────────────
+
+@login_required
+def salary_revision_create(request, emp_id):
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    employee  = get_object_or_404(Employee, pk=emp_id)
+    try:
+        structure = employee.salary_structure
+    except SalaryStructure.DoesNotExist:
+        structure = None
+
+    if request.method == 'POST':
+        def _f(key):
+            try:
+                return round(float(request.POST.get(key, 0) or 0), 2)
+            except (ValueError, TypeError):
+                return 0.0
+
+        new_basic     = _f('basic')
+        new_hra       = _f('hra')
+        new_transport = _f('transport')
+        new_others    = _f('others')
+        new_salary    = round(new_basic + new_hra + new_transport + new_others, 2)
+
+        effective_date = request.POST.get('effective_date')
+        reason         = request.POST.get('reason', '').strip()
+
+        old_salary    = employee.emp_salary or 0
+        old_basic     = structure.basic     if structure else 0
+        old_hra       = structure.hra       if structure else 0
+        old_transport = structure.transport if structure else 0
+        old_others    = structure.others    if structure else 0
+
+        if new_salary > old_salary:
+            change_type = 'Increment'
+        elif new_salary < old_salary:
+            change_type = 'Decrement'
+        else:
+            change_type = 'Adjustment'
+
+        SalaryRevision.objects.create(
+            employee=employee,
+            change_type=change_type,
+            effective_date=effective_date,
+            old_salary=old_salary,
+            old_basic=old_basic,
+            old_hra=old_hra,
+            old_transport=old_transport,
+            old_others=old_others,
+            new_salary=new_salary,
+            new_basic=new_basic,
+            new_hra=new_hra,
+            new_transport=new_transport,
+            new_others=new_others,
+            reason=reason,
+            changed_by=request.user,
+        )
+
+        employee.emp_salary = new_salary
+        employee.save(update_fields=['emp_salary', 'updated_at'])
+
+        if structure:
+            structure.basic      = new_basic
+            structure.hra        = new_hra
+            structure.transport  = new_transport
+            structure.others     = new_others
+            structure.updated_by = request.user
+            structure.save()
+        else:
+            SalaryStructure.objects.create(
+                employee=employee, basic=new_basic, hra=new_hra,
+                transport=new_transport, others=new_others,
+                updated_by=request.user,
+            )
+
+        messages.success(request, f"Salary {change_type.lower()} applied for {employee.emp_name}.")
+        return redirect('salary_history', emp_id=emp_id)
+
+    return render(request, 'hr_de/salary/revision_form.html', {
+        'employee':  employee,
+        'structure': structure,
+        'today':     timezone.now().date().isoformat(),
+    })
+
+
+@login_required
+def salary_history(request, emp_id):
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    employee  = get_object_or_404(Employee, pk=emp_id)
+    revisions = employee.salary_revisions.select_related('changed_by').order_by('-effective_date', '-changed_at')
+
+    return render(request, 'hr_de/salary/history.html', {
+        'employee':  employee,
+        'revisions': revisions,
+    })
+
+
+@login_required
+def salary_all_revisions(request):
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    qs = SalaryRevision.objects.select_related(
+        'employee', 'employee__department', 'changed_by'
+    ).order_by('-effective_date', '-changed_at')
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(
+            Q(employee__emp_name__icontains=q) | Q(employee__emp_id__icontains=q)
+        )
+
+    return render(request, 'hr_de/salary/all_revisions.html', {
+        'revisions': qs,
+        'q': q,
+    })
+
+
+# ── ATTENDANCE ───────────────────────────────────────────────────────────────
+
+_ATT_STATUSES = {'present', 'absent', 'half_day', 'leave', 'holiday', 'week_off'}
+
+
+def _employee_for_user(user):
+    """Return the Employee linked to this login, or None."""
+    try:
+        return user.employee
+    except Employee.DoesNotExist:
+        return None
+
+
+@login_required
+def attendance_mark(request):
+    """Employee self-service: one-tap check-in stamping the current time — TODAY only."""
+    employee = _employee_for_user(request.user)
+    today    = timezone.localdate()
+
+    if request.method == 'POST':
+        if employee is None:
+            messages.error(request, "Your login is not linked to an employee profile.")
+            return redirect('attendance_mark')
+        existing = Attendance.objects.filter(employee=employee, date=today).first()
+        if existing:
+            messages.info(request, "You've already checked in for today.")
+        else:
+            now_time = timezone.localtime().time()
+            Attendance.objects.create(
+                employee=employee, date=today, status='present',
+                check_in=now_time, source='self', marked_by=request.user,
+            )
+            messages.success(request, f"Checked in at {now_time.strftime('%I:%M %p')}. Have a great day!")
+        return redirect('attendance_mark')
+
+    todays = None
+    recent = []
+    if employee is not None:
+        todays = Attendance.objects.filter(employee=employee, date=today).first()
+        recent = list(
+            Attendance.objects.filter(employee=employee)
+            .select_related('leave_type')
+            .order_by('-date')[:14]
+        )
+
+    return render(request, 'hr_de/attendance/mark.html', {
+        'employee': employee,
+        'today':    today,
+        'todays':   todays,
+        'recent':   recent,
+        'now':      timezone.localtime(),
+    })
+
+
+@login_required
+def attendance_grid(request):
+    """HR month grid — department-wise, editable, with an approved-leave overlay."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    import calendar
+    import datetime as dt
+    from collections import OrderedDict
+
+    today = timezone.localdate()
+    try:
+        month = int(request.GET.get('month', today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        year = int(request.GET.get('year', today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    if not (1 <= month <= 12):
+        month = today.month
+
+    num_days  = calendar.monthrange(year, month)[1]
+    first_day = dt.date(year, month, 1)
+    last_day  = dt.date(year, month, num_days)
+
+    # Day-header meta (Sunday → weekly off)
+    day_meta = []
+    for d in range(1, num_days + 1):
+        dobj = dt.date(year, month, d)
+        day_meta.append({
+            'day':       d,
+            'weekday':   dobj.strftime('%a'),
+            'is_off':    dobj.weekday() == 6,
+            'is_future': dobj > today,
+            'is_today':  dobj == today,
+        })
+
+    # Employees (optionally filtered by department)
+    dept_id   = request.GET.get('department', '').strip()
+    employees = (
+        Employee.objects.filter(is_active=True)
+        .select_related('department')
+        .order_by('department__name', 'emp_name')
+    )
+    if dept_id:
+        employees = employees.filter(department_id=dept_id)
+    employees = list(employees)
+    emp_ids   = [e.id for e in employees]
+
+    # Explicit attendance records for the month
+    att_map = {}
+    for a in Attendance.objects.filter(
+        employee_id__in=emp_ids, date__range=(first_day, last_day)
+    ).select_related('leave_type'):
+        att_map[(a.employee_id, a.date.day)] = a
+
+    # Approved-leave overlay (fills only cells without an explicit record)
+    leave_map = {}
+    for lv in Leave.objects.filter(
+        employee_id__in=emp_ids, status='Approved'
+    ).select_related('leave_type'):
+        f = lv.actual_from or lv.expected_from
+        t = lv.actual_to or lv.expected_to
+        if not f or not t:
+            continue
+        cur = max(f, first_day)
+        end = min(t, last_day)
+        while cur <= end:
+            leave_map.setdefault(
+                (lv.employee_id, cur.day),
+                lv.leave_type.name if lv.leave_type else 'Leave',
+            )
+            cur += dt.timedelta(days=1)
+
+    # Build rows grouped by department
+    grouped = OrderedDict()
+    for emp in employees:
+        cells = []
+        present_days = leave_days = absent_days = 0
+        for dm in day_meta:
+            d = dm['day']
+            a = att_map.get((emp.id, d))
+            if a:
+                status, source, check_in = a.status, a.source, a.check_in
+                lt = a.leave_type.name if a.leave_type else ''
+            elif (emp.id, d) in leave_map:
+                status, source, check_in = 'leave', 'leave_auto', None
+                lt = leave_map[(emp.id, d)]
+            elif dm['is_off']:
+                status, source, check_in, lt = 'week_off', 'auto', None, ''
+            else:
+                status, source, check_in, lt = '', '', None, ''
+
+            if   status == 'present': present_days += 1
+            elif status == 'leave':   leave_days   += 1
+            elif status == 'absent':  absent_days  += 1
+
+            cells.append({
+                'day':        d,
+                'status':     status,
+                'leave_type': lt,
+                'source':     source,
+                'is_off':     dm['is_off'],
+                'is_future':  dm['is_future'],
+                'is_today':   dm['is_today'],
+                'check_in':   check_in,
+            })
+
+        dept_name = emp.department.name if emp.department else 'Unassigned'
+        grouped.setdefault(dept_name, []).append({
+            'employee':     emp,
+            'cells':        cells,
+            'present_days': present_days,
+            'leave_days':   leave_days,
+            'absent_days':  absent_days,
+        })
+
+    dept_groups = [{'name': name, 'rows': rows} for name, rows in grouped.items()]
+
+    months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
+    years  = list(range(today.year - 3, today.year + 2))
+
+    return render(request, 'hr_de/attendance/grid.html', {
+        'dept_groups':   dept_groups,
+        'day_meta':      day_meta,
+        'num_days':      num_days,
+        'month':         month,
+        'year':          year,
+        'months':        months,
+        'years':         years,
+        'leave_types':   list(LeaveType.objects.all().order_by('name')),
+        'departments':   Department.objects.all().order_by('name'),
+        'selected_dept': dept_id,
+        'today':         today,
+    })
+
+
+@require_POST
+def attendance_cell_update(request):
+    """AJAX upsert for a single grid cell (HR only)."""
+    if not _hr_only(request):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    import json
+    import datetime as dt
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        emp_id          = int(payload['employee_id'])
+        year            = int(payload['year'])
+        month           = int(payload['month'])
+        day             = int(payload['day'])
+        status          = (payload.get('status') or '').strip()
+        leave_type_name = (payload.get('leave_type') or '').strip()
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
+
+    if status and status not in _ATT_STATUSES:
+        return JsonResponse({'status': 'error', 'message': 'Invalid status.'}, status=400)
+
+    try:
+        date = dt.date(year, month, day)
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid date.'}, status=400)
+
+    employee = get_object_or_404(Employee, pk=emp_id)
+
+    # Empty status clears the cell (reverts to auto / blank)
+    if not status:
+        Attendance.objects.filter(employee=employee, date=date).delete()
+        return JsonResponse({'status': 'success', 'cleared': True})
+
+    leave_type = None
+    if status == 'leave':
+        if not leave_type_name:
+            return JsonResponse({'status': 'error', 'message': 'Pick a leave type.'}, status=400)
+        leave_type = LeaveType.objects.filter(name=leave_type_name).first()
+        if leave_type is None:
+            return JsonResponse({'status': 'error', 'message': 'Unknown leave type.'}, status=400)
+
+    att, created = Attendance.objects.update_or_create(
+        employee=employee, date=date,
+        defaults={
+            'status':     status,
+            'leave_type': leave_type,
+            'source':     'hr',
+            'marked_by':  request.user,
+        },
+    )
+    return JsonResponse({
+        'status':      'success',
+        'created':     created,
+        'cell_status': att.status,
+        'leave_type':  leave_type.name if leave_type else '',
+    })
+
+
+@require_POST
+def attendance_bulk_update(request):
+    """AJAX fill: apply one status to many days of a single employee (HR only)."""
+    if not _hr_only(request):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    import json
+    import datetime as dt
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        emp_id          = int(payload['employee_id'])
+        year            = int(payload['year'])
+        month           = int(payload['month'])
+        days            = [int(d) for d in payload['days']]
+        status          = (payload.get('status') or '').strip()
+        leave_type_name = (payload.get('leave_type') or '').strip()
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
+
+    if status and status not in _ATT_STATUSES:
+        return JsonResponse({'status': 'error', 'message': 'Invalid status.'}, status=400)
+
+    employee = get_object_or_404(Employee, pk=emp_id)
+
+    leave_type = None
+    if status == 'leave':
+        if not leave_type_name:
+            return JsonResponse({'status': 'error', 'message': 'Pick a leave type.'}, status=400)
+        leave_type = LeaveType.objects.filter(name=leave_type_name).first()
+        if leave_type is None:
+            return JsonResponse({'status': 'error', 'message': 'Unknown leave type.'}, status=400)
+
+    applied = []
+    for d in days:
+        try:
+            date = dt.date(year, month, d)
+        except ValueError:
+            continue
+        if not status:
+            Attendance.objects.filter(employee=employee, date=date).delete()
+        else:
+            Attendance.objects.update_or_create(
+                employee=employee, date=date,
+                defaults={
+                    'status':     status,
+                    'leave_type': leave_type,
+                    'source':     'hr',
+                    'marked_by':  request.user,
+                },
+            )
+        applied.append(d)
+
+    return JsonResponse({'status': 'success', 'applied': applied})
+
+
+@require_POST
+def attendance_day_update(request):
+    """AJAX: apply one status to many employees on a single date (e.g. a public holiday)."""
+    if not _hr_only(request):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    import json
+    import datetime as dt
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        emp_ids         = [int(x) for x in payload['employee_ids']]
+        year            = int(payload['year'])
+        month           = int(payload['month'])
+        day             = int(payload['day'])
+        status          = (payload.get('status') or '').strip()
+        leave_type_name = (payload.get('leave_type') or '').strip()
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
+
+    if status and status not in _ATT_STATUSES:
+        return JsonResponse({'status': 'error', 'message': 'Invalid status.'}, status=400)
+
+    try:
+        date = dt.date(year, month, day)
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid date.'}, status=400)
+
+    leave_type = None
+    if status == 'leave':
+        if not leave_type_name:
+            return JsonResponse({'status': 'error', 'message': 'Pick a leave type.'}, status=400)
+        leave_type = LeaveType.objects.filter(name=leave_type_name).first()
+        if leave_type is None:
+            return JsonResponse({'status': 'error', 'message': 'Unknown leave type.'}, status=400)
+
+    applied = 0
+    for emp in Employee.objects.filter(id__in=emp_ids):
+        if not status:
+            Attendance.objects.filter(employee=emp, date=date).delete()
+        else:
+            Attendance.objects.update_or_create(
+                employee=emp, date=date,
+                defaults={
+                    'status':     status,
+                    'leave_type': leave_type,
+                    'source':     'hr',
+                    'marked_by':  request.user,
+                },
+            )
+        applied += 1
+
+    return JsonResponse({'status': 'success', 'applied': applied})

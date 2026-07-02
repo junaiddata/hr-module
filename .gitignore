@@ -17,6 +17,10 @@ env/
 # Django collected static (production)
 staticfiles/
 
+# Rotating log files
+logs/
+*.log
+
 # Media uploads (optional — remove this line if you track media in git)
 # media/
 

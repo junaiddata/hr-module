@@ -3,7 +3,44 @@ from django.contrib.auth.models import User
 from django_countries.fields import CountryField
 
 class Mol(models.Model):
-    mol= models.CharField(max_length=100, unique=True)
+    mol = models.CharField(max_length=100, unique=True)
+
+    # Company info
+    established_year = models.IntegerField(null=True, blank=True)
+
+    # Trade License
+    trade_license_number = models.CharField(max_length=100, blank=True, null=True)
+    trade_license_expiry = models.DateField(null=True, blank=True)
+    license_document     = models.FileField(upload_to='mol_documents/licenses/', null=True, blank=True)
+
+    # Tenancy Contract
+    tenancy_contract        = models.FileField(upload_to='mol_documents/tenancy/', null=True, blank=True)
+    tenancy_contract_expiry = models.DateField(null=True, blank=True)
+
+    # Establishment Card
+    establishment_card        = models.FileField(upload_to='mol_documents/establishment/', null=True, blank=True)
+    establishment_card_expiry = models.DateField(null=True, blank=True)
+
+    @property
+    def trade_license_days_left(self):
+        if self.trade_license_expiry:
+            from django.utils import timezone
+            return (self.trade_license_expiry - timezone.now().date()).days
+        return None
+
+    @property
+    def tenancy_days_left(self):
+        if self.tenancy_contract_expiry:
+            from django.utils import timezone
+            return (self.tenancy_contract_expiry - timezone.now().date()).days
+        return None
+
+    @property
+    def establishment_card_days_left(self):
+        if self.establishment_card_expiry:
+            from django.utils import timezone
+            return (self.establishment_card_expiry - timezone.now().date()).days
+        return None
 
     def __str__(self):
         return self.mol
@@ -158,7 +195,62 @@ class Leave(models.Model):
 
     def __str__(self):
         return f"{self.employee.emp_name} - {self.leave_type.name} ({self.expected_from} to {self.expected_to})"
-    
+
+
+class Attendance(models.Model):
+    STATUS_CHOICES = [
+        ('present',  'Present'),
+        ('absent',   'Absent'),
+        ('half_day', 'Half Day'),
+        ('leave',    'Leave'),
+        ('holiday',  'Holiday'),
+        ('week_off', 'Week Off'),
+    ]
+    SOURCE_CHOICES = [
+        ('self',       'Self check-in'),
+        ('hr',         'HR entry'),
+        ('leave_auto', 'Approved leave'),
+    ]
+    employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='attendances')
+    date       = models.DateField()
+    status     = models.CharField(max_length=20, choices=STATUS_CHOICES, default='present')
+    leave_type = models.ForeignKey(LeaveType, on_delete=models.SET_NULL, null=True, blank=True)
+    check_in   = models.TimeField(null=True, blank=True)
+    remarks    = models.CharField(max_length=255, blank=True, default='')
+    source     = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='hr')
+    marked_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marked_attendances')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'date')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — {self.date} — {self.get_status_display()}"
+
+
+class BirthdayWish(models.Model):
+    """Log of WhatsApp birthday wishes — one row per employee per year, so the
+    daily job is idempotent and HR can see what was sent (or why it failed)."""
+    STATUS_CHOICES = [('sent', 'Sent'), ('failed', 'Failed')]
+
+    employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='birthday_wishes')
+    year       = models.IntegerField()
+    status     = models.CharField(max_length=10, choices=STATUS_CHOICES, default='sent')
+    to_number  = models.CharField(max_length=30, blank=True, default='')
+    message_id = models.CharField(max_length=128, blank=True, default='')
+    error      = models.TextField(blank=True, default='')
+    sent_by    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_birthday_wishes')
+    sent_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'year')
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — {self.year} — {self.get_status_display()}"
+
 
 class SalaryStructure(models.Model):
     employee  = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name='salary_structure')
@@ -225,6 +317,10 @@ class PayrollRun(models.Model):
         return sum(e.other_deductions for e in self.entries.all())
 
     @property
+    def total_attendance_deductions(self):
+        return sum(e.attendance_deduction for e in self.entries.all())
+
+    @property
     def total_deductions(self):
         return sum(e.total_deductions for e in self.entries.all())
 
@@ -253,6 +349,11 @@ class PayrollEntry(models.Model):
         related_name='payroll_deductions'
     )
 
+    # Attendance-based deduction (absent days / half days)
+    absent_days          = models.IntegerField(default=0)
+    half_days            = models.IntegerField(default=0)
+    attendance_deduction = models.FloatField(default=0)
+
     # Computed (stored for reporting)
     gross_salary   = models.FloatField(default=0)
     net_salary     = models.FloatField(default=0)
@@ -271,7 +372,7 @@ class PayrollEntry(models.Model):
 
     @property
     def total_deductions(self):
-        return self.loan_deduction + self.other_deductions + self.advance_deduction
+        return self.loan_deduction + self.other_deductions + self.advance_deduction + self.attendance_deduction
 
     def compute_and_save(self):
         self.gross_salary = self.basic + self.hra + self.transport + self.others
@@ -432,6 +533,46 @@ class PassportRequest(models.Model):
         return f"{self.employee.emp_name} — Passport Request ({self.status})"
 
 
+class SalaryRevision(models.Model):
+    """Audit trail for every salary change (increment / decrement / adjustment)."""
+    CHANGE_TYPE_CHOICES = [
+        ('Increment',  'Increment'),
+        ('Decrement',  'Decrement'),
+        ('Adjustment', 'Adjustment'),
+    ]
+    employee       = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_revisions')
+    change_type    = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES)
+    effective_date = models.DateField()
+
+    # Snapshot of values before this revision
+    old_salary    = models.FloatField(null=True, blank=True)
+    old_basic     = models.FloatField(default=0)
+    old_hra       = models.FloatField(default=0)
+    old_transport = models.FloatField(default=0)
+    old_others    = models.FloatField(default=0)
+
+    # Values applied by this revision
+    new_salary    = models.FloatField()
+    new_basic     = models.FloatField(default=0)
+    new_hra       = models.FloatField(default=0)
+    new_transport = models.FloatField(default=0)
+    new_others    = models.FloatField(default=0)
+
+    reason     = models.TextField(blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='salary_revisions')
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-effective_date', '-changed_at']
+
+    @property
+    def difference(self):
+        return round((self.new_salary or 0) - (self.old_salary or 0), 2)
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — {self.change_type} ({self.effective_date})"
+
+
 class ChangeLog(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     field_changed = models.CharField(max_length=100)
@@ -442,11 +583,25 @@ class ChangeLog(models.Model):
 
 # models.py
 class Notification(models.Model):
-    title = models.CharField(max_length=255)
-    message = models.TextField()
+    URGENCY_CHOICES = [
+        ('critical', 'Critical'),
+        ('warning',  'Warning'),
+        ('info',     'Info'),
+    ]
+    title      = models.CharField(max_length=255)
+    message    = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, null=True, blank=True)
-    is_read = models.BooleanField(default=False)
+    employee   = models.ForeignKey('Employee', on_delete=models.CASCADE, null=True, blank=True)
+    is_read    = models.BooleanField(default=False)
+
+    # Document-expiry specific fields
+    category = models.CharField(max_length=50, blank=True, default='')   # 'document_expiry' / 'mol_document_expiry'
+    urgency  = models.CharField(max_length=20, blank=True, default='info', choices=URGENCY_CHOICES)
+    doc_type = models.CharField(max_length=50, blank=True, default='')   # 'VISA','EID','MOL_TRADE_LICENSE',…
+    mol      = models.ForeignKey('Mol', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+
+    class Meta:
+        ordering = ['-created_at']
 
     def soft_delete(self):
         self.is_read = True

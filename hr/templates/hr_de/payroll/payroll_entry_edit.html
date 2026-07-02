@@ -202,6 +202,15 @@
                         </div>
                     </div>
                     {% endif %}
+                    <div class="form-group">
+                        <label class="form-label">Absence Deduction (auto)</label>
+                        <div style="background:var(--bg-secondary);border:1.5px solid var(--border-color);border-radius:8px;padding:.6rem .9rem;font-size:.92rem;color:#dc2626;font-weight:600;">
+                            AED {{ entry.attendance_deduction|floatformat:2 }}
+                        </div>
+                        <div style="font-size:.72rem;color:var(--text-tertiary);margin-top:.3rem;">
+                            {{ entry.absent_days }} absent day{{ entry.absent_days|pluralize }}{% if entry.half_days %}, {{ entry.half_days }} half-day{{ entry.half_days|pluralize }}{% endif %} — auto-set from the Attendance Sheet. Update attendance to adjust.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -228,8 +237,9 @@
 
 {% block extra_js %}
 <script>
-var gross       = {{ entry.gross_salary|default:0 }};
-var advanceDed  = {{ entry.advance_deduction|default:0 }};
+var gross         = {{ entry.gross_salary|default:0 }};
+var advanceDed    = {{ entry.advance_deduction|default:0 }};
+var attendanceDed = {{ entry.attendance_deduction|default:0 }};
 var ids   = ['inpBonus','inpOT','inpOtherAdd','inpLoan','inpOtherDed'];
 var elems = ids.map(function(id){ return document.getElementById(id); });
 
@@ -241,7 +251,7 @@ function calc() {
     var otDed  = parseFloat(document.getElementById('inpOtherDed').value)   || 0;
 
     var totalAdd = bonus + ot + otAdd;
-    var totalDed = loan + otDed + advanceDed;
+    var totalDed = loan + otDed + advanceDed + attendanceDed;
     var net      = gross + totalAdd - totalDed;
 
     document.getElementById('previewAdd').textContent = 'AED ' + totalAdd.toFixed(2);

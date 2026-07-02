@@ -17,6 +17,29 @@
         {% else %}
             <span class="bd-badge badge-upc">In {{ r.days_until }} days</span>
         {% endif %}
+
+        {% if r.is_today %}
+            {% if r.wished %}
+                <div class="wa-row">
+                    <span class="wa-sent"><i class="fab fa-whatsapp"></i> Wish sent</span>
+                    {% if whatsapp_ready %}
+                    <button type="button" class="wa-btn wa-resend"
+                            data-emp="{{ r.employee.pk }}" data-name="{{ r.employee.emp_name }}">
+                        <i class="fas fa-rotate-right"></i> Resend
+                    </button>
+                    {% endif %}
+                </div>
+            {% elif whatsapp_ready %}
+                <div class="wa-row">
+                    <button type="button" class="wa-btn"
+                            data-emp="{{ r.employee.pk }}" data-name="{{ r.employee.emp_name }}">
+                        <i class="fab fa-whatsapp"></i> Send wish
+                    </button>
+                </div>
+            {% else %}
+                <div class="wa-row"><span class="wa-note">Configure WhatsApp to send wishes</span></div>
+            {% endif %}
+        {% endif %}
     </div>
     <div class="bd-right">
         <div class="bd-date"><span class="day">{{ r.bday|date:"d" }}</span> {{ r.bday|date:"M" }}</div>

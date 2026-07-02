@@ -1,0 +1,350 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Revise Salary — {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-wrapper { max-width: 900px; margin: 2rem auto; padding: 0 1rem 3rem; }
+
+.page-header {
+    background: var(--gradient-primary); border-radius: 14px;
+    padding: 1.25rem 1.5rem; color: #fff;
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.75rem; flex-wrap: wrap;
+}
+.page-avatar {
+    width: 54px; height: 54px; border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 800; flex-shrink: 0; overflow: hidden;
+}
+.page-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ph-name { font-weight: 700; font-size: 1.05rem; }
+.ph-meta { font-size: .8rem; opacity: .82; margin-top: .1rem; }
+.ph-salary-block { margin-left: auto; text-align: right; }
+.ph-salary-label { font-size: .72rem; opacity: .8; text-transform: uppercase; letter-spacing: .06em; }
+.ph-salary-val   { font-size: 1.45rem; font-weight: 800; }
+
+/* Change type live badge */
+.change-indicator {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .35rem .9rem; border-radius: 9999px;
+    font-size: .82rem; font-weight: 700; transition: all .2s;
+}
+.ci-increment { background: rgba(16,185,129,.12); color: #059669; }
+.ci-decrement { background: rgba(239,68,68,.12);  color: #dc2626; }
+.ci-adjustment{ background: rgba(148,163,184,.15);color: #64748b; }
+.ci-none      { background: var(--bg-tertiary);   color: var(--text-tertiary); }
+
+/* Cards */
+.card-box {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
+}
+.card-box-head {
+    background: var(--bg-secondary); padding: .85rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: .6rem;
+}
+.card-box-head h2 { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.card-body { padding: 1.5rem; }
+
+/* Visual breakdown bar */
+.breakdown-bar {
+    display: flex; height: 9px; border-radius: 20px; overflow: hidden;
+    margin-bottom: .7rem; background: var(--bg-tertiary);
+}
+.bar-segment { height: 100%; transition: width .3s ease; }
+.seg-basic     { background: #3b82f6; }
+.seg-hra       { background: #10b981; }
+.seg-transport { background: #f59e0b; }
+.seg-others    { background: #8b5cf6; }
+.bar-legend { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; font-size: .77rem; margin-bottom: 1.25rem; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .3rem; }
+
+/* Component inputs */
+.component-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 1.15rem; margin-bottom: 1.25rem;
+}
+.component-card {
+    border: 1.5px solid var(--border-color); border-radius: 12px; padding: 1rem;
+    position: relative; transition: border-color .18s;
+}
+.component-card:focus-within { border-color: var(--accent-primary); }
+.comp-label {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--text-secondary);
+    display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem;
+}
+.comp-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.comp-input {
+    border: none; outline: none;
+    font-size: 1.3rem; font-weight: 700; color: var(--text-primary);
+    width: 100%; background: transparent; padding: 0;
+}
+.comp-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.comp-pct { font-size: .74rem; color: var(--text-tertiary); margin-top: .2rem; }
+.comp-prefix {
+    position: absolute; top: 1rem; right: .85rem;
+    font-size: .8rem; color: var(--text-tertiary); font-weight: 500;
+}
+
+/* Total + diff row */
+.total-row {
+    background: var(--bg-secondary); border: 1.5px solid var(--border-color);
+    border-radius: 12px; padding: 1rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: .6rem; margin-bottom: 1.5rem;
+}
+.total-row .t-label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); }
+.total-row .t-val   { font-size: 1.3rem; font-weight: 800; color: var(--accent-primary); }
+.diff-pill {
+    font-size: .78rem; font-weight: 700; padding: .2rem .65rem;
+    border-radius: 9999px; display: none;
+}
+.dp-plus  { background: rgba(16,185,129,.12);  color: #059669; }
+.dp-minus { background: rgba(239,68,68,.12);   color: #dc2626; }
+.dp-zero  { background: rgba(148,163,184,.15); color: #64748b; }
+
+/* Extra fields */
+.extra-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1.15rem; margin-bottom: 1.5rem;
+}
+@media (max-width: 600px) { .extra-grid { grid-template-columns: 1fr; } }
+.field-wrap { display: flex; flex-direction: column; gap: .4rem; }
+.field-label {
+    font-size: .75rem; font-weight: 700; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .04em;
+}
+.field-input, .field-textarea {
+    border: 1.5px solid var(--border-color); border-radius: 9px;
+    padding: .55rem .8rem; font-size: .9rem; color: var(--text-primary);
+    background: #fff; transition: border-color .18s;
+}
+.field-input:focus, .field-textarea:focus {
+    outline: none; border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(8,11,177,.07);
+}
+.field-textarea { resize: vertical; min-height: 80px; }
+
+/* Actions */
+.form-actions {
+    display: flex; gap: 1rem; justify-content: flex-end; flex-wrap: wrap;
+    padding-top: 1.25rem; border-top: 1px solid var(--border-color);
+}
+.btn-apply {
+    background: var(--gradient-primary); color: #fff;
+    padding: .65rem 1.75rem; border-radius: 9px;
+    font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem;
+    transition: opacity .18s;
+}
+.btn-apply:hover { opacity: .88; }
+.btn-cancel {
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    padding: .65rem 1.25rem; border-radius: 9px;
+    font-weight: 500; border: 1px solid var(--border-color);
+    text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
+    font-size: .9rem;
+}
+.btn-history {
+    color: var(--accent-primary); border: 1px solid var(--accent-primary);
+    background: rgba(8,11,177,.05);
+    padding: .65rem 1.25rem; border-radius: 9px; font-weight: 600;
+    text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
+    font-size: .9rem; transition: all .18s;
+}
+.btn-history:hover { background: rgba(8,11,177,.1); color: var(--accent-primary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <div class="page-avatar">
+            {% if employee.photo %}<img src="{{ employee.photo.url }}" alt="{{ employee.emp_name }}">
+            {% else %}{{ employee.emp_name|first|upper }}{% endif %}
+        </div>
+        <div>
+            <div class="ph-name">{{ employee.emp_name }}</div>
+            <div class="ph-meta">{{ employee.emp_id }} · {{ employee.designation|default:"—" }}{% if employee.department %} · {{ employee.department.name }}{% endif %}</div>
+        </div>
+        <div class="ph-salary-block">
+            <div class="ph-salary-label">Current Salary</div>
+            <div class="ph-salary-val">AED {{ employee.emp_salary|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Component breakdown -->
+        <div class="card-box">
+            <div class="card-box-head">
+                <i class="fas fa-chart-pie" style="color:var(--accent-primary);"></i>
+                <h2>New Salary Breakdown</h2>
+                <span id="changeIndicator" class="change-indicator ci-none" style="margin-left:auto;">—</span>
+            </div>
+            <div class="card-body">
+
+                <div class="breakdown-bar" id="breakdownBar">
+                    <div class="bar-segment seg-basic"     id="barBasic"    ></div>
+                    <div class="bar-segment seg-hra"       id="barHra"      ></div>
+                    <div class="bar-segment seg-transport" id="barTransport"></div>
+                    <div class="bar-segment seg-others"    id="barOthers"   ></div>
+                </div>
+                <div class="bar-legend">
+                    <span><span class="legend-dot" style="background:#3b82f6;"></span>Basic (<span id="lgBasic">0</span>%)</span>
+                    <span><span class="legend-dot" style="background:#10b981;"></span>HRA (<span id="lgHra">0</span>%)</span>
+                    <span><span class="legend-dot" style="background:#f59e0b;"></span>Transport (<span id="lgTransport">0</span>%)</span>
+                    <span><span class="legend-dot" style="background:#8b5cf6;"></span>Others (<span id="lgOthers">0</span>%)</span>
+                </div>
+
+                <div class="component-grid">
+                    <div class="component-card">
+                        <div class="comp-label"><span class="comp-dot" style="background:#3b82f6;"></span> Basic</div>
+                        <span class="comp-prefix">AED</span>
+                        <input type="number" name="basic" id="inpBasic" class="comp-input" min="0" step="0.01"
+                               value="{{ structure.basic|floatformat:2|default:'0' }}" placeholder="0.00">
+                        <div class="comp-pct" id="pctBasic">—% of total</div>
+                    </div>
+                    <div class="component-card">
+                        <div class="comp-label"><span class="comp-dot" style="background:#10b981;"></span> HRA</div>
+                        <span class="comp-prefix">AED</span>
+                        <input type="number" name="hra" id="inpHra" class="comp-input" min="0" step="0.01"
+                               value="{{ structure.hra|floatformat:2|default:'0' }}" placeholder="0.00">
+                        <div class="comp-pct" id="pctHra">—% of total</div>
+                    </div>
+                    <div class="component-card">
+                        <div class="comp-label"><span class="comp-dot" style="background:#f59e0b;"></span> Transport</div>
+                        <span class="comp-prefix">AED</span>
+                        <input type="number" name="transport" id="inpTransport" class="comp-input" min="0" step="0.01"
+                               value="{{ structure.transport|floatformat:2|default:'0' }}" placeholder="0.00">
+                        <div class="comp-pct" id="pctTransport">—% of total</div>
+                    </div>
+                    <div class="component-card">
+                        <div class="comp-label"><span class="comp-dot" style="background:#8b5cf6;"></span> Others</div>
+                        <span class="comp-prefix">AED</span>
+                        <input type="number" name="others" id="inpOthers" class="comp-input" min="0" step="0.01"
+                               value="{{ structure.others|floatformat:2|default:'0' }}" placeholder="0.00">
+                        <div class="comp-pct" id="pctOthers">—% of total</div>
+                    </div>
+                </div>
+
+                <!-- Total vs old salary -->
+                <div class="total-row">
+                    <div>
+                        <div class="t-label">New Total</div>
+                        <div class="t-val">AED <span id="calcTotal">0.00</span></div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+                        <span style="font-size:.82rem;color:var(--text-secondary);">
+                            Current: <strong>AED {{ employee.emp_salary|floatformat:2|default:"0.00" }}</strong>
+                        </span>
+                        <span class="diff-pill" id="diffPill"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Effective date + reason -->
+        <div class="card-box">
+            <div class="card-box-head">
+                <i class="fas fa-calendar-check" style="color:var(--accent-primary);"></i>
+                <h2>Revision Details</h2>
+            </div>
+            <div class="card-body">
+                <div class="extra-grid">
+                    <div class="field-wrap">
+                        <label class="field-label">Effective Date <span style="color:#ef4444;">*</span></label>
+                        <input type="date" name="effective_date" class="field-input" value="{{ today }}" required>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Reason / Notes</label>
+                        <textarea name="reason" class="field-textarea" placeholder="e.g. Annual increment, promotion, market adjustment…"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'salary_history' emp_id=employee.pk %}" class="btn-history">
+                        <i class="fas fa-clock-rotate-left"></i> View History
+                    </a>
+                    <a href="{% url 'employee_detail' employee.pk %}" class="btn-cancel">
+                        <i class="fas fa-arrow-left"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn-apply">
+                        <i class="fas fa-check"></i> Apply Salary Change
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const oldSalary = {{ employee.emp_salary|default:0 }};
+const inputs    = ['Basic','Hra','Transport','Others'];
+const ids       = inputs.map(n => document.getElementById('inp' + n));
+const bars      = inputs.map(n => document.getElementById('bar' + n));
+const pcts      = inputs.map(n => document.getElementById('pct' + n));
+const lgs       = inputs.map(n => document.getElementById('lg'  + n));
+const totalEl   = document.getElementById('calcTotal');
+const diffPill  = document.getElementById('diffPill');
+const indicator = document.getElementById('changeIndicator');
+
+function update() {
+    const vals  = ids.map(el => parseFloat(el.value) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+
+    totalEl.textContent = total.toFixed(2);
+
+    vals.forEach((v, i) => {
+        const pct = total > 0 ? (v / total * 100).toFixed(1) : 0;
+        bars[i].style.width = pct + '%';
+        pcts[i].textContent = pct + '% of total';
+        lgs[i].textContent  = pct;
+    });
+
+    // Diff pill vs old salary
+    if (oldSalary > 0) {
+        const diff = total - oldSalary;
+        diffPill.style.display = 'inline-block';
+        if (Math.abs(diff) < 0.01) {
+            diffPill.className = 'diff-pill dp-zero';
+            diffPill.textContent = '= No change';
+        } else if (diff > 0) {
+            diffPill.className = 'diff-pill dp-plus';
+            diffPill.textContent = '+AED ' + diff.toFixed(2);
+        } else {
+            diffPill.className = 'diff-pill dp-minus';
+            diffPill.textContent = '−AED ' + Math.abs(diff).toFixed(2);
+        }
+    } else {
+        diffPill.style.display = 'none';
+    }
+
+    // Change type indicator
+    const diff2 = total - oldSalary;
+    if (Math.abs(diff2) < 0.01) {
+        indicator.className = 'change-indicator ci-adjustment';
+        indicator.innerHTML = '<i class="fas fa-arrows-left-right"></i> Adjustment';
+    } else if (diff2 > 0) {
+        indicator.className = 'change-indicator ci-increment';
+        indicator.innerHTML = '<i class="fas fa-arrow-up"></i> Increment';
+    } else {
+        indicator.className = 'change-indicator ci-decrement';
+        indicator.innerHTML = '<i class="fas fa-arrow-down"></i> Decrement';
+    }
+}
+
+ids.forEach(el => el.addEventListener('input', update));
+document.addEventListener('DOMContentLoaded', update);
+</script>
+{% endblock %}

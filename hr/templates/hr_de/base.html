@@ -185,6 +185,17 @@
         .nav-text { transition: opacity .2s, width .3s; overflow: hidden; }
         .sidebar.collapsed .nav-text { opacity: 0; width: 0; }
 
+        .nav-notif-badge {
+            margin-left: auto;
+            background: #ef4444; color: #fff;
+            font-size: .62rem; font-weight: 800;
+            min-width: 18px; height: 18px; padding: 0 .35rem;
+            border-radius: 9999px;
+            display: inline-flex; align-items: center; justify-content: center;
+            line-height: 1; flex-shrink: 0;
+        }
+        .sidebar.collapsed .nav-notif-badge { display: none; }
+
         .nav-chevron {
             margin-left: auto;
             font-size: .68rem;
@@ -456,12 +467,28 @@
                     </li>
                 </ul>
 
+                <div class="nav-section-label">Attendance</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'attendance_grid' %}" class="nav-link-item" data-path="/attendance/grid/">
+                            <span class="nav-icon"><i class="fas fa-clipboard-user"></i></span>
+                            <span class="nav-text">Attendance Sheet</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="nav-section-label">Payroll</div>
                 <ul class="nav-list">
                     <li class="nav-item">
                         <a href="{% url 'payroll_list' %}" class="nav-link-item" data-path="/payroll/">
                             <span class="nav-icon"><i class="fas fa-money-bill-wave"></i></span>
                             <span class="nav-text">Payroll Runs</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'salary_all_revisions' %}" class="nav-link-item" data-path="/salary-changes/">
+                            <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                            <span class="nav-text">Salary Changes</span>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -513,18 +540,13 @@
                         <a href="{% url 'notification_list' %}" class="nav-link-item" data-path="/notifications/">
                             <span class="nav-icon"><i class="fas fa-bell"></i></span>
                             <span class="nav-text">Notifications</span>
+                            {% if unread_notification_count %}<span class="nav-notif-badge" id="sidebarNotifBadge">{{ unread_notification_count }}</span>{% endif %}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{% url 'my_profile' %}" class="nav-link-item" data-path="/my-profile/">
                             <span class="nav-icon"><i class="fas fa-id-card"></i></span>
                             <span class="nav-text">My Profile</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'change_password' %}" class="nav-link-item" data-path="/change-password/">
-                            <span class="nav-icon"><i class="fas fa-key"></i></span>
-                            <span class="nav-text">Change Password</span>
                         </a>
                     </li>
                 </ul>
@@ -583,18 +605,13 @@
                         <a href="{% url 'notification_list' %}" class="nav-link-item" data-path="/notifications/">
                             <span class="nav-icon"><i class="fas fa-bell"></i></span>
                             <span class="nav-text">Notifications</span>
+                            {% if unread_notification_count %}<span class="nav-notif-badge" id="sidebarNotifBadge">{{ unread_notification_count }}</span>{% endif %}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{% url 'my_profile' %}" class="nav-link-item" data-path="/my-profile/">
                             <span class="nav-icon"><i class="fas fa-id-card"></i></span>
                             <span class="nav-text">My Profile</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'change_password' %}" class="nav-link-item" data-path="/change-password/">
-                            <span class="nav-icon"><i class="fas fa-key"></i></span>
-                            <span class="nav-text">Change Password</span>
                         </a>
                     </li>
                 </ul>
@@ -674,12 +691,6 @@
                             <span class="nav-text">My Profile</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{% url 'change_password' %}" class="nav-link-item" data-path="/change-password/">
-                            <span class="nav-icon"><i class="fas fa-key"></i></span>
-                            <span class="nav-text">Change Password</span>
-                        </a>
-                    </li>
                 </ul>
 
                 {% else %}
@@ -691,6 +702,16 @@
                         <a href="{% url 'employee_dashboard' %}" class="nav-link-item" data-path="/dashboard/">
                             <span class="nav-icon"><i class="fas fa-house-chimney"></i></span>
                             <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-label">Attendance</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'attendance_mark' %}" class="nav-link-item" data-path="/attendance/mark/">
+                            <span class="nav-icon"><i class="fas fa-fingerprint"></i></span>
+                            <span class="nav-text">Mark Attendance</span>
                         </a>
                     </li>
                 </ul>
@@ -749,12 +770,6 @@
                         <a href="{% url 'my_profile' %}" class="nav-link-item" data-path="/my-profile/">
                             <span class="nav-icon"><i class="fas fa-id-card"></i></span>
                             <span class="nav-text">My Profile</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'change_password' %}" class="nav-link-item" data-path="/change-password/">
-                            <span class="nav-icon"><i class="fas fa-key"></i></span>
-                            <span class="nav-text">Change Password</span>
                         </a>
                     </li>
                 </ul>

@@ -1,0 +1,202 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Salary Changes{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-wrapper { max-width: 1150px; margin: 2rem auto; padding: 0 1rem 3rem; }
+
+.page-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem;
+}
+.page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
+    display: flex; align-items: center; gap: .6rem; margin: 0; }
+.page-title i { color: var(--accent-primary); }
+.page-sub { color: var(--text-secondary); font-size: .88rem; margin-top: .2rem; }
+
+/* Search bar */
+.search-bar {
+    display: flex; gap: .75rem; flex-wrap: wrap;
+    background: var(--bg-primary); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: .9rem 1.1rem; margin-bottom: 1.75rem;
+}
+.search-inp {
+    flex: 1; min-width: 200px;
+    border: 1.5px solid var(--border-color); border-radius: 9px;
+    padding: .5rem .75rem; font-size: .88rem; background: #fff;
+    transition: border-color .18s;
+}
+.search-inp:focus { outline: none; border-color: var(--accent-primary); }
+.search-btn {
+    padding: .5rem 1.1rem; border-radius: 9px; border: none;
+    background: var(--gradient-primary); color: #fff;
+    font-weight: 600; font-size: .85rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .4rem;
+}
+.search-reset {
+    padding: .5rem .9rem; border-radius: 9px; border: 1px solid var(--border-color);
+    color: var(--text-secondary); background: var(--bg-tertiary);
+    font-size: .85rem; font-weight: 500; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .4rem;
+}
+.search-reset:hover { color: var(--text-primary); }
+
+/* Table card */
+.card-box {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.card-box-head {
+    padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.card-box-head h2 {
+    font-size: .92rem; font-weight: 700; color: var(--text-primary);
+    display: flex; align-items: center; gap: .5rem; margin: 0;
+}
+.total-count {
+    font-size: .74rem; font-weight: 700; background: rgba(8,11,177,.08);
+    color: var(--accent-primary); border-radius: 9999px; padding: .15rem .6rem;
+}
+
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+    padding: .65rem 1.1rem; background: #f8fafc;
+    color: var(--text-secondary); font-size: .72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em; text-align: left;
+    border-bottom: 1px solid var(--border-color); white-space: nowrap;
+}
+.data-table td {
+    padding: .8rem 1.1rem; font-size: .875rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary); vertical-align: middle;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: #f8fafc; }
+
+.emp-link { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+.emp-link:hover { color: var(--accent-primary); }
+.emp-id-chip { font-size: .73rem; color: var(--text-secondary); }
+
+.badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .2rem .6rem; border-radius: 9999px;
+    font-size: .71rem; font-weight: 700;
+}
+.b-inc { background: rgba(16,185,129,.12); color: #059669; }
+.b-dec { background: rgba(239,68,68,.12);  color: #dc2626; }
+.b-adj { background: rgba(148,163,184,.15);color: #64748b; }
+
+.diff-val { font-weight: 700; }
+.diff-pos  { color: #059669; }
+.diff-neg  { color: #dc2626; }
+.diff-zero { color: #64748b; }
+
+.action-link {
+    font-size: .78rem; font-weight: 600;
+    color: var(--accent-primary); text-decoration: none;
+    display: inline-flex; align-items: center; gap: .3rem;
+}
+.action-link:hover { text-decoration: underline; }
+
+.empty-state {
+    text-align: center; padding: 3rem 1rem; color: var(--text-tertiary);
+}
+.empty-state i { font-size: 2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <div class="page-top">
+        <div>
+            <h1 class="page-title"><i class="fas fa-chart-line"></i> Salary Changes</h1>
+            <p class="page-sub">All salary increments, decrements and adjustments across the organisation.</p>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <form method="get" class="search-bar">
+        <input type="text" name="q" class="search-inp" placeholder="Search by employee name or ID…" value="{{ q }}">
+        <button type="submit" class="search-btn"><i class="fas fa-search"></i> Search</button>
+        {% if q %}<a href="{% url 'salary_all_revisions' %}" class="search-reset"><i class="fas fa-rotate-left"></i> Reset</a>{% endif %}
+    </form>
+
+    <div class="card-box">
+        <div class="card-box-head">
+            <h2><i class="fas fa-list-ul" style="color:var(--accent-primary);"></i> All Revisions</h2>
+            <span class="total-count">{{ revisions|length }} record{{ revisions|length|pluralize }}</span>
+        </div>
+
+        {% if revisions %}
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Effective Date</th>
+                        <th>Type</th>
+                        <th>Old Salary</th>
+                        <th>New Salary</th>
+                        <th>Change</th>
+                        <th>Reason</th>
+                        <th>Changed By</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in revisions %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'employee_detail' r.employee.pk %}" class="emp-link">{{ r.employee.emp_name }}</a><br>
+                            <span class="emp-id-chip">{{ r.employee.emp_id }}</span>
+                        </td>
+                        <td>{{ r.employee.department.name|default:"—" }}</td>
+                        <td>{{ r.effective_date|date:"d M Y" }}</td>
+                        <td>
+                            {% if r.change_type == 'Increment' %}
+                                <span class="badge b-inc"><i class="fas fa-arrow-up"></i> Increment</span>
+                            {% elif r.change_type == 'Decrement' %}
+                                <span class="badge b-dec"><i class="fas fa-arrow-down"></i> Decrement</span>
+                            {% else %}
+                                <span class="badge b-adj"><i class="fas fa-arrows-left-right"></i> Adjustment</span>
+                            {% endif %}
+                        </td>
+                        <td>AED {{ r.old_salary|floatformat:2|default:"—" }}</td>
+                        <td><strong>AED {{ r.new_salary|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if r.difference > 0 %}
+                                <span class="diff-val diff-pos">+AED {{ r.difference|floatformat:2 }}</span>
+                            {% elif r.difference < 0 %}
+                                <span class="diff-val diff-neg">−AED {{ r.difference|floatformat:2|cut:"-" }}</span>
+                            {% else %}
+                                <span class="diff-val diff-zero">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="max-width:160px;font-size:.82rem;">{{ r.reason|default:"—" }}</td>
+                        <td style="font-size:.82rem;">
+                            {% if r.changed_by %}{{ r.changed_by.get_full_name|default:r.changed_by.username }}{% else %}—{% endif %}<br>
+                            <span style="color:var(--text-tertiary);font-size:.72rem;">{{ r.changed_at|date:"d M Y" }}</span>
+                        </td>
+                        <td>
+                            <a href="{% url 'salary_history' emp_id=r.employee.pk %}" class="action-link">
+                                <i class="fas fa-clock-rotate-left"></i> History
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-file-circle-xmark"></i>
+            <p>{% if q %}No results for "{{ q }}".{% else %}No salary changes recorded yet.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

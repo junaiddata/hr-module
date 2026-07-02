@@ -180,6 +180,10 @@ tbody tr:hover { background: #fafafa; }
                 <div class="dp-v" style="color:#ea580c;">AED {{ run.total_advance_deductions|floatformat:2 }}</div>
             </div>
             <div class="dp-item">
+                <div class="dp-l"><i class="fas fa-user-clock me-1"></i>Absence (Attendance)</div>
+                <div class="dp-v" style="color:#dc2626;">AED {{ run.total_attendance_deductions|floatformat:2 }}</div>
+            </div>
+            <div class="dp-item">
                 <div class="dp-l">Other</div>
                 <div class="dp-v">AED {{ run.total_other_deductions|floatformat:2 }}</div>
             </div>
@@ -224,6 +228,7 @@ tbody tr:hover { background: #fafafa; }
                         <th class="num" style="color:#dc2626;">- Loan</th>
                         <th class="num" style="color:#dc2626;">- Ded.</th>
                         <th class="num" style="color:#dc2626;">- Advance</th>
+                        <th class="num" style="color:#dc2626;">- Absent</th>
                         <th class="num">Gross</th>
                         <th class="num">Net</th>
                         <th>Action</th>
@@ -248,6 +253,7 @@ tbody tr:hover { background: #fafafa; }
                         <td class="num deduction">{% if entry.loan_deduction %}-{{ entry.loan_deduction|floatformat:2 }}{% else %}--{% endif %}</td>
                         <td class="num deduction">{% if entry.other_deductions %}-{{ entry.other_deductions|floatformat:2 }}{% else %}--{% endif %}</td>
                         <td class="num deduction">{% if entry.advance_deduction %}-{{ entry.advance_deduction|floatformat:2 }}{% else %}--{% endif %}</td>
+                        <td class="num deduction" title="{{ entry.absent_days }} absent, {{ entry.half_days }} half-day{{ entry.half_days|pluralize }}">{% if entry.attendance_deduction %}-{{ entry.attendance_deduction|floatformat:2 }}{% else %}--{% endif %}</td>
                         <td class="num">{{ entry.gross_salary|floatformat:2 }}</td>
                         <td class="num net-col">{{ entry.net_salary|floatformat:2 }}</td>
                         <td>
@@ -274,7 +280,7 @@ tbody tr:hover { background: #fafafa; }
 
                     <!-- MOL subtotal -->
                     <tr class="mol-subtotal">
-                        <td colspan="13" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
+                        <td colspan="14" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
                             {{ group.mol_label }} SUBTOTAL
                         </td>
                         <td class="num">AED {{ group.total_gross|floatformat:2 }}</td>

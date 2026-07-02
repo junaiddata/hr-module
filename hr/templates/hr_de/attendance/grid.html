@@ -1,0 +1,633 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Attendance Sheet{% endblock %}
+
+{% block extra_css %}
+<style>
+.att-wrap { max-width: 1400px; margin: 1.5rem auto; padding: 0 1rem 3rem; }
+
+/* Header */
+.att-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.att-h { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: .6rem; margin: 0; }
+.att-h i { color: var(--accent-primary); }
+.att-sub { font-size: .85rem; color: var(--text-secondary); margin-top: .2rem; }
+
+/* Filter bar */
+.filter-bar {
+    background: #fff; border: 1px solid var(--border-color); border-radius: 12px;
+    padding: .85rem 1rem; display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end;
+    box-shadow: var(--shadow-sm); margin-bottom: 1.25rem;
+}
+.fb-field { display: flex; flex-direction: column; gap: .25rem; }
+.fb-label { font-size: .68rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.fb-select {
+    border: 1.5px solid var(--border-color); border-radius: 8px; padding: .45rem .7rem;
+    font-size: .86rem; color: var(--text-primary); background: #fff; min-width: 130px;
+}
+.fb-go {
+    background: var(--gradient-primary); color: #fff; border: none; border-radius: 8px;
+    padding: .5rem 1.25rem; font-weight: 600; font-size: .86rem; cursor: pointer; height: 38px;
+    display: inline-flex; align-items: center; gap: .4rem;
+}
+.fb-go:hover { opacity: .9; }
+
+/* Palette */
+.palette-card {
+    background: #fff; border: 1px solid var(--border-color); border-radius: 12px;
+    padding: .85rem 1rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm);
+}
+.palette-title { font-size: .72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .55rem; display: flex; align-items: center; gap: .4rem; }
+.palette-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.chip {
+    display: inline-flex; align-items: center; gap: .4rem; cursor: grab;
+    padding: .4rem .8rem; border-radius: 9999px; font-size: .8rem; font-weight: 700;
+    border: 1.5px solid transparent; user-select: none; transition: transform .12s, box-shadow .12s;
+}
+.chip:active { cursor: grabbing; }
+.chip.dragging { opacity: .5; }
+.chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.chip i { pointer-events: none; }
+.chip-present  { background: rgba(16,185,129,.12); color: #10b981; border-color: rgba(16,185,129,.3); }
+.chip-absent   { background: rgba(239,68,68,.12);  color: #ef4444; border-color: rgba(239,68,68,.3); }
+.chip-half_day { background: rgba(245,158,11,.12); color: #f59e0b; border-color: rgba(245,158,11,.3); }
+.chip-holiday  { background: rgba(139,92,246,.12); color: #8b5cf6; border-color: rgba(139,92,246,.3); }
+.chip-week_off { background: var(--bg-tertiary);   color: var(--text-secondary); border-color: var(--border-color); }
+.chip-leave    { background: rgba(59,130,246,.12); color: #3b82f6; border-color: rgba(59,130,246,.3); }
+.chip-clear    { background: #fff; color: var(--text-tertiary); border-color: var(--border-color); border-style: dashed; }
+.palette-hint { font-size: .74rem; color: var(--text-tertiary); margin-top: .55rem; }
+.palette-hint i { color: var(--accent-primary); }
+
+/* Grid */
+.grid-scroll { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; box-shadow: var(--shadow-sm); }
+table.att-grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; }
+.att-grid th, .att-grid td { border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); white-space: nowrap; }
+
+/* header row */
+.att-grid thead th {
+    position: sticky; top: 0; z-index: 3; background: var(--bg-secondary);
+    padding: .4rem .3rem; text-align: center; font-weight: 700; color: var(--text-secondary);
+    font-size: .72rem;
+}
+.att-grid thead th.day-off { background: #eef1f6; color: #6b7280; }
+.att-grid thead th.day-today { background: rgba(8,11,177,.1); color: var(--accent-primary); }
+.att-grid thead th.day-col { cursor: pointer; }
+.att-grid thead th.day-col:hover { background: rgba(8,11,177,.16); color: var(--accent-primary); }
+.att-grid thead th.day-col:hover .day-num { text-decoration: underline; }
+.day-num { font-size: .82rem; font-weight: 800; color: var(--text-primary); }
+.day-wd { font-size: .62rem; text-transform: uppercase; }
+
+/* employee (sticky first col) */
+.emp-col {
+    position: sticky; left: 0; z-index: 2; background: #fff;
+    text-align: left !important; padding: .5rem .8rem; min-width: 210px; max-width: 210px;
+}
+.att-grid thead th.emp-col { z-index: 4; }
+.emp-name { font-weight: 700; color: var(--text-primary); font-size: .83rem; overflow: hidden; text-overflow: ellipsis; }
+.emp-meta { font-size: .68rem; color: var(--text-tertiary); }
+
+/* dept row */
+.dept-row td {
+    background: var(--bg-tertiary); font-weight: 700; color: var(--accent-primary);
+    padding: .45rem .8rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em;
+    position: sticky; left: 0;
+}
+
+/* cells */
+td.cell {
+    text-align: center; padding: 0; height: 34px; min-width: 34px; max-width: 34px;
+    cursor: pointer; position: relative; font-weight: 800; font-size: .78rem; color: transparent;
+    transition: background .12s;
+}
+td.cell .mk { display: flex; align-items: center; justify-content: center; height: 34px; }
+td.cell:hover { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+td.cell.drop-hover { outline: 2px dashed var(--accent-primary); outline-offset: -2px; background: rgba(8,11,177,.05); }
+
+/* Excel-style fill handle */
+.fill-handle {
+    position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px;
+    background: var(--accent-primary); border: 1.5px solid #fff; border-radius: 2px;
+    cursor: crosshair; display: none; z-index: 6; box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+}
+td.cell:not(.st-empty):hover .fill-handle { display: block; }
+td.cell.fill-preview { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+td.cell.fill-source  { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+
+.cell.st-present  { background: rgba(16,185,129,.16); color: #059669; }
+.cell.st-absent   { background: rgba(239,68,68,.16);  color: #dc2626; }
+.cell.st-half_day { background: rgba(245,158,11,.16); color: #d97706; }
+.cell.st-leave    { background: rgba(59,130,246,.16); color: #2563eb; }
+.cell.st-holiday  { background: rgba(139,92,246,.16); color: #7c3aed; }
+.cell.st-week_off { background: repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 4px,#e9ebf0 4px,#e9ebf0 8px); color: #9ca3af; }
+.cell.st-empty    { background: #fff; }
+.cell.is-today    { box-shadow: inset 0 0 0 2px rgba(8,11,177,.35); }
+.cell.src-auto .mk, .cell.src-leave_auto .mk { opacity: .75; }
+
+/* totals */
+.tot-col { text-align: center; font-weight: 800; font-size: .82rem; padding: .4rem .5rem; min-width: 40px; }
+.tot-p { color: #059669; } .tot-l { color: #2563eb; } .tot-a { color: #dc2626; }
+.tot-head { background: var(--bg-secondary); }
+
+/* legend */
+.legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: .76rem; color: var(--text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.lg-dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+
+/* click menu */
+.cell-menu {
+    position: absolute; z-index: 50; background: #fff; border: 1px solid var(--border-color);
+    border-radius: 10px; box-shadow: var(--shadow-md); padding: .4rem; min-width: 170px; display: none;
+}
+.cell-menu.open { display: block; }
+.cm-title { font-size: .68rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; padding: .3rem .5rem; }
+.cm-item {
+    display: flex; align-items: center; gap: .55rem; width: 100%; text-align: left;
+    padding: .45rem .55rem; border: none; background: none; border-radius: 7px; cursor: pointer;
+    font-size: .82rem; font-weight: 600; color: var(--text-primary);
+}
+.cm-item:hover { background: var(--bg-tertiary); }
+.cm-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+.cm-sep { height: 1px; background: var(--border-color); margin: .3rem 0; }
+
+.empty-state { text-align: center; padding: 3rem; color: var(--text-tertiary); }
+.empty-state i { font-size: 2.2rem; display: block; margin-bottom: .6rem; }
+
+.saving-toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100;
+    background: #111827; color: #fff; padding: .6rem 1rem; border-radius: 9px;
+    font-size: .82rem; font-weight: 600; opacity: 0; transform: translateY(10px);
+    transition: opacity .2s, transform .2s; pointer-events: none;
+}
+.saving-toast.show { opacity: 1; transform: translateY(0); }
+.saving-toast.err { background: #dc2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="att-wrap">
+
+    <div class="att-top">
+        <div>
+            <h1 class="att-h"><i class="fas fa-clipboard-user"></i> Attendance Sheet</h1>
+            <p class="att-sub">Department-wise monthly attendance. Approved leaves are filled in automatically. Drag a chip onto a cell or click a cell to edit.</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="filter-bar">
+        <div class="fb-field">
+            <label class="fb-label">Month</label>
+            <select name="month" class="fb-select">
+                {% for m in months %}
+                <option value="{{ m.num }}" {% if m.num == month %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="fb-field">
+            <label class="fb-label">Year</label>
+            <select name="year" class="fb-select">
+                {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="fb-field">
+            <label class="fb-label">Department</label>
+            <select name="department" class="fb-select">
+                <option value="">All Departments</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if selected_dept == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="fb-go"><i class="fas fa-filter"></i> Apply</button>
+    </form>
+
+    <!-- Palette -->
+    <div class="palette-card">
+        <div class="palette-title"><i class="fas fa-hand-pointer"></i> Drag a status onto a day (or click a day)</div>
+        <div class="palette-row" id="palette">
+            <div class="chip chip-present"  draggable="true" data-status="present"  data-leave=""><i class="fas fa-check"></i> Present</div>
+            <div class="chip chip-absent"   draggable="true" data-status="absent"   data-leave=""><i class="fas fa-xmark"></i> Absent</div>
+            <div class="chip chip-half_day" draggable="true" data-status="half_day" data-leave=""><i class="fas fa-adjust"></i> Half Day</div>
+            <div class="chip chip-holiday"  draggable="true" data-status="holiday"  data-leave=""><i class="fas fa-umbrella-beach"></i> Holiday</div>
+            <div class="chip chip-week_off" draggable="true" data-status="week_off" data-leave=""><i class="fas fa-mug-hot"></i> Week Off</div>
+            {% for lt in leave_types %}
+            <div class="chip chip-leave" draggable="true" data-status="leave" data-leave="{{ lt.name }}"><i class="fas fa-plane"></i> {{ lt.name }}</div>
+            {% endfor %}
+            <div class="chip chip-clear" draggable="true" data-status="" data-leave=""><i class="fas fa-eraser"></i> Clear</div>
+        </div>
+        <div class="palette-hint"><i class="fas fa-circle-info"></i> Cells filled from approved leaves show a faded marker — you can still override them here.</div>
+        <div class="palette-hint"><i class="fas fa-calendar-day"></i> Click a <strong>date header</strong> to mark that day (e.g. a public holiday) for <strong>every employee</strong> at once. Drag a filled cell's corner handle to fill <strong>across a row</strong> (→ same person) or <strong>down a column</strong> (↓ same day, all people). Week Offs are never overwritten.</div>
+    </div>
+
+    <!-- Grid -->
+    {% if dept_groups %}
+    <div class="grid-scroll">
+        <table class="att-grid" data-year="{{ year }}" data-month="{{ month }}">
+            <thead>
+                <tr>
+                    <th class="emp-col">Employee</th>
+                    {% for dm in day_meta %}
+                    <th class="day-col{% if dm.is_off %} day-off{% endif %}{% if dm.is_today %} day-today{% endif %}"
+                        data-day="{{ dm.day }}" title="Click to mark day {{ dm.day }} for all employees">
+                        <div class="day-num">{{ dm.day }}</div>
+                        <div class="day-wd">{{ dm.weekday }}</div>
+                    </th>
+                    {% endfor %}
+                    <th class="tot-head" title="Present">P</th>
+                    <th class="tot-head" title="Leave">L</th>
+                    <th class="tot-head" title="Absent">A</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in dept_groups %}
+                <tr class="dept-row">
+                    <td colspan="{{ num_days|add:4 }}"><i class="fas fa-sitemap"></i> {{ group.name }} <span style="opacity:.6;">({{ group.rows|length }})</span></td>
+                </tr>
+                {% for row in group.rows %}
+                <tr>
+                    <td class="emp-col">
+                        <div class="emp-name">{{ row.employee.emp_name }}</div>
+                        <div class="emp-meta">{{ row.employee.emp_id }}{% if row.employee.designation %} · {{ row.employee.designation }}{% endif %}</div>
+                    </td>
+                    {% for c in row.cells %}
+                    <td class="cell st-{{ c.status|default:'empty' }} src-{{ c.source|default:'none' }}{% if c.is_today %} is-today{% endif %}"
+                        data-emp="{{ row.employee.id }}" data-day="{{ c.day }}"
+                        data-status="{{ c.status }}" data-leave="{{ c.leave_type }}"
+                        title="{{ row.employee.emp_name }} — {{ c.day }}{% if c.leave_type %} · {{ c.leave_type }}{% endif %}{% if c.check_in %} · in {{ c.check_in|time:'H:i' }}{% endif %}">
+                        <span class="mk">{% include 'hr_de/attendance/_marker.html' with c=c %}</span>
+                        <span class="fill-handle" title="Drag across the row to fill this value"></span>
+                    </td>
+                    {% endfor %}
+                    <td class="tot-col tot-p" data-tot="present">{{ row.present_days }}</td>
+                    <td class="tot-col tot-l" data-tot="leave">{{ row.leave_days }}</td>
+                    <td class="tot-col tot-a" data-tot="absent">{{ row.absent_days }}</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="legend">
+        <span><i class="lg-dot" style="background:rgba(16,185,129,.5);"></i> Present</span>
+        <span><i class="lg-dot" style="background:rgba(59,130,246,.5);"></i> Leave</span>
+        <span><i class="lg-dot" style="background:rgba(239,68,68,.5);"></i> Absent</span>
+        <span><i class="lg-dot" style="background:rgba(245,158,11,.5);"></i> Half Day</span>
+        <span><i class="lg-dot" style="background:rgba(139,92,246,.5);"></i> Holiday</span>
+        <span><i class="lg-dot" style="background:#d1d5db;"></i> Week Off (Sun)</span>
+    </div>
+    {% else %}
+    <div class="grid-scroll"><div class="empty-state">
+        <i class="fas fa-user-slash"></i>
+        <p>No active employees found for this filter.</p>
+    </div></div>
+    {% endif %}
+
+</div>
+
+<!-- Click menu (single, repositioned on demand) -->
+<div class="cell-menu" id="cellMenu"></div>
+<div class="saving-toast" id="savingToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const GRID = document.querySelector('.att-grid');
+const YEAR  = GRID ? parseInt(GRID.dataset.year)  : null;
+const MONTH = GRID ? parseInt(GRID.dataset.month) : null;
+
+const STATUS_META = {
+    present:  { label: 'Present',  cls: 'present',  mk: 'P',  color: 'rgba(16,185,129,.5)' },
+    absent:   { label: 'Absent',   cls: 'absent',   mk: 'A',  color: 'rgba(239,68,68,.5)'  },
+    half_day: { label: 'Half Day', cls: 'half_day', mk: '½',  color: 'rgba(245,158,11,.5)' },
+    holiday:  { label: 'Holiday',  cls: 'holiday',  mk: 'H',  color: 'rgba(139,92,246,.5)' },
+    week_off: { label: 'Week Off', cls: 'week_off', mk: '·',  color: '#d1d5db'             },
+    leave:    { label: 'Leave',    cls: 'leave',    mk: 'L',  color: 'rgba(59,130,246,.5)' },
+};
+
+function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+}
+
+function toast(msg, isErr) {
+    const t = document.getElementById('savingToast');
+    t.textContent = msg;
+    t.classList.toggle('err', !!isErr);
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+function markerFor(status, leave) {
+    if (status === 'leave') {
+        return (leave || 'L').substring(0, 2).toUpperCase();
+    }
+    return STATUS_META[status] ? STATUS_META[status].mk : '';
+}
+
+function applyCellVisual(td, status, leave) {
+    // reset status classes
+    Object.values(STATUS_META).forEach(m => td.classList.remove('st-' + m.cls));
+    td.classList.remove('st-empty');
+    td.classList.add('st-' + (status || 'empty'));
+    // source becomes hr (or none when cleared)
+    td.classList.remove('src-auto', 'src-leave_auto', 'src-self', 'src-hr', 'src-none');
+    td.classList.add(status ? 'src-hr' : 'src-none');
+    td.dataset.status = status || '';
+    td.dataset.leave  = leave || '';
+    td.querySelector('.mk').textContent = markerFor(status, leave);
+}
+
+function recomputeRow(td) {
+    const tr = td.closest('tr');
+    let p = 0, l = 0, a = 0;
+    tr.querySelectorAll('td.cell').forEach(c => {
+        const s = c.dataset.status;
+        if (s === 'present') p++;
+        else if (s === 'leave') l++;
+        else if (s === 'absent') a++;
+    });
+    const setTot = (sel, val) => { const el = tr.querySelector(`[data-tot="${sel}"]`); if (el) el.textContent = val; };
+    setTot('present', p); setTot('leave', l); setTot('absent', a);
+}
+
+function saveCell(td, status, leave) {
+    const empId = td.dataset.emp, day = td.dataset.day;
+    const prev  = { status: td.dataset.status, leave: td.dataset.leave };
+    applyCellVisual(td, status, leave);   // optimistic
+    recomputeRow(td);
+
+    fetch("{% url 'attendance_cell_update' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            employee_id: empId, year: YEAR, month: MONTH, day: parseInt(day),
+            status: status, leave_type: leave || ''
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            toast(status ? 'Saved' : 'Cleared');
+        } else {
+            applyCellVisual(td, prev.status, prev.leave); recomputeRow(td);
+            toast(data.message || 'Could not save', true);
+        }
+    })
+    .catch(() => {
+        applyCellVisual(td, prev.status, prev.leave); recomputeRow(td);
+        toast('Network error', true);
+    });
+}
+
+/* ── Drag & drop ─────────────────────────────────────────────────────────── */
+let dragData = null;
+document.querySelectorAll('#palette .chip').forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+        dragData = { status: chip.dataset.status, leave: chip.dataset.leave };
+        chip.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', chip.dataset.status);
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+});
+
+document.querySelectorAll('td.cell').forEach(td => {
+    td.addEventListener('dragover', e => { e.preventDefault(); td.classList.add('drop-hover'); });
+    td.addEventListener('dragleave', () => td.classList.remove('drop-hover'));
+    td.addEventListener('drop', e => {
+        e.preventDefault();
+        td.classList.remove('drop-hover');
+        if (dragData) saveCell(td, dragData.status, dragData.leave);
+    });
+});
+
+/* ── Pick menu (shared by single cells and whole-day headers) ─────────────── */
+const menu = document.getElementById('cellMenu');
+let menuPick = null;   // callback(status, leave) for the current menu
+
+const LEAVE_TYPES = [{% for lt in leave_types %}"{{ lt.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+
+function buildMenu(title) {
+    let html = `<div class="cm-title">${title || 'Set status'}</div>`;
+    ['holiday','present','absent','half_day','week_off'].forEach(s => {
+        const m = STATUS_META[s];
+        html += `<button class="cm-item" data-status="${s}" data-leave="">
+            <span class="cm-dot" style="background:${m.color}"></span>${m.label}</button>`;
+    });
+    if (LEAVE_TYPES.length) {
+        html += '<div class="cm-sep"></div><div class="cm-title">Leave type</div>';
+        LEAVE_TYPES.forEach(name => {
+            html += `<button class="cm-item" data-status="leave" data-leave="${name}">
+                <span class="cm-dot" style="background:${STATUS_META.leave.color}"></span>${name}</button>`;
+        });
+    }
+    html += '<div class="cm-sep"></div>';
+    html += `<button class="cm-item" data-status="" data-leave="">
+        <span class="cm-dot" style="background:#fff;border:1px dashed #cbd5e1"></span>Clear</button>`;
+    menu.innerHTML = html;
+
+    menu.querySelectorAll('.cm-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const pick = menuPick;
+            closeMenu();
+            if (pick) pick(btn.dataset.status, btn.dataset.leave);
+        });
+    });
+}
+
+function openMenuAt(x, y, title, pick) {
+    buildMenu(title);
+    menuPick = pick;
+    menu.classList.add('open');
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = x, top = y;
+    if (left + mw > window.innerWidth - 10) left = window.innerWidth - mw - 10;
+    if (top + mh > window.innerHeight - 10) top = y - mh;
+    menu.style.left = (left + window.scrollX) + 'px';
+    menu.style.top  = (top + window.scrollY) + 'px';
+}
+function closeMenu() { menu.classList.remove('open'); menuPick = null; }
+
+// Click a single cell → edit just that cell
+document.querySelectorAll('td.cell').forEach(td => {
+    td.addEventListener('click', e => {
+        if (e.target.closest('.fill-handle')) return;   // handle is for filling, not editing
+        e.stopPropagation();
+        const r = td.getBoundingClientRect();
+        openMenuAt(r.left, r.bottom + 2, 'Set status', (s, l) => saveCell(td, s, l));
+    });
+});
+
+// Click a date header → apply to ALL employees on that day (public holiday etc.)
+if (GRID) {
+    GRID.querySelectorAll('thead th.day-col').forEach(th => {
+        th.addEventListener('click', e => {
+            e.stopPropagation();
+            const day = th.dataset.day;
+            const r = th.getBoundingClientRect();
+            openMenuAt(r.left, r.bottom + 2, 'Mark day ' + day + ' — all employees', (s, l) => applyDay(day, s, l));
+        });
+    });
+}
+
+document.addEventListener('click', e => { if (!menu.contains(e.target)) closeMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); cancelFill(); } });
+
+/* Apply one status to every employee for a given day (Week Offs untouched) */
+function applyDay(day, status, leave) {
+    const cells   = Array.from(document.querySelectorAll('td.cell[data-day="' + day + '"]'));
+    const targets = cells.filter(td => td.dataset.status !== 'week_off');   // protect week offs
+    if (!targets.length) { toast('Only week-offs on this day — skipped'); return; }
+
+    const prev   = targets.map(td => ({ td, status: td.dataset.status, leave: td.dataset.leave }));
+    const empIds = [];
+    const rows   = new Set();
+    targets.forEach(td => {
+        applyCellVisual(td, status, leave);
+        empIds.push(td.dataset.emp);
+        rows.add(td.closest('tr'));
+    });
+    rows.forEach(tr => recomputeRow(tr.querySelector('td.cell')));
+
+    const revert = () => {
+        prev.forEach(x => applyCellVisual(x.td, x.status, x.leave));
+        rows.forEach(tr => recomputeRow(tr.querySelector('td.cell')));
+    };
+
+    fetch("{% url 'attendance_day_update' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            employee_ids: empIds, year: YEAR, month: MONTH, day: parseInt(day),
+            status: status, leave_type: leave || ''
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            toast((status ? 'Marked ' : 'Cleared ') + empIds.length + ' employee' + (empIds.length !== 1 ? 's' : ''));
+        } else { revert(); toast(data.message || 'Could not apply', true); }
+    })
+    .catch(() => { revert(); toast('Network error', true); });
+}
+
+/* ── Fill handle: drag across a row (→) or down a column (↓) ──────────────── */
+let fill = null;   // { axis, status, leave, source, sourceRow, sourceDay, cells, sourceIdx, lastIdx, moved }
+
+function rowCells(tr)  { return Array.from(tr.querySelectorAll('td.cell')); }
+function colCells(day) { return Array.from(document.querySelectorAll('td.cell[data-day="' + day + '"]')); }
+
+function startFill(handle, e) {
+    const td = handle.closest('td.cell');
+    if (!td || !td.dataset.status) return;    // nothing to copy from an empty cell
+    closeMenu();
+    fill = {
+        axis: null,                           // 'h' (row) or 'v' (column), locked on first move
+        status: td.dataset.status, leave: td.dataset.leave,
+        source: td, sourceRow: td.closest('tr'), sourceDay: td.dataset.day,
+        cells: null, sourceIdx: -1, lastIdx: null, moved: false,
+    };
+    td.classList.add('fill-source');
+    e.preventDefault();
+    document.body.style.userSelect = 'none';
+}
+
+function lockAxis(td) {
+    // Decide direction from the first cell the pointer reaches
+    if (td.closest('tr') === fill.sourceRow)      fill.axis = 'h';
+    else if (td.dataset.day === fill.sourceDay)   fill.axis = 'v';
+    else return false;
+    fill.cells     = fill.axis === 'v' ? colCells(fill.sourceDay) : rowCells(fill.sourceRow);
+    fill.sourceIdx = fill.cells.indexOf(fill.source);
+    return true;
+}
+
+function previewFill(idx) {
+    if (!fill || !fill.axis) return;
+    if (idx !== fill.sourceIdx) fill.moved = true;
+    fill.lastIdx = idx;
+    const lo = Math.min(fill.sourceIdx, idx), hi = Math.max(fill.sourceIdx, idx);
+    // Week-offs are protected — never previewed for overwrite
+    fill.cells.forEach((c, i) => c.classList.toggle('fill-preview',
+        i >= lo && i <= hi && i !== fill.sourceIdx && c.dataset.status !== 'week_off'));
+}
+
+function clearFillMarks() {
+    if (!fill) return;
+    if (fill.source) fill.source.classList.remove('fill-source');
+    if (fill.cells)  fill.cells.forEach(c => c.classList.remove('fill-preview'));
+    document.body.style.userSelect = '';
+}
+
+function cancelFill() { if (!fill) return; clearFillMarks(); fill = null; }
+
+function endFill() {
+    if (!fill) return;
+    if (!fill.moved || fill.lastIdx == null) { cancelFill(); return; }   // plain click → nothing
+
+    const axis = fill.axis;
+    const lo = Math.min(fill.sourceIdx, fill.lastIdx);
+    const hi = Math.max(fill.sourceIdx, fill.lastIdx);
+    const targets = fill.cells.slice(lo, hi + 1).filter(td => td.dataset.status !== 'week_off');
+    const status = fill.status, leave = fill.leave;
+    clearFillMarks();
+    fill = null;
+
+    if (!targets.length) { toast('Week-offs skipped'); return; }
+
+    const prev = targets.map(td => ({ td, status: td.dataset.status, leave: td.dataset.leave }));
+    targets.forEach(td => applyCellVisual(td, status, leave));
+
+    if (axis === 'v') {
+        // one day, many employees → day endpoint
+        const rows = new Set(), empIds = [];
+        targets.forEach(td => { empIds.push(td.dataset.emp); rows.add(td.closest('tr')); });
+        rows.forEach(tr => recomputeRow(tr.querySelector('td.cell')));
+        const revert = () => {
+            prev.forEach(x => applyCellVisual(x.td, x.status, x.leave));
+            rows.forEach(tr => recomputeRow(tr.querySelector('td.cell')));
+        };
+        postFill("{% url 'attendance_day_update' %}",
+            { employee_ids: empIds, year: YEAR, month: MONTH, day: parseInt(targets[0].dataset.day), status: status, leave_type: leave || '' },
+            empIds.length + ' employee' + (empIds.length !== 1 ? 's' : ''), revert);
+    } else {
+        // one employee, many days → bulk endpoint
+        recomputeRow(targets[0]);
+        const days = targets.map(td => parseInt(td.dataset.day));
+        const revert = () => { prev.forEach(x => applyCellVisual(x.td, x.status, x.leave)); recomputeRow(prev[0].td); };
+        postFill("{% url 'attendance_bulk_update' %}",
+            { employee_id: targets[0].dataset.emp, year: YEAR, month: MONTH, days: days, status: status, leave_type: leave || '' },
+            days.length + ' day' + (days.length !== 1 ? 's' : ''), revert);
+    }
+}
+
+function postFill(url, body, label, revert) {
+    fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') toast('Filled ' + label);
+        else { revert(); toast(data.message || 'Could not fill', true); }
+    })
+    .catch(() => { revert(); toast('Network error', true); });
+}
+
+document.querySelectorAll('.fill-handle').forEach(h => {
+    h.addEventListener('mousedown', e => { e.stopPropagation(); startFill(h, e); });
+});
+document.addEventListener('mousemove', e => {
+    if (!fill) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const td = el && el.closest ? el.closest('td.cell') : null;
+    if (!td) return;
+    if (!fill.axis) {                       // lock direction on first in-line cell
+        if (td === fill.source) return;
+        if (!lockAxis(td)) return;          // ignore diagonal/unrelated cells until in line
+    }
+    const i = fill.cells.indexOf(td);
+    if (i !== -1) previewFill(i);
+});
+document.addEventListener('mouseup', () => { if (fill) endFill(); });
+</script>
+{% endblock %}

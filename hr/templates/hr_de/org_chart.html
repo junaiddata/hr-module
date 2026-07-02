@@ -134,6 +134,7 @@
     .dept-accent-7  { background: linear-gradient(135deg,#be185d,#f472b6); }
     .dept-accent-8  { background: linear-gradient(135deg,#1d4ed8,#60a5fa); }
     .dept-accent-9  { background: linear-gradient(135deg,#92400e,#d97706); }
+    .dept-accent-shop { background: linear-gradient(135deg,#f59e0b,#f97316); }
 
     .dept-card-body { padding: 1.1rem 1.25rem; }
 
@@ -326,97 +327,7 @@
     <p class="section-title"><i class="fas fa-building"></i> Departments</p>
     <div class="dept-grid">
         {% for item in chart_data %}
-        {% with accent_idx=forloop.counter0|mod:10 %}
-        <div class="dept-card">
-            <!-- Card header -->
-            <div class="dept-card-header dept-accent-{{ accent_idx }}">
-                <h3><i class="fas fa-building" style="margin-right:.45rem;opacity:.85;"></i>{{ item.department.name }}</h3>
-                <span class="dept-total-badge">{{ item.total }} emp.</span>
-            </div>
-
-            <!-- Card body -->
-            <div class="dept-card-body">
-
-                <!-- Head drop zone -->
-                <div class="head-section{% if can_assign_head %} head-drop-zone{% endif %}"
-                     data-dept-pk="{{ item.department.pk }}"
-                     data-dept-name="{{ item.department.name }}">
-
-                    <div class="head-label"><i class="fas fa-crown"></i> Department Head</div>
-
-                    {% if item.heads %}
-                        {% for head in item.heads %}
-                        <div class="head-item">
-                            <div class="head-avatar">{{ head.user.username|first|upper }}</div>
-                            <div class="head-info">
-                                <div class="hname">
-                                    {{ head.user.get_full_name|default:head.user.username }}
-                                </div>
-                                <div class="hid">
-                                    {% if head.employee %}{{ head.employee.emp_id }}{% else %}{{ head.user.username }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                    <div class="no-head-box">
-                        <i class="fas fa-user-slash"></i>
-                        No Head Assigned
-                    </div>
-                    {% endif %}
-
-                    {% if can_assign_head %}
-                    <div class="drop-cue">
-                        <i class="fas fa-crown"></i> Drop here to assign as Head
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Regular employees -->
-                {% if item.employees %}
-                <div class="emp-section-label"><i class="fas fa-users"></i> Team Members</div>
-                <div class="emp-items">
-                    {% for emp in item.employees|slice:":6" %}
-                    <div class="emp-item"
-                         {% if can_assign_head %}
-                         draggable="true"
-                         data-emp-pk="{{ emp.pk }}"
-                         data-emp-name="{{ emp.emp_name }}"
-                         data-has-user="{% if emp.user %}true{% else %}false{% endif %}"
-                         {% endif %}>
-                        <div class="emp-mini-avatar">{{ emp.emp_name|first|upper }}</div>
-                        <div class="emp-mini-info">
-                            <div class="ename">{{ emp.emp_name }}</div>
-                            <div class="edesig">{{ emp.designation|default:"—" }}</div>
-                        </div>
-                        {% if can_assign_head %}
-                        <span class="drag-badge"><i class="fas fa-grip-vertical"></i></span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                    {% if item.employees|length > 6 %}
-                    <div class="more-emp">+ {{ item.employees|length|add:"-6" }} more member{{ item.employees|length|add:"-6"|pluralize }}</div>
-                    {% endif %}
-                </div>
-                {% else %}
-                <div class="no-head-box" style="margin-top:.25rem;">
-                    <i class="fas fa-inbox"></i>
-                    No team members yet
-                </div>
-                {% endif %}
-
-            </div>
-
-            <!-- Card footer -->
-            <div class="dept-card-footer">
-                <i class="fas fa-users"></i>
-                {{ item.total }} total employee{{ item.total|pluralize }}
-                {% if item.department.is_support_staff %}
-                <span style="margin-left:auto;background:rgba(245,158,11,.12);color:#d97706;padding:.1rem .5rem;border-radius:4px;font-size:.72rem;font-weight:700;">Support Staff</span>
-                {% endif %}
-            </div>
-        </div>
-        {% endwith %}
+        {% include 'hr_de/_org_dept_card.html' with accent_idx=forloop.counter0|mod:10 shop_card=False %}
         {% empty %}
         <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-tertiary);">
             <i class="fas fa-building" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
@@ -424,6 +335,16 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Shops & Stores -->
+    {% if shop_data %}
+    <p class="section-title" style="margin-top:2.5rem;"><i class="fas fa-store" style="color:#f59e0b;"></i> Shops &amp; Stores</p>
+    <div class="dept-grid">
+        {% for item in shop_data %}
+        {% include 'hr_de/_org_dept_card.html' with shop_card=True %}
+        {% endfor %}
+    </div>
+    {% endif %}
 
 </div>
 

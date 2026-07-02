@@ -1,0 +1,1 @@
+{% if c.status == 'present' %}P{% elif c.status == 'absent' %}A{% elif c.status == 'half_day' %}½{% elif c.status == 'leave' %}{{ c.leave_type|slice:":2"|upper }}{% elif c.status == 'holiday' %}H{% elif c.status == 'week_off' %}·{% endif %}
