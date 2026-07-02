@@ -50,22 +50,40 @@ def _head_department(request):
 
 @login_required
 def employee_list(request):
-    query = request.GET.get('q')
+    query         = (request.GET.get('q') or '').strip()
     status_filter = request.GET.get('employee_status')
     active_filter = request.GET.get('is_active')
+    dept_filter   = (request.GET.get('department') or '').strip()
+    mol_filter    = (request.GET.get('mol') or '').strip()
 
-    employees = Employee.objects.all()
+    employees = Employee.objects.select_related('department', 'mol').all()
 
     # Restrict employees for department head
-    if hasattr(request.user, 'role') and request.user.role.role == 'Head':
+    is_head = hasattr(request.user, 'role') and request.user.role.role == 'Head'
+    if is_head:
         dept = request.user.role.department
         employees = employees.filter(department=dept) if dept else employees.none()
 
+    # Broad text search across the common identifying fields
     if query:
         employees = employees.filter(
             Q(emp_name__icontains=query) |
-            Q(emp_id__icontains=query)
+            Q(emp_id__icontains=query) |
+            Q(designation__icontains=query) |
+            Q(contact_number__icontains=query) |
+            Q(job_location__icontains=query) |
+            Q(nationality__icontains=query) |
+            Q(passport_number__icontains=query) |
+            Q(eid_number__icontains=query) |
+            Q(department__name__icontains=query) |
+            Q(mol__mol__icontains=query)
         )
+
+    if dept_filter:
+        employees = employees.filter(department_id=dept_filter)
+
+    if mol_filter:
+        employees = employees.filter(mol_id=mol_filter)
 
     if status_filter:
         employees = employees.filter(employee_status=status_filter)
@@ -74,16 +92,22 @@ def employee_list(request):
     if active_filter:
         employees = employees.filter(is_active=(active_filter == 'true'))
 
+    employees = employees.order_by('emp_name')
+
     # Pass status choices to template
     status_choices = Employee.EMPLOYEE_STATUS_CHOICES
     active_count = employees.filter(is_active=True).count()
     inactive_count = employees.filter(is_active=False).count()
 
-    # Role-based template rendering for employee list
-    if hasattr(request.user, 'role') and request.user.role.role == 'Head':
-        template_name = 'hr_de/employee_list_head.html'
+    # Dropdown sources (heads only see their own department)
+    if is_head and request.user.role.department:
+        departments = Department.objects.filter(pk=request.user.role.department_id)
     else:
-        template_name = 'hr_de/employee_list.html'
+        departments = Department.objects.all().order_by('name')
+    mols = Mol.objects.all().order_by('mol')
+
+    # Role-based template rendering for employee list
+    template_name = 'hr_de/employee_list_head.html' if is_head else 'hr_de/employee_list.html'
 
     return render(request, template_name, {
         'employees': employees,
@@ -91,6 +115,10 @@ def employee_list(request):
         'query': query,
         'selected_status': status_filter,
         'selected_active': active_filter,
+        'selected_dept': dept_filter,
+        'selected_mol': mol_filter,
+        'departments': departments,
+        'mols': mols,
         'active_count': active_count,
         'inactive_count': inactive_count,
     })
