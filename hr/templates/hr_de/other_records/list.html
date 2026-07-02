@@ -1,0 +1,91 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Other Records{% endblock %}
+
+{% block extra_css %}
+<style>
+.or-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.or-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.or-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.or-title i { color: var(--accent-primary); }
+.or-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.or-add { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 10px; background: var(--gradient-primary); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; }
+.or-add:hover { color: #fff; transform: translateY(-1px); }
+.or-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; }
+.or-search input { flex: 1; max-width: 340px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.or-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+
+.or-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+.or-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.or-h { font-weight: 700; color: var(--text-primary); font-size: 1.02rem; display: flex; align-items: center; gap: .5rem; }
+.or-h i { color: #8b5cf6; }
+.or-actions { display: flex; gap: .4rem; align-items: center; }
+.or-btn { padding: .35rem .8rem; border-radius: 7px; font-size: .8rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; }
+.or-btn.view { background: rgba(16,185,129,.12); color: #059669; }
+.or-btn.edit { background: rgba(251,191,36,.15); color: #d97706; }
+.or-btn.del  { background: rgba(239,68,68,.1); color: #ef4444; }
+.or-comment { color: var(--text-secondary); font-size: .88rem; margin: .6rem 0; white-space: pre-wrap; }
+.or-emps { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+.or-chip { font-size: .74rem; font-weight: 600; background: rgba(99,102,241,.1); color: #4f46e5; padding: .2rem .6rem; border-radius: 9999px; }
+.or-meta { font-size: .74rem; color: var(--text-tertiary); margin-top: .7rem; }
+.or-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; border: 1px dashed var(--border-color); border-radius: 12px; }
+.or-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="or-wrap">
+
+    <div class="or-top">
+        <div>
+            <h1 class="or-title"><i class="fas fa-folder-open"></i> Other Records</h1>
+            <p class="or-sub">Documents, notes and files — optionally linked to employees. Visible to HR &amp; MD only.</p>
+        </div>
+        <a href="{% url 'other_record_add' %}" class="or-add"><i class="fas fa-plus"></i> New Record</a>
+    </div>
+
+    <form method="get" class="or-search">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search heading, comment or employee…">
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    {% for rec in records %}
+    <div class="or-card">
+        <div class="or-head">
+            <div class="or-h"><i class="fas fa-file-lines"></i> {{ rec.title }}</div>
+            <div class="or-actions">
+                {% if rec.document %}
+                <a href="{{ rec.document.url }}" target="_blank" class="or-btn view"><i class="fas fa-external-link-alt"></i> View File</a>
+                {% endif %}
+                <a href="{% url 'other_record_edit' rec.pk %}" class="or-btn edit"><i class="fas fa-pen"></i> Edit</a>
+                <form method="post" action="{% url 'other_record_delete' rec.pk %}" style="margin:0;"
+                      onsubmit="return confirm('Delete “{{ rec.title }}”? This cannot be undone.')">
+                    {% csrf_token %}
+                    <button type="submit" class="or-btn del"><i class="fas fa-trash"></i></button>
+                </form>
+            </div>
+        </div>
+
+        {% if rec.comment %}<div class="or-comment">{{ rec.comment }}</div>{% endif %}
+
+        {% if rec.employees.all %}
+        <div class="or-emps">
+            {% for e in rec.employees.all %}
+            <a href="{% url 'employee_detail' e.pk %}" class="or-chip"><i class="fas fa-user"></i> {{ e.emp_name }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="or-meta">
+            {% if rec.document %}<i class="fas fa-paperclip"></i> File attached &middot; {% else %}<i class="fas fa-note-sticky"></i> No file &middot; {% endif %}
+            Added {{ rec.created_at|date:"d M Y, H:i" }}{% if rec.uploaded_by %} by {{ rec.uploaded_by.get_full_name|default:rec.uploaded_by.username }}{% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="or-empty">
+        <i class="fas fa-folder-open"></i>
+        {% if query %}No records match “{{ query }}”.{% else %}No records yet. Click <strong>New Record</strong> to add one.{% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

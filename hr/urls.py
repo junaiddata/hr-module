@@ -117,6 +117,12 @@ urlpatterns = [
     # Head: set/update actual rejoining date
     path('leave/<int:leave_pk>/set-rejoining/', views.set_rejoining_date, name='set_rejoining_date'),
 
+    # Other Records (document store — HR & MD only)
+    path('other-records/',                 views.other_records_list,  name='other_records_list'),
+    path('other-records/add/',             views.other_record_add,    name='other_record_add'),
+    path('other-records/<int:pk>/edit/',   views.other_record_edit,   name='other_record_edit'),
+    path('other-records/<int:pk>/delete/', views.other_record_delete, name='other_record_delete'),
+
 
 
 

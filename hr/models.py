@@ -623,3 +623,22 @@ class Notification(models.Model):
         self.is_read = True
         self.save()
 
+
+class OtherRecord(models.Model):
+    """A general document store (HR/MD only). Each record has a heading, an
+    optional comment and file, and can be linked to one or more employees —
+    linked employees see it as a 'related document' on their detail page."""
+    title       = models.CharField(max_length=200)
+    comment     = models.TextField(blank=True, default='')
+    document    = models.FileField(upload_to='other_records/', null=True, blank=True)
+    employees   = models.ManyToManyField(Employee, blank=True, related_name='other_records')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_other_records')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+

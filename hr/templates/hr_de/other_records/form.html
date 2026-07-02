@@ -1,0 +1,121 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{% if record %}Edit Record{% else %}New Record{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.rf-wrap { max-width: 760px; margin: 0 auto; padding: 2rem; }
+.rf-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1.5rem; display: flex; align-items: center; gap: .6rem; }
+.rf-title i { color: var(--accent-primary); }
+.rf-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow-sm); }
+.rf-group { margin-bottom: 1.25rem; }
+.rf-label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; }
+.rf-input, .rf-textarea { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .6rem .8rem; font-size: .92rem; font-family: inherit; }
+.rf-textarea { min-height: 100px; resize: vertical; }
+
+.rf-file-current { font-size: .8rem; color: var(--text-secondary); margin-top: .4rem; }
+.rf-file-current a { color: var(--accent-primary); font-weight: 600; }
+
+/* Employee picker */
+.emp-pick { border: 1.5px solid var(--border-color); border-radius: 10px; overflow: hidden; }
+.emp-pick-search { width: 100%; border: none; border-bottom: 1px solid var(--border-color); padding: .6rem .8rem; font-size: .88rem; }
+.emp-pick-search:focus { outline: none; }
+.emp-pick-list { max-height: 260px; overflow-y: auto; }
+.emp-opt { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: .88rem; }
+.emp-opt:last-child { border-bottom: none; }
+.emp-opt:hover { background: var(--bg-hover); }
+.emp-opt input { width: 16px; height: 16px; }
+.emp-opt .e-id { color: var(--text-tertiary); font-size: .76rem; margin-left: auto; }
+.emp-pick-foot { padding: .5rem .8rem; font-size: .78rem; color: var(--text-secondary); background: var(--bg-secondary); display: flex; justify-content: space-between; align-items: center; }
+.emp-pick-foot button { border: none; background: none; color: var(--accent-primary); font-size: .78rem; font-weight: 600; cursor: pointer; }
+
+.rf-actions { display: flex; gap: .6rem; margin-top: 1.5rem; }
+.rf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .65rem 1.4rem; font-weight: 700; cursor: pointer; }
+.rf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .65rem 1.4rem; font-weight: 600; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rf-wrap">
+    <h1 class="rf-title">
+        <i class="fas fa-folder-plus"></i>
+        {% if record %}Edit Record{% else %}New Record{% endif %}
+    </h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="rf-card">
+
+            <div class="rf-group">
+                <label class="rf-label">Heading <span style="color:#ef4444;">*</span></label>
+                <input type="text" name="title" class="rf-input" required
+                       value="{{ record.title|default:'' }}" placeholder="e.g. Office Tenancy Renewal 2026">
+            </div>
+
+            <div class="rf-group">
+                <label class="rf-label">Comment / Notes</label>
+                <textarea name="comment" class="rf-textarea" placeholder="Any details about this record…">{{ record.comment|default:'' }}</textarea>
+            </div>
+
+            <div class="rf-group">
+                <label class="rf-label">Document</label>
+                <input type="file" name="document" class="rf-input">
+                {% if record.document %}
+                <div class="rf-file-current">
+                    Current: <a href="{{ record.document.url }}" target="_blank">View file</a> — uploading a new file replaces it.
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="rf-group">
+                <label class="rf-label">Associated Employees <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></label>
+                <div class="emp-pick">
+                    <input type="text" class="emp-pick-search" id="empSearch" placeholder="Search employees…">
+                    <div class="emp-pick-list" id="empList">
+                        {% for e in employees %}
+                        <label class="emp-opt" data-name="{{ e.emp_name|lower }} {{ e.emp_id|lower }}">
+                            <input type="checkbox" name="employees" value="{{ e.pk }}"
+                                   {% if e.pk in linked_ids %}checked{% endif %}>
+                            <span>{{ e.emp_name }}</span>
+                            <span class="e-id">{{ e.emp_id }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="emp-pick-foot">
+                        <span><span id="selCount">0</span> selected</span>
+                        <button type="button" id="clearSel">Clear selection</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rf-actions">
+                <button type="submit" class="rf-save"><i class="fas fa-save"></i> Save Record</button>
+                <a href="{% url 'other_records_list' %}" class="rf-cancel">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const search = document.getElementById('empSearch');
+    const list   = document.getElementById('empList');
+    const count  = document.getElementById('selCount');
+    const clear  = document.getElementById('clearSel');
+    const opts   = Array.from(list.querySelectorAll('.emp-opt'));
+    const boxes  = Array.from(list.querySelectorAll('input[type=checkbox]'));
+
+    function updateCount() {
+        count.textContent = boxes.filter(b => b.checked).length;
+    }
+    search.addEventListener('input', function () {
+        const q = search.value.trim().toLowerCase();
+        opts.forEach(o => { o.style.display = o.dataset.name.includes(q) ? '' : 'none'; });
+    });
+    boxes.forEach(b => b.addEventListener('change', updateCount));
+    clear.addEventListener('click', function () { boxes.forEach(b => b.checked = false); updateCount(); });
+    updateCount();
+})();
+</script>
+{% endblock %}

@@ -452,6 +452,11 @@ def employee_detail(request, pk):
         'age': _years_since(employee.dob),
         'tenure': _years_since(employee.joining_date),
         'is_own': is_own,
+        # Related "Other Records" — HR/MD only
+        'other_records': (
+            employee.other_records.select_related('uploaded_by').all()
+            if _hr_or_md(request) else []
+        ),
     })
 
 
@@ -1579,6 +1584,13 @@ def salary_structure(request, emp_pk):
 def _hr_only(request):
     try:
         return request.user.role.role == 'HR'
+    except Exception:
+        return False
+
+
+def _hr_or_md(request):
+    try:
+        return request.user.role.role in ('HR', 'MD')
     except Exception:
         return False
 
@@ -3832,3 +3844,95 @@ def attendance_day_update(request):
         applied += 1
 
     return JsonResponse({'status': 'success', 'applied': applied})
+
+
+# ── Other Records (document store — HR & MD only) ────────────────────────────
+
+@login_required
+def other_records_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    records = (OtherRecord.objects
+               .prefetch_related('employees')
+               .select_related('uploaded_by')
+               .all())
+
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        records = records.filter(
+            Q(title__icontains=query) |
+            Q(comment__icontains=query) |
+            Q(employees__emp_name__icontains=query)
+        ).distinct()
+
+    return render(request, 'hr_de/other_records/list.html', {
+        'records': records,
+        'query':   query,
+    })
+
+
+@login_required
+def other_record_add(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        title = (request.POST.get('title') or '').strip()
+        if not title:
+            messages.error(request, 'A heading is required.')
+            return redirect('other_record_add')
+        rec = OtherRecord.objects.create(
+            title=title,
+            comment=(request.POST.get('comment') or '').strip(),
+            document=request.FILES.get('document'),
+            uploaded_by=request.user,
+        )
+        emp_ids = request.POST.getlist('employees')
+        if emp_ids:
+            rec.employees.set(Employee.objects.filter(pk__in=emp_ids))
+        messages.success(request, f"Record '{rec.title}' saved.")
+        return redirect('other_records_list')
+
+    return render(request, 'hr_de/other_records/form.html', {
+        'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+    })
+
+
+@login_required
+def other_record_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    rec = get_object_or_404(OtherRecord, pk=pk)
+
+    if request.method == 'POST':
+        title = (request.POST.get('title') or '').strip()
+        if not title:
+            messages.error(request, 'A heading is required.')
+            return redirect('other_record_edit', pk=pk)
+        rec.title = title
+        rec.comment = (request.POST.get('comment') or '').strip()
+        if request.FILES.get('document'):
+            rec.document = request.FILES['document']
+        rec.save()
+        rec.employees.set(Employee.objects.filter(pk__in=request.POST.getlist('employees')))
+        messages.success(request, f"Record '{rec.title}' updated.")
+        return redirect('other_records_list')
+
+    return render(request, 'hr_de/other_records/form.html', {
+        'record':    rec,
+        'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+        'linked_ids': set(rec.employees.values_list('pk', flat=True)),
+    })
+
+
+@require_POST
+@login_required
+def other_record_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    rec = get_object_or_404(OtherRecord, pk=pk)
+    title = rec.title
+    rec.delete()
+    messages.success(request, f"Record '{title}' deleted.")
+    return redirect('other_records_list')
