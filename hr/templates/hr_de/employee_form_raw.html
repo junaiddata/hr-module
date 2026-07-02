@@ -656,6 +656,7 @@
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;margin-right:.3rem;"></span>HRA (<span id="lgFHra">0</span>%)</span>
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;margin-right:.3rem;"></span>Transport (<span id="lgFTransport">0</span>%)</span>
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#8b5cf6;display:inline-block;margin-right:.3rem;"></span>Others (<span id="lgFOthers">0</span>%)</span>
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#14b8a6;display:inline-block;margin-right:.3rem;"></span>Fuel (<span id="lgFFuel">0</span>%)</span>
             </div>
 
             <div class="row g-3">
@@ -701,6 +702,17 @@
                         <input type="number" name="others" id="fOthers" class="form-control"
                                min="0" step="0.01" placeholder="0.00"
                                value="{{ employee.salary_structure.others|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#14b8a6;display:inline-block;margin-right:.3rem;"></span>
+                            Fuel
+                        </label>
+                        <input type="number" name="fuel" id="fFuel" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.fuel|default:'' }}">
                     </div>
                 </div>
             </div>
@@ -764,9 +776,20 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label">
+                            <i class="fas fa-id-card"></i> Visa Number
+                        </label>
+                        <input type="text" name="visa_number" class="form-control"
+                               placeholder="e.g., 201/2024/1234567"
+                               value="{{ employee.visa_number|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
                             <i class="fas fa-id-card"></i> Visa Expiry Date
                         </label>
-                        <input type="date" name="visa_expiry" class="form-control" 
+                        <input type="date" name="visa_expiry" class="form-control"
                                value="{{ employee.visa_expiry|date:'Y-m-d' }}">
                     </div>
                 </div>
@@ -856,7 +879,55 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- Bank Details Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon" style="background: linear-gradient(135deg,#10b981,#059669);">
+                    <i class="fas fa-university"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Bank Details</h2>
+                    <p class="section-description">Salary transfer account information</p>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-university"></i> Bank Name
+                        </label>
+                        <input type="text" name="bank_name" class="form-control"
+                               placeholder="e.g., Emirates NBD"
+                               value="{{ employee.bank_name|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-money-check-alt"></i> IBAN
+                        </label>
+                        <input type="text" name="iban" class="form-control"
+                               placeholder="e.g., AE07 0331 2345 6789 0123 456"
+                               value="{{ employee.iban|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-code-branch"></i> Routing Code
+                        </label>
+                        <input type="text" name="routing_code" class="form-control"
+                               placeholder="e.g., 302620122"
+                               value="{{ employee.routing_code|default:'' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Document Uploads Section -->
         <div class="form-section">
             <div class="section-header">
@@ -1150,12 +1221,12 @@ $(document).ready(function() {
 // ── Salary structure live calculator ────────────────────────────────────────
 (function () {
     var grossInput    = document.querySelector('input[name="emp_salary"]');
-    var compInputs    = ['fBasic','fHra','fTransport','fOthers'].map(function(id){ return document.getElementById(id); });
-    var lgIds         = ['lgFBasic','lgFHra','lgFTransport','lgFOthers'].map(function(id){ return document.getElementById(id); });
+    var compInputs    = ['fBasic','fHra','fTransport','fOthers','fFuel'].map(function(id){ return document.getElementById(id); });
+    var lgIds         = ['lgFBasic','lgFHra','lgFTransport','lgFOthers','lgFFuel'].map(function(id){ return document.getElementById(id); });
     var barEl         = document.getElementById('salaryBarForm');
     var totalEl       = document.getElementById('fTotal');
     var diffTag       = document.getElementById('fDiffTag');
-    var barColors     = ['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
+    var barColors     = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#14b8a6'];
 
     function rebuild() {
         var vals  = compInputs.map(function(el){ return parseFloat(el.value) || 0; });

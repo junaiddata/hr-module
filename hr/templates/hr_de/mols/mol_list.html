@@ -156,6 +156,17 @@
             <!-- Body -->
             <div class="mol-body">
 
+                <!-- Payroll / WPS -->
+                <div class="info-row">
+                    <div class="info-icon ii-green"><i class="fas fa-money-check-alt"></i></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="info-label">Payroll / WPS</div>
+                        <div class="info-val">Company Code: {{ mol.company_code|default:"—" }}</div>
+                        <div style="font-size:.8rem;color:var(--text-secondary);">WPS No: {{ mol.wps_number|default:"—" }}</div>
+                        <div style="font-size:.8rem;color:var(--text-secondary);word-break:break-all;">IBAN: {{ mol.iban|default:"—" }}</div>
+                    </div>
+                </div>
+
                 <!-- Trade License -->
                 <div class="info-row">
                     <div class="info-icon ii-blue"><i class="fas fa-file-certificate"></i></div>

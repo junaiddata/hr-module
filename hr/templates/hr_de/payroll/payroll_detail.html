@@ -221,6 +221,7 @@ tbody tr:hover { background: #fafafa; }
                         <th class="num">Basic</th>
                         <th class="num">HRA</th>
                         <th class="num">Transport</th>
+                        <th class="num">Fuel</th>
                         <th class="num">Others</th>
                         <th class="num" style="color:#059669;">+ Bonus</th>
                         <th class="num" style="color:#059669;">+ OT Pay</th>
@@ -246,6 +247,7 @@ tbody tr:hover { background: #fafafa; }
                         <td class="num">{{ entry.basic|floatformat:2 }}</td>
                         <td class="num">{{ entry.hra|floatformat:2 }}</td>
                         <td class="num">{{ entry.transport|floatformat:2 }}</td>
+                        <td class="num">{{ entry.fuel|floatformat:2 }}</td>
                         <td class="num">{{ entry.others|floatformat:2 }}</td>
                         <td class="num addition">{% if entry.bonus %}+{{ entry.bonus|floatformat:2 }}{% else %}--{% endif %}</td>
                         <td class="num addition">{% if entry.overtime_pay %}+{{ entry.overtime_pay|floatformat:2 }}{% else %}--{% endif %}</td>
@@ -280,7 +282,7 @@ tbody tr:hover { background: #fafafa; }
 
                     <!-- MOL subtotal -->
                     <tr class="mol-subtotal">
-                        <td colspan="14" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
+                        <td colspan="15" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
                             {{ group.mol_label }} SUBTOTAL
                         </td>
                         <td class="num">AED {{ group.total_gross|floatformat:2 }}</td>

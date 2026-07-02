@@ -65,6 +65,7 @@
 .seg-basic     { background: #3b82f6; }
 .seg-hra       { background: #10b981; }
 .seg-transport { background: #f59e0b; }
+.seg-fuel      { background: #14b8a6; }
 .seg-others    { background: #8b5cf6; }
 
 .bar-legend {
@@ -191,12 +192,14 @@
                     <div class="bar-segment seg-basic"     id="barBasic"    ></div>
                     <div class="bar-segment seg-hra"       id="barHra"      ></div>
                     <div class="bar-segment seg-transport" id="barTransport"></div>
+                    <div class="bar-segment seg-fuel"      id="barFuel"     ></div>
                     <div class="bar-segment seg-others"    id="barOthers"   ></div>
                 </div>
                 <div class="bar-legend">
                     <span><span class="legend-dot" style="background:#3b82f6;"></span>Basic (<span id="lgBasic">0</span>%)</span>
                     <span><span class="legend-dot" style="background:#10b981;"></span>HRA (<span id="lgHra">0</span>%)</span>
                     <span><span class="legend-dot" style="background:#f59e0b;"></span>Transport (<span id="lgTransport">0</span>%)</span>
+                    <span><span class="legend-dot" style="background:#14b8a6;"></span>Fuel (<span id="lgFuel">0</span>%)</span>
                     <span><span class="legend-dot" style="background:#8b5cf6;"></span>Others (<span id="lgOthers">0</span>%)</span>
                 </div>
             </div>
@@ -238,6 +241,17 @@
                                min="0" step="0.01"
                                value="{{ structure.transport|floatformat:2 }}" placeholder="0.00">
                         <div class="comp-pct" id="pctTransport">—% of total</div>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="comp-label">
+                            <span class="comp-dot" style="background:#14b8a6;"></span> Fuel
+                        </div>
+                        <span class="comp-prefix">AED</span>
+                        <input type="number" name="fuel" id="inpFuel" class="comp-input"
+                               min="0" step="0.01"
+                               value="{{ structure.fuel|floatformat:2 }}" placeholder="0.00">
+                        <div class="comp-pct" id="pctFuel">—% of total</div>
                     </div>
 
                     <div class="component-card">
@@ -292,7 +306,7 @@
 {% block extra_js %}
 <script>
 const gross   = {{ employee.emp_salary|default:0 }};
-const inputs  = ['Basic','Hra','Transport','Others'];
+const inputs  = ['Basic','Hra','Transport','Fuel','Others'];
 const ids     = inputs.map(n => document.getElementById('inp' + n));
 const bars    = inputs.map(n => document.getElementById('bar' + n));
 const pcts    = inputs.map(n => document.getElementById('pct' + n));

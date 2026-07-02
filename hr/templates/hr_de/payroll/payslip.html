@@ -196,6 +196,12 @@
                 <span class="comp-label"><span class="dot" style="background:#f59e0b;"></span>Transport Allowance</span>
                 <span class="comp-value">AED {{ entry.transport|floatformat:2 }}</span>
             </div>
+            {% if entry.fuel > 0 %}
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#14b8a6;"></span>Fuel Allowance</span>
+                <span class="comp-value">AED {{ entry.fuel|floatformat:2 }}</span>
+            </div>
+            {% endif %}
             {% if entry.others > 0 %}
             <div class="comp-row">
                 <span class="comp-label"><span class="dot" style="background:#8b5cf6;"></span>Other Allowances</span>

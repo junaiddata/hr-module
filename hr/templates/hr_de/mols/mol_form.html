@@ -142,6 +142,36 @@
             </div>
         </div>
 
+        <!-- ── Payroll / WPS Details ──────────────────────────────────────── -->
+        <div class="form-card">
+            <div class="form-card-head">
+                <i class="fas fa-money-check-alt" style="color:#10b981;"></i>
+                <h2>Payroll / WPS Details</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="field-grid-2">
+                    <div class="field-wrap">
+                        <label class="field-label">Company Code</label>
+                        <input type="text" name="company_code" class="field-input"
+                               value="{{ mol.company_code|default:'' }}"
+                               placeholder="e.g. 123456">
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">WPS Number</label>
+                        <input type="text" name="wps_number" class="field-input"
+                               value="{{ mol.wps_number|default:'' }}"
+                               placeholder="e.g. WPS employer/routing number">
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">IBAN</label>
+                        <input type="text" name="iban" class="field-input"
+                               value="{{ mol.iban|default:'' }}"
+                               placeholder="e.g. AE07 0331 2345 6789 0123 456">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Trade License ──────────────────────────────────────────────── -->
         <div class="form-card">
             <div class="form-card-head">

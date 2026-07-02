@@ -1,0 +1,236 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Team Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+.ta-wrap { max-width: 900px; margin: 2rem auto; padding: 0 1rem 3rem; }
+
+.ta-head {
+    background: var(--gradient-primary); color: #fff;
+    border-radius: 16px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+}
+.ta-head h1 { font-size: 1.4rem; font-weight: 800; margin: 0; }
+.ta-head .sub { font-size: .85rem; opacity: .9; margin-top: .25rem; }
+.ta-date { text-align: right; }
+.ta-date .d { font-size: .95rem; font-weight: 700; }
+.ta-date .c { font-size: .82rem; opacity: .85; font-variant-numeric: tabular-nums; }
+
+.ta-note {
+    display: flex; align-items: center; gap: .55rem;
+    background: rgba(59,130,246,.07); border: 1px dashed rgba(59,130,246,.35);
+    color: #2563eb; border-radius: 10px; padding: .65rem 1rem; font-size: .82rem; margin-bottom: 1.25rem;
+}
+
+.ta-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.ta-row {
+    display: flex; align-items: center; gap: 1rem; padding: .9rem 1.2rem;
+    border-bottom: 1px solid var(--border-color); flex-wrap: wrap;
+}
+.ta-row:last-child { border-bottom: none; }
+.ta-emp { display: flex; align-items: center; gap: .7rem; min-width: 200px; flex: 1; }
+.ta-avatar {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--bg-tertiary); border: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-secondary);
+}
+.ta-name { font-weight: 700; color: var(--text-primary); font-size: .92rem; }
+.ta-desig { font-size: .76rem; color: var(--text-tertiary); }
+
+.ta-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.ta-btn {
+    border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary);
+    border-radius: 8px; padding: .38rem .7rem; font-size: .78rem; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .35rem; transition: all .15s;
+}
+.ta-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.ta-btn.active.b-present  { background: #10b981; border-color: #10b981; color: #fff; }
+.ta-btn.active.b-absent   { background: #ef4444; border-color: #ef4444; color: #fff; }
+.ta-btn.active.b-half_day { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.ta-btn.active.b-leave    { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+
+.ta-leave-wrap { display: none; align-items: center; gap: .3rem; }
+.ta-leave-wrap.show { display: inline-flex; }
+.ta-leave-sel { border: 1.5px solid var(--border-color); border-radius: 8px; padding: .32rem .5rem; font-size: .78rem; }
+
+.ta-auto {
+    font-size: .72rem; font-weight: 700; color: #3b82f6;
+    background: rgba(59,130,246,.1); border-radius: 9999px; padding: .2rem .6rem;
+    display: inline-flex; align-items: center; gap: .3rem;
+}
+.ta-saved { font-size: .72rem; color: #10b981; font-weight: 700; opacity: 0; transition: opacity .2s; }
+.ta-saved.show { opacity: 1; }
+
+.ta-empty { padding: 2.5rem; text-align: center; color: var(--text-tertiary); }
+
+.ta-bulk { margin-bottom: 1rem; }
+.ta-bulk button {
+    border: none; background: #10b981; color: #fff; border-radius: 9px;
+    padding: .55rem 1.1rem; font-size: .85rem; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .5rem;
+}
+.ta-bulk button:hover { opacity: .92; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ta-wrap">
+
+    <div class="ta-head">
+        <div>
+            <h1><i class="fas fa-user-check" style="margin-right:.5rem;"></i>Team Attendance</h1>
+            <div class="sub">{{ department.name }} · {{ rows|length }} employee{{ rows|length|pluralize }}</div>
+        </div>
+        <div class="ta-date">
+            <div class="d">{{ today|date:"l, d M Y" }}</div>
+            <div class="c" id="liveClock">{{ now|date:"h:i:s A" }}</div>
+        </div>
+    </div>
+
+    <div class="ta-note">
+        <i class="fas fa-circle-info"></i>
+        You can mark <strong>today's</strong> attendance for your team. Approved leaves are filled in automatically.
+    </div>
+
+    {% if rows %}
+    <div class="ta-bulk">
+        <button type="button" id="markAllPresent"><i class="fas fa-check-double"></i> Mark all Present</button>
+    </div>
+
+    <div class="ta-card">
+        {% for r in rows %}
+        <div class="ta-row" data-emp="{{ r.employee.pk }}">
+            <div class="ta-emp">
+                <div class="ta-avatar">{{ r.employee.emp_name|first|upper }}</div>
+                <div>
+                    <div class="ta-name">{{ r.employee.emp_name }}</div>
+                    <div class="ta-desig">{{ r.employee.designation|default:"—" }}</div>
+                </div>
+            </div>
+
+            {% if r.auto_leave %}
+                <span class="ta-auto"><i class="fas fa-plane"></i> On leave ({{ r.auto_leave }})</span>
+            {% else %}
+            <div class="ta-actions">
+                <button type="button" class="ta-btn b-present {% if r.status == 'present' %}active{% endif %}" data-status="present"><i class="fas fa-check"></i> Present</button>
+                <button type="button" class="ta-btn b-absent {% if r.status == 'absent' %}active{% endif %}" data-status="absent"><i class="fas fa-xmark"></i> Absent</button>
+                <button type="button" class="ta-btn b-half_day {% if r.status == 'half_day' %}active{% endif %}" data-status="half_day"><i class="fas fa-adjust"></i> Half</button>
+                <button type="button" class="ta-btn b-leave {% if r.status == 'leave' %}active{% endif %}" data-status="leave"><i class="fas fa-plane"></i> Leave</button>
+                <span class="ta-leave-wrap {% if r.status == 'leave' %}show{% endif %}">
+                    <select class="ta-leave-sel">
+                        <option value="">Type…</option>
+                        {% for lt in leave_types %}
+                        <option value="{{ lt.name }}" {% if r.leave_type == lt.name %}selected{% endif %}>{{ lt.name }}</option>
+                        {% endfor %}
+                    </select>
+                </span>
+                <span class="ta-saved"><i class="fas fa-check"></i> Saved</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="ta-card"><div class="ta-empty">No active employees in your department yet.</div></div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    'use strict';
+    const URL = "{% url 'attendance_team_mark' %}";
+
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+
+    async function save(row, status, leaveType) {
+        const empId = row.dataset.emp;
+        try {
+            const resp = await fetch(URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ employee_id: empId, status: status, leave_type: leaveType || '' }),
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                const saved = row.querySelector('.ta-saved');
+                if (saved) { saved.classList.add('show'); setTimeout(() => saved.classList.remove('show'), 1500); }
+                return true;
+            }
+            alert(data.message || 'Could not save.');
+        } catch (e) {
+            alert('Network error — please try again.');
+        }
+        return false;
+    }
+
+    function setActive(actions, status) {
+        actions.querySelectorAll('.ta-btn').forEach(b => b.classList.toggle('active', b.dataset.status === status));
+        const lw = actions.querySelector('.ta-leave-wrap');
+        if (lw) lw.classList.toggle('show', status === 'leave');
+    }
+
+    document.querySelectorAll('.ta-row').forEach(row => {
+        const actions = row.querySelector('.ta-actions');
+        if (!actions) return;   // on-leave rows have no actions
+        const leaveSel = actions.querySelector('.ta-leave-sel');
+
+        actions.querySelectorAll('.ta-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const status = btn.dataset.status;
+                if (status === 'leave') {
+                    setActive(actions, status);
+                    if (leaveSel && leaveSel.value) save(row, 'leave', leaveSel.value);
+                    else if (leaveSel) leaveSel.focus();
+                    return;
+                }
+                setActive(actions, status);
+                save(row, status, '');
+            });
+        });
+
+        if (leaveSel) {
+            leaveSel.addEventListener('change', function () {
+                if (leaveSel.value) { setActive(actions, 'leave'); save(row, 'leave', leaveSel.value); }
+            });
+        }
+    });
+
+    const allBtn = document.getElementById('markAllPresent');
+    if (allBtn) {
+        allBtn.addEventListener('click', async function () {
+            const rows = Array.from(document.querySelectorAll('.ta-row')).filter(r => r.querySelector('.ta-actions'));
+            allBtn.disabled = true;
+            const label = allBtn.innerHTML;
+            allBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking…';
+            for (const row of rows) {
+                setActive(row.querySelector('.ta-actions'), 'present');
+                await save(row, 'present', '');
+            }
+            allBtn.innerHTML = label;
+            allBtn.disabled = false;
+        });
+    }
+
+    // Live clock
+    (function () {
+        const el = document.getElementById('liveClock');
+        if (!el) return;
+        function tick() {
+            const now = new Date();
+            let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+            const ap = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            const pad = n => String(n).padStart(2, '0');
+            el.textContent = `${pad(h)}:${pad(m)}:${pad(s)} ${ap}`;
+        }
+        tick(); setInterval(tick, 1000);
+    })();
+})();
+</script>
+{% endblock %}

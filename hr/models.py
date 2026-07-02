@@ -8,6 +8,11 @@ class Mol(models.Model):
     # Company info
     established_year = models.IntegerField(null=True, blank=True)
 
+    # Payroll / WPS details
+    company_code = models.CharField(max_length=50, blank=True, null=True)
+    wps_number   = models.CharField(max_length=50, blank=True, null=True)
+    iban         = models.CharField(max_length=34, blank=True, null=True)
+
     # Trade License
     trade_license_number = models.CharField(max_length=100, blank=True, null=True)
     trade_license_expiry = models.DateField(null=True, blank=True)
@@ -114,10 +119,16 @@ class Employee(models.Model):
 
     # Document details
     passport_number = models.CharField(max_length=20, null=True, blank=True)
+    visa_number = models.CharField(max_length=30, null=True, blank=True)
     eid_number = models.CharField(max_length=20, null=True, blank=True)
     labour_card_number = models.CharField(max_length=20, null=True, blank=True)
     insurance_number = models.CharField(max_length=50, null=True, blank=True)
     driving_license_number = models.CharField(max_length=30, null=True, blank=True)
+
+    # Bank Details
+    bank_name = models.CharField(max_length=100, null=True, blank=True)
+    iban = models.CharField(max_length=34, null=True, blank=True)
+    routing_code = models.CharField(max_length=20, null=True, blank=True)
 
     # Expiry Dates for Alerts
     visa_expiry = models.DateField(null=True, blank=True)
@@ -209,6 +220,7 @@ class Attendance(models.Model):
     SOURCE_CHOICES = [
         ('self',       'Self check-in'),
         ('hr',         'HR entry'),
+        ('head',       'Head entry'),
         ('leave_auto', 'Approved leave'),
     ]
     employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='attendances')
@@ -257,13 +269,14 @@ class SalaryStructure(models.Model):
     basic     = models.FloatField(default=0)
     hra       = models.FloatField(default=0)
     transport = models.FloatField(default=0)
+    fuel      = models.FloatField(default=0)
     others    = models.FloatField(default=0)
     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def total(self):
-        return self.basic + self.hra + self.transport + self.others
+        return self.basic + self.hra + self.transport + self.fuel + self.others
 
     def __str__(self):
         return f"Salary Structure – {self.employee.emp_name}"
@@ -333,6 +346,7 @@ class PayrollEntry(models.Model):
     basic          = models.FloatField(default=0)
     hra            = models.FloatField(default=0)
     transport      = models.FloatField(default=0)
+    fuel           = models.FloatField(default=0)
     others         = models.FloatField(default=0)
 
     # Additions
@@ -375,7 +389,7 @@ class PayrollEntry(models.Model):
         return self.loan_deduction + self.other_deductions + self.advance_deduction + self.attendance_deduction
 
     def compute_and_save(self):
-        self.gross_salary = self.basic + self.hra + self.transport + self.others
+        self.gross_salary = self.basic + self.hra + self.transport + self.fuel + self.others
         self.net_salary   = self.gross_salary + self.total_additions - self.total_deductions
         self.save()
 
@@ -549,6 +563,7 @@ class SalaryRevision(models.Model):
     old_basic     = models.FloatField(default=0)
     old_hra       = models.FloatField(default=0)
     old_transport = models.FloatField(default=0)
+    old_fuel      = models.FloatField(default=0)
     old_others    = models.FloatField(default=0)
 
     # Values applied by this revision
@@ -556,6 +571,7 @@ class SalaryRevision(models.Model):
     new_basic     = models.FloatField(default=0)
     new_hra       = models.FloatField(default=0)
     new_transport = models.FloatField(default=0)
+    new_fuel      = models.FloatField(default=0)
     new_others    = models.FloatField(default=0)
 
     reason     = models.TextField(blank=True)

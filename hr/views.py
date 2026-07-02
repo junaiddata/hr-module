@@ -37,6 +37,17 @@ def _head_role_for(dept):
     return 'HR' if _is_hr_department(dept) else 'Head'
 
 
+def _head_department(request):
+    """Department this user is head of (role='Head'), or None."""
+    try:
+        role = request.user.role
+    except Exception:
+        return None
+    if role and role.role == 'Head' and role.department:
+        return role.department
+    return None
+
+
 @login_required
 def employee_list(request):
     query = request.GET.get('q')
@@ -141,10 +152,15 @@ def employee_create(request):
 
             passport_status=data.get('passport_status', 'With company'),
             passport_number=data.get('passport_number'),
+            visa_number=data.get('visa_number'),
             eid_number=data.get('eid_number'),
             labour_card_number=data.get('labour_card_number'),
             insurance_number=data.get('insurance_number'),
             driving_license_number=data.get('driving_license_number'),
+
+            bank_name=data.get('bank_name'),
+            iban=data.get('iban'),
+            routing_code=data.get('routing_code'),
 
             visa_expiry=parse_date(data.get('visa_expiry')),
             passport_expiry=parse_date(data.get('passport_expiry')),
@@ -164,13 +180,15 @@ def employee_create(request):
         basic     = _float('basic')
         hra       = _float('hra')
         transport = _float('transport')
+        fuel      = _float('fuel')
         others    = _float('others')
-        if any([basic, hra, transport, others]):
+        if any([basic, hra, transport, fuel, others]):
             SalaryStructure.objects.create(
                 employee=employee,
                 basic=basic,
                 hra=hra,
                 transport=transport,
+                fuel=fuel,
                 others=others,
                 updated_by=request.user,
             )
@@ -250,10 +268,15 @@ def employee_edit(request, pk):
 
         employee.passport_status = data.get('passport_status')
         employee.passport_number = data.get('passport_number')
+        employee.visa_number = data.get('visa_number')
         employee.eid_number = data.get('eid_number')
         employee.labour_card_number = data.get('labour_card_number')
         employee.insurance_number = data.get('insurance_number')
         employee.driving_license_number = data.get('driving_license_number')
+
+        employee.bank_name = data.get('bank_name')
+        employee.iban = data.get('iban')
+        employee.routing_code = data.get('routing_code')
 
         employee.visa_expiry = parse_date(data.get('visa_expiry'))
         employee.passport_expiry = parse_date(data.get('passport_expiry'))
@@ -312,13 +335,14 @@ def employee_edit(request, pk):
         basic     = _float_edit('basic')
         hra       = _float_edit('hra')
         transport = _float_edit('transport')
+        fuel      = _float_edit('fuel')
         others    = _float_edit('others')
-        if any([basic, hra, transport, others]):
+        if any([basic, hra, transport, fuel, others]):
             SalaryStructure.objects.update_or_create(
                 employee=employee,
                 defaults={
                     'basic': basic, 'hra': hra,
-                    'transport': transport, 'others': others,
+                    'transport': transport, 'fuel': fuel, 'others': others,
                     'updated_by': request.user,
                 }
             )
@@ -399,7 +423,7 @@ def employee_detail(request, pk):
     # Unified document list: label, id number, expiry date, uploaded file, status
     doc_specs = [
         ('Passport',        employee.passport_number,        employee.passport_expiry,        employee.passport),
-        ('Visa',            None,                            employee.visa_expiry,            employee.visa),
+        ('Visa',            employee.visa_number,            employee.visa_expiry,            employee.visa),
         ('Labour Card',     employee.labour_card_number,     employee.labour_card_expiry,     employee.labour_card),
         ('Emirates ID',     employee.eid_number,             employee.eid_expiry,             employee.eid),
         ('Insurance',       employee.insurance_number,       employee.insurance_expiry,       employee.insurance),
@@ -769,6 +793,9 @@ def mol_add(request):
         mol = Mol(
             mol=request.POST.get('mol', '').strip(),
             established_year=_f('established_year'),
+            company_code=_f('company_code'),
+            wps_number=_f('wps_number'),
+            iban=_f('iban'),
             trade_license_number=_f('trade_license_number'),
             trade_license_expiry=_f('trade_license_expiry'),
             tenancy_contract_expiry=_f('tenancy_contract_expiry'),
@@ -792,6 +819,9 @@ def mol_edit(request, pk):
         def _f(key): return request.POST.get(key, '').strip() or None
         mol.mol                       = request.POST.get('mol', '').strip()
         mol.established_year          = _f('established_year')
+        mol.company_code             = _f('company_code')
+        mol.wps_number               = _f('wps_number')
+        mol.iban                     = _f('iban')
         mol.trade_license_number      = _f('trade_license_number')
         mol.trade_license_expiry      = _f('trade_license_expiry')
         mol.tenancy_contract_expiry   = _f('tenancy_contract_expiry')
@@ -1531,6 +1561,7 @@ def salary_structure(request, emp_pk):
         structure.basic     = _float('basic')
         structure.hra       = _float('hra')
         structure.transport = _float('transport')
+        structure.fuel      = _float('fuel')
         structure.others    = _float('others')
         structure.updated_by = request.user
         structure.save()
@@ -1619,6 +1650,7 @@ def payroll_create(request):
                 basic=s.basic if s else 0,
                 hra=s.hra if s else 0,
                 transport=s.transport if s else 0,
+                fuel=s.fuel if s else 0,
                 others=s.others if s else 0,
                 advance_deduction=advance_ded,
                 advance_salary=advance_obj,
@@ -2703,6 +2735,12 @@ _BULK_COLUMNS = [
     ("MOL",                     "Ministry of Labour / sub-company name"),
     ("DATE OF JOIN",            "Joining date (YYYY-MM-DD)"),
     ("SALARY",                  "Monthly gross salary (number)"),
+    # Salary structure components — if any are filled, the salary structure is set
+    ("BASIC",                   "Salary component – basic pay (number)"),
+    ("HRA",                     "Salary component – housing allowance (number)"),
+    ("TRANSPORTATION",          "Salary component – transport allowance (number)"),
+    ("OTHERS",                  "Salary component – other allowances (number)"),
+    ("FUEL",                    "Salary component – fuel allowance (number)"),
     ("LOCATION",                "Work location / site"),
     ("EMPLOYEE STATUS",         "Active | Inactive | On Leave | Resigned | Terminated"),
     ("IS ACTIVE",               "YES or NO"),
@@ -2713,11 +2751,16 @@ _BULK_COLUMNS = [
     ("LABOUR EXPIRY",           "YYYY-MM-DD"),
     ("EID NO",                  "Emirates ID number"),
     ("EID EXPIRY",              "YYYY-MM-DD"),
+    ("VISA NO",                 "Visa / residence permit number"),
     ("VISA EXPIRY",             "YYYY-MM-DD"),
     ("INSURANCE NO",            "Insurance policy number"),
     ("INSURANCE EXPIRY",        "YYYY-MM-DD"),
     ("DRIVING LICENSE NO",      "Driving licence number"),
     ("DRIVING LICENSE EXPIRY",  "YYYY-MM-DD"),
+    # Bank details — for salary transfer (WPS)
+    ("BANK NAME",               "Bank name (e.g. Emirates NBD)"),
+    ("IBAN",                    "IBAN (e.g. AE07 0331 2345 6789 0123 456)"),
+    ("ROUTING CODE",            "Bank routing / sort code"),
     # Login account — leave blank to skip account creation
     ("USERNAME",                "Optional – login username. Leave blank to skip account creation."),
     ("PASSWORD",                "Optional – initial password. Required if USERNAME is filled."),
@@ -2788,10 +2831,12 @@ def download_employee_template(request):
     sample = [
         "EMP001", "Ali Hassan", "1990-06-15", "M", "AE", "0501234567",
         "Sales", "Sales Manager", "ABC Trading LLC", "2023-01-01",
-        "8000", "Dubai", "Active", "YES", "With company",
+        "8000", "4000", "1500", "1000", "500", "1000",
+        "Dubai", "Active", "YES", "With company",
         "P12345678", "2028-06-15", "LC123456", "2025-06-30",
-        "784-1990-1234567-1", "2027-03-15", "2025-12-31",
+        "784-1990-1234567-1", "2027-03-15", "UAE-V-2024-778899", "2025-12-31",
         "INS001", "2026-06-01", "DL123456", "2027-01-01",
+        "Emirates NBD", "AE070331234567890123456", "302620122",
         "ali.hassan", "Pass@1234",
     ]
     for col_idx, (val, (header, _)) in enumerate(zip(sample, _BULK_COLUMNS), start=1):
@@ -2801,15 +2846,27 @@ def download_employee_template(request):
         cell.font      = Font(color="6D28D9", size=10) if is_acct else sample_font
         cell.border    = thin_border
 
+    # Force account-like columns to Text so Excel keeps leading zeros the moment
+    # a user types an IBAN / account / routing number that starts with 0.
+    text_cols = {"IBAN", "ROUTING CODE"}
+    text_idxs = [i for i, (h, _) in enumerate(_BULK_COLUMNS, start=1) if h in text_cols]
+    for ci in text_idxs:
+        for ri in range(3, 1001):          # sample row + plenty of data rows
+            ws.cell(row=ri, column=ci).number_format = "@"
+
     # Row heights & column widths
     ws.row_dimensions[1].height = 28
     ws.row_dimensions[2].height = 40
     ws.row_dimensions[3].height = 22
     ws.freeze_panes = "A4"
 
-    col_widths = [12, 22, 14, 8, 14, 16, 18, 18, 22, 14,
-                  10, 14, 16, 10, 18, 16, 16, 14, 14, 22, 14, 14, 14, 16, 18, 20,
-                  18, 16]
+    col_widths = [12, 22, 14, 8, 14, 16, 18, 18, 22, 14,   # EMP ID .. DATE OF JOIN
+                  10, 10, 10, 16, 10, 10,                   # SALARY, BASIC, HRA, TRANSPORTATION, OTHERS, FUEL
+                  14, 16, 10, 18,                           # LOCATION, EMP STATUS, IS ACTIVE, PASSPORT STATUS
+                  16, 16, 14, 14, 22, 14, 20, 14,           # PASSPORT.. VISA NO, VISA EXPIRY
+                  14, 16, 18, 20,                           # INSURANCE.. DRIVING LICENSE EXPIRY
+                  18, 26, 14,                               # bank (name, IBAN, routing)
+                  18, 16]                                   # login
     for i, width in enumerate(col_widths, start=1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
 
@@ -2825,7 +2882,13 @@ def bulk_upload_employees(request):
     if request.method == "POST" and request.FILES.get("excel_file"):
         excel_file = request.FILES["excel_file"]
         try:
-            df = pd.read_excel(excel_file, header=0, skiprows=[1])  # skip the notes row
+            # Read account-like columns as text so leading zeros survive (IBAN,
+            # account & routing numbers often start with zeros).
+            _text_cols = {"IBAN", "ROUTING CODE"}
+            df = pd.read_excel(
+                excel_file, header=0, skiprows=[1],   # skip the notes row
+                dtype={c: str for c in _text_cols},
+            )
 
             created_count    = 0
             updated_count    = 0
@@ -2864,6 +2927,19 @@ def bulk_upload_employees(request):
                             return None
                         return str(val).strip() or None
 
+                    def _acct_str(key):
+                        """Like _str but preserves leading zeros and drops a stray
+                        trailing '.0' if Excel coerced the value to a number."""
+                        val = row.get(key)
+                        if val is None or (isinstance(val, float) and pd.isnull(val)):
+                            return None
+                        s = str(val).strip()
+                        if s == '' or s.lower() == 'nan':
+                            return None
+                        if s.endswith('.0') and s[:-2].isdigit():
+                            s = s[:-2]
+                        return s
+
                     emp_obj, created = Employee.objects.update_or_create(
                         emp_id=emp_id,
                         defaults={
@@ -2883,6 +2959,7 @@ def bulk_upload_employees(request):
                             "passport_status":        _str("PASSPORT STATUS") or "With company",
                             "passport_number":        _str("PASSPORT NO."),
                             "passport_expiry":        _parse_date(row.get("PASSPORT EXPIRY")),
+                            "visa_number":            _str("VISA NO"),
                             "labour_card_number":     _str("LABOUR NO"),
                             "labour_card_expiry":     _parse_date(row.get("LABOUR EXPIRY")),
                             "eid_number":             _str("EID NO"),
@@ -2892,12 +2969,40 @@ def bulk_upload_employees(request):
                             "insurance_expiry":       _parse_date(row.get("INSURANCE EXPIRY")),
                             "driving_license_number": _str("DRIVING LICENSE NO"),
                             "driving_license_expiry": _parse_date(row.get("DRIVING LICENSE EXPIRY")),
+                            "bank_name":              _str("BANK NAME"),
+                            "iban":                   _acct_str("IBAN"),
+                            "routing_code":           _acct_str("ROUTING CODE"),
                         }
                     )
                     if created:
                         created_count += 1
                     else:
                         updated_count += 1
+
+                    # ── Salary structure (set if any component is filled) ─────
+                    def _num(key):
+                        val = row.get(key)
+                        if val is None or (isinstance(val, float) and pd.isnull(val)):
+                            return 0.0
+                        try:
+                            return float(str(val).strip())
+                        except (ValueError, TypeError):
+                            return 0.0
+
+                    s_basic = _num("BASIC")
+                    s_hra   = _num("HRA")
+                    s_trans = _num("TRANSPORTATION")
+                    s_other = _num("OTHERS")
+                    s_fuel  = _num("FUEL")
+                    if any([s_basic, s_hra, s_trans, s_other, s_fuel]):
+                        SalaryStructure.objects.update_or_create(
+                            employee=emp_obj,
+                            defaults={
+                                "basic": s_basic, "hra": s_hra,
+                                "transport": s_trans, "others": s_other,
+                                "fuel": s_fuel, "updated_by": request.user,
+                            },
+                        )
 
                     # ── Login account creation ───────────────────────────────
                     username = _str("USERNAME")
@@ -3031,8 +3136,9 @@ def salary_revision_create(request, emp_id):
         new_basic     = _f('basic')
         new_hra       = _f('hra')
         new_transport = _f('transport')
+        new_fuel      = _f('fuel')
         new_others    = _f('others')
-        new_salary    = round(new_basic + new_hra + new_transport + new_others, 2)
+        new_salary    = round(new_basic + new_hra + new_transport + new_fuel + new_others, 2)
 
         effective_date = request.POST.get('effective_date')
         reason         = request.POST.get('reason', '').strip()
@@ -3041,6 +3147,7 @@ def salary_revision_create(request, emp_id):
         old_basic     = structure.basic     if structure else 0
         old_hra       = structure.hra       if structure else 0
         old_transport = structure.transport if structure else 0
+        old_fuel      = structure.fuel      if structure else 0
         old_others    = structure.others    if structure else 0
 
         if new_salary > old_salary:
@@ -3058,11 +3165,13 @@ def salary_revision_create(request, emp_id):
             old_basic=old_basic,
             old_hra=old_hra,
             old_transport=old_transport,
+            old_fuel=old_fuel,
             old_others=old_others,
             new_salary=new_salary,
             new_basic=new_basic,
             new_hra=new_hra,
             new_transport=new_transport,
+            new_fuel=new_fuel,
             new_others=new_others,
             reason=reason,
             changed_by=request.user,
@@ -3075,13 +3184,14 @@ def salary_revision_create(request, emp_id):
             structure.basic      = new_basic
             structure.hra        = new_hra
             structure.transport  = new_transport
+            structure.fuel       = new_fuel
             structure.others     = new_others
             structure.updated_by = request.user
             structure.save()
         else:
             SalaryStructure.objects.create(
                 employee=employee, basic=new_basic, hra=new_hra,
-                transport=new_transport, others=new_others,
+                transport=new_transport, fuel=new_fuel, others=new_others,
                 updated_by=request.user,
             )
 
@@ -3181,6 +3291,127 @@ def attendance_mark(request):
         'todays':   todays,
         'recent':   recent,
         'now':      timezone.localtime(),
+    })
+
+
+@login_required
+def attendance_team(request):
+    """Department head marks TODAY's attendance for the employees under them.
+
+    Meant for support-staff teams whose members don't self check-in. Heads see
+    only their own department and can only set today's attendance."""
+    dept = _head_department(request)
+    if dept is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    today = timezone.localdate()
+    employees = list(
+        Employee.objects.filter(department=dept, is_active=True).order_by('emp_name')
+    )
+    emp_ids = [e.id for e in employees]
+
+    # Today's explicit attendance records
+    att_map = {
+        a.employee_id: a
+        for a in Attendance.objects.filter(employee_id__in=emp_ids, date=today)
+        .select_related('leave_type')
+    }
+
+    # Approved-leave overlay for today (read-only — shown but not editable)
+    leave_map = {}
+    for lv in Leave.objects.filter(
+        employee_id__in=emp_ids, status='Approved'
+    ).select_related('leave_type'):
+        f = lv.actual_from or lv.expected_from
+        t = lv.actual_to or lv.expected_to
+        if f and t and f <= today <= t:
+            leave_map[lv.employee_id] = lv.leave_type.name if lv.leave_type else 'Leave'
+
+    rows = []
+    for e in employees:
+        a = att_map.get(e.id)
+        if a:
+            status = a.status
+            leave_type = a.leave_type.name if a.leave_type else ''
+            check_in = a.check_in
+            auto_leave = ''
+        elif e.id in leave_map:
+            status, leave_type, check_in, auto_leave = 'leave', leave_map[e.id], None, leave_map[e.id]
+        else:
+            status, leave_type, check_in, auto_leave = '', '', None, ''
+        rows.append({
+            'employee':   e,
+            'status':     status,
+            'leave_type': leave_type,
+            'check_in':   check_in,
+            'auto_leave': auto_leave,
+        })
+
+    return render(request, 'hr_de/attendance/team.html', {
+        'department':  dept,
+        'today':       today,
+        'rows':        rows,
+        'leave_types': list(LeaveType.objects.all().order_by('name')),
+        'now':         timezone.localtime(),
+    })
+
+
+@require_POST
+@login_required
+def attendance_team_mark(request):
+    """AJAX: department head upserts TODAY's attendance for one of their employees."""
+    dept = _head_department(request)
+    if dept is None:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    import json
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        emp_id          = int(payload['employee_id'])
+        status          = (payload.get('status') or '').strip()
+        leave_type_name = (payload.get('leave_type') or '').strip()
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
+
+    if status and status not in _ATT_STATUSES:
+        return JsonResponse({'status': 'error', 'message': 'Invalid status.'}, status=400)
+
+    # Head may only touch employees in their own department
+    employee = Employee.objects.filter(pk=emp_id, department=dept).first()
+    if employee is None:
+        return JsonResponse({'status': 'error', 'message': 'Employee not in your team.'}, status=403)
+
+    today = timezone.localdate()
+
+    # Empty status clears the cell
+    if not status:
+        Attendance.objects.filter(employee=employee, date=today).delete()
+        return JsonResponse({'status': 'success', 'cleared': True})
+
+    leave_type = None
+    if status == 'leave':
+        if not leave_type_name:
+            return JsonResponse({'status': 'error', 'message': 'Pick a leave type.'}, status=400)
+        leave_type = LeaveType.objects.filter(name=leave_type_name).first()
+        if leave_type is None:
+            return JsonResponse({'status': 'error', 'message': 'Unknown leave type.'}, status=400)
+
+    check_in = timezone.localtime().time() if status == 'present' else None
+    att, created = Attendance.objects.update_or_create(
+        employee=employee, date=today,
+        defaults={
+            'status':     status,
+            'leave_type': leave_type,
+            'check_in':   check_in,
+            'source':     'head',
+            'marked_by':  request.user,
+        },
+    )
+    return JsonResponse({
+        'status':      'success',
+        'created':     created,
+        'cell_status': att.status,
+        'leave_type':  leave_type.name if leave_type else '',
     })
 
 

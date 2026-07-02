@@ -86,6 +86,8 @@ urlpatterns = [
 
     # Attendance
     path('attendance/mark/',        views.attendance_mark,        name='attendance_mark'),
+    path('attendance/team/',        views.attendance_team,        name='attendance_team'),
+    path('attendance/team-mark/',   views.attendance_team_mark,   name='attendance_team_mark'),
     path('attendance/grid/',        views.attendance_grid,        name='attendance_grid'),
     path('attendance/cell-update/', views.attendance_cell_update, name='attendance_cell_update'),
     path('attendance/bulk-update/', views.attendance_bulk_update, name='attendance_bulk_update'),
