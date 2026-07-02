@@ -1,0 +1,82 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Reviews — {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.re-wrap { max-width: 960px; margin: 0 auto; padding: 2rem; }
+.re-top { display: flex; align-items: center; gap: .9rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.re-av { width: 48px; height: 48px; border-radius: 12px; background: var(--gradient-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; }
+.re-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
+.re-meta { font-size: .84rem; color: var(--text-secondary); }
+.re-back { margin-left: auto; font-size: .84rem; font-weight: 600; color: var(--text-secondary); text-decoration: none; }
+.re-back:hover { color: var(--accent-primary); }
+
+.re-bar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.re-bar select { border: 1px solid var(--border-color); border-radius: 9px; padding: .5rem .7rem; font-size: .86rem; background: var(--bg-primary); }
+
+.re-sec { font-size: .95rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: .5rem; margin: 1.5rem 0 .8rem; }
+.re-sec i { color: var(--accent-primary); }
+.re-sec .tag { font-size: .72rem; font-weight: 700; color: var(--text-tertiary); background: var(--bg-tertiary); border-radius: 9999px; padding: .15rem .6rem; }
+
+.rc { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.3rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+.rc.flagged { border-left: 3px solid #ef4444; }
+.rc-head { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+.rc-title { font-weight: 700; color: var(--text-primary); }
+.rc-avg { margin-left: auto; font-size: 1rem; font-weight: 800; color: #f59e0b; display: inline-flex; align-items: center; gap: .3rem; }
+.rc-flag { font-size: .72rem; font-weight: 700; color: #dc2626; background: rgba(239,68,68,.1); border-radius: 9999px; padding: .2rem .6rem; }
+.rc-ratings { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: .8rem 0 .3rem; }
+.rc-metric { font-size: .8rem; }
+.rc-metric .l { color: var(--text-secondary); }
+.rc-metric .v { font-weight: 800; color: var(--text-primary); }
+.rc-metric .v.low { color: #dc2626; }
+.rc-text { margin-top: .6rem; font-size: .86rem; }
+.rc-text .lab { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); margin-bottom: .2rem; }
+.rc-text .val { color: var(--text-primary); white-space: pre-wrap; }
+.rc-concern { background: rgba(245,158,11,.07); border: 1px dashed rgba(245,158,11,.4); border-radius: 8px; padding: .55rem .75rem; }
+.rc-concern .lab { color: #b45309; }
+.rc-meta { font-size: .74rem; color: var(--text-tertiary); margin-top: .7rem; }
+.rc-empty { color: var(--text-tertiary); font-size: .88rem; padding: 1rem 1.2rem; border: 1px dashed var(--border-color); border-radius: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% comment %} reusable card fragment via include-like macro isn't available; repeat inline {% endcomment %}
+<div class="re-wrap">
+
+    <div class="re-top">
+        <div class="re-av">{{ employee.emp_name|first|upper }}</div>
+        <div>
+            <div class="re-name">{{ employee.emp_name }}</div>
+            <div class="re-meta">{{ employee.designation|default:"—" }}{% if employee.department %} · {{ employee.department.name }}{% endif %} · {{ employee.emp_id }}</div>
+        </div>
+        <a href="{% url 'employee_detail' employee.pk %}" class="re-back"><i class="fas fa-arrow-left"></i> Back to employee</a>
+    </div>
+
+    <form method="get" class="re-bar">
+        <select name="month" onchange="this.form.submit()">
+            {% for m in months %}<option value="{{ m.num }}" {% if m.num == month %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+        </select>
+        <select name="year" onchange="this.form.submit()">
+            {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+        <span style="font-size:.82rem;color:var(--text-secondary);">Showing reviews for <strong>{{ month_name }} {{ year }}</strong></span>
+    </form>
+
+    <!-- Monthly -->
+    <div class="re-sec"><i class="fas fa-calendar-check"></i> Monthly Review</div>
+    {% if monthly %}
+        {% include "hr_de/reviews/_review_card.html" with r=monthly %}
+    {% else %}
+        <div class="rc-empty">No monthly review filed for {{ month_name }} {{ year }}.</div>
+    {% endif %}
+
+    <!-- Weekly -->
+    <div class="re-sec"><i class="fas fa-calendar-week"></i> Weekly Reviews <span class="tag">{{ weeklies|length }} of 5</span></div>
+    {% for r in weeklies %}
+        {% include "hr_de/reviews/_review_card.html" with r=r %}
+    {% empty %}
+        <div class="rc-empty">No weekly reviews filed for {{ month_name }} {{ year }}.</div>
+    {% endfor %}
+
+</div>
+{% endblock %}

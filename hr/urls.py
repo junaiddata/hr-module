@@ -117,6 +117,12 @@ urlpatterns = [
     # Head: set/update actual rejoining date
     path('leave/<int:leave_pk>/set-rejoining/', views.set_rejoining_date, name='set_rejoining_date'),
 
+    # Reviews (Head fills weekly + monthly; HR/MD read)
+    path('reviews/team/',                  views.review_team,     name='review_team'),
+    path('reviews/edit/<int:emp_pk>/',     views.review_edit,     name='review_edit'),
+    path('reviews/overview/',              views.review_overview, name='review_overview'),
+    path('reviews/employee/<int:emp_pk>/', views.review_employee, name='review_employee'),
+
     # Other Records (document store — HR & MD only)
     path('other-records/',                 views.other_records_list,  name='other_records_list'),
     path('other-records/add/',             views.other_record_add,    name='other_record_add'),

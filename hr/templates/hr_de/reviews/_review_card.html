@@ -1,0 +1,34 @@
+<div class="rc {% if r.needs_attention %}flagged{% endif %}">
+    <div class="rc-head">
+        <div class="rc-title">
+            {% if r.week %}<i class="fas fa-calendar-week" style="color:#8b5cf6;margin-right:.35rem;"></i>Week {{ r.week }}{% else %}<i class="fas fa-calendar-check" style="color:#6366f1;margin-right:.35rem;"></i>Monthly{% endif %}
+        </div>
+        {% if r.needs_attention %}<span class="rc-flag"><i class="fas fa-flag"></i> Needs attention</span>{% endif %}
+        {% if r.average %}<span class="rc-avg"><i class="fas fa-star"></i> {{ r.average }}/5</span>{% endif %}
+    </div>
+
+    <div class="rc-ratings">
+        <span class="rc-metric"><span class="l">Task/output:</span> <span class="v {% if r.rating_task and r.rating_task <= 2 %}low{% endif %}">{{ r.rating_task|default:"—" }}</span></span>
+        <span class="rc-metric"><span class="l">Punctuality:</span> <span class="v {% if r.rating_punctuality and r.rating_punctuality <= 2 %}low{% endif %}">{{ r.rating_punctuality|default:"—" }}</span></span>
+        <span class="rc-metric"><span class="l">Quality:</span> <span class="v {% if r.rating_quality and r.rating_quality <= 2 %}low{% endif %}">{{ r.rating_quality|default:"—" }}</span></span>
+        <span class="rc-metric"><span class="l">Communication:</span> <span class="v {% if r.rating_communication and r.rating_communication <= 2 %}low{% endif %}">{{ r.rating_communication|default:"—" }}</span></span>
+    </div>
+
+    {% if r.went_well %}
+    <div class="rc-text">
+        <div class="lab">What went well</div>
+        <div class="val">{{ r.went_well }}</div>
+    </div>
+    {% endif %}
+
+    {% if r.concerns %}
+    <div class="rc-text rc-concern">
+        <div class="lab"><i class="fas fa-lock"></i> Concerns (private)</div>
+        <div class="val">{{ r.concerns }}</div>
+    </div>
+    {% endif %}
+
+    <div class="rc-meta">
+        Reviewed by {{ r.reviewed_by.get_full_name|default:r.reviewed_by.username|default:"—" }} · {{ r.updated_at|date:"d M Y, H:i" }}
+    </div>
+</div>

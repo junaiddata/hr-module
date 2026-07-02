@@ -799,9 +799,20 @@
                         <label class="form-label">
                             Labour Card Number
                         </label>
-                        <input type="text" name="labour_card_number" class="form-control" 
+                        <input type="text" name="labour_card_number" class="form-control"
                                placeholder="e.g., LC123456"
                                value="{{ employee.labour_card_number|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-hashtag"></i> Labour No.
+                        </label>
+                        <input type="text" name="labour_number" class="form-control"
+                               placeholder="e.g., L-2024-5567"
+                               value="{{ employee.labour_number|default:'' }}">
                     </div>
                 </div>
                 

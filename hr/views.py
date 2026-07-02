@@ -183,6 +183,7 @@ def employee_create(request):
             visa_number=data.get('visa_number'),
             eid_number=data.get('eid_number'),
             labour_card_number=data.get('labour_card_number'),
+            labour_number=data.get('labour_number'),
             insurance_number=data.get('insurance_number'),
             driving_license_number=data.get('driving_license_number'),
 
@@ -299,6 +300,7 @@ def employee_edit(request, pk):
         employee.visa_number = data.get('visa_number')
         employee.eid_number = data.get('eid_number')
         employee.labour_card_number = data.get('labour_card_number')
+        employee.labour_number = data.get('labour_number')
         employee.insurance_number = data.get('insurance_number')
         employee.driving_license_number = data.get('driving_license_number')
 
@@ -1207,6 +1209,11 @@ def home(request):
         is_active=True, dob__month=today.month, dob__day=today.day
     ).select_related('department').order_by('emp_name')
 
+    # Performance — this month's reviews
+    reviews_this_month = MonthlyReview.objects.filter(month=today.month, year=today.year)
+    reviews_count = reviews_this_month.count()
+    reviews_flagged = reviews_this_month.filter(needs_attention=True).count()
+
     return render(request, 'hr_de/home.html', {
         'total_employees': total_employees,
         'pending_leaves': pending_leaves,
@@ -1214,6 +1221,8 @@ def home(request):
         'recent_leaves': recent_leaves,
         'today': today,
         'birthdays_today': birthdays_today,
+        'reviews_count': reviews_count,
+        'reviews_flagged': reviews_flagged,
     })
 
 @login_required
@@ -2897,8 +2906,9 @@ _BULK_COLUMNS = [
     ("PASSPORT STATUS",         "With company | With employee"),
     ("PASSPORT NO.",            "Passport number"),
     ("PASSPORT EXPIRY",         "YYYY-MM-DD"),
-    ("LABOUR NO",               "Labour / work permit number"),
+    ("LABOUR CARD NO",          "Labour card number"),
     ("LABOUR EXPIRY",           "YYYY-MM-DD"),
+    ("LABOUR NO",               "Labour No. — work permit / labour file no. (different from labour card no.)"),
     ("EID NO",                  "Emirates ID number"),
     ("EID EXPIRY",              "YYYY-MM-DD"),
     ("VISA NO",                 "Visa / residence permit number"),
@@ -2983,7 +2993,7 @@ def download_employee_template(request):
         "Sales", "Sales Manager", "ABC Trading LLC", "2023-01-01",
         "8000", "4000", "1500", "1000", "500", "1000",
         "Dubai", "Active", "YES", "With company",
-        "P12345678", "2028-06-15", "LC123456", "2025-06-30",
+        "P12345678", "2028-06-15", "LC123456", "2025-06-30", "L-2024-5567",
         "784-1990-1234567-1", "2027-03-15", "UAE-V-2024-778899", "2025-12-31",
         "INS001", "2026-06-01", "DL123456", "2027-01-01",
         "Emirates NBD", "AE070331234567890123456", "302620122",
@@ -3013,7 +3023,7 @@ def download_employee_template(request):
     col_widths = [12, 22, 14, 8, 14, 16, 18, 18, 22, 14,   # EMP ID .. DATE OF JOIN
                   10, 10, 10, 16, 10, 10,                   # SALARY, BASIC, HRA, TRANSPORTATION, OTHERS, FUEL
                   14, 16, 10, 18,                           # LOCATION, EMP STATUS, IS ACTIVE, PASSPORT STATUS
-                  16, 16, 14, 14, 22, 14, 20, 14,           # PASSPORT.. VISA NO, VISA EXPIRY
+                  16, 16, 14, 14, 16, 22, 14, 20, 14,       # PASSPORT, LABOUR CARD NO, LABOUR EXPIRY, LABOUR NO, EID.. VISA
                   14, 16, 18, 20,                           # INSURANCE.. DRIVING LICENSE EXPIRY
                   18, 26, 14,                               # bank (name, IBAN, routing)
                   18, 16]                                   # login
@@ -3044,6 +3054,10 @@ def bulk_upload_employees(request):
             updated_count    = 0
             accounts_created = 0
             error_rows       = []
+
+            # New template splits labour card no. and labour no. into two columns.
+            # Old templates only have "LABOUR NO" (which was the card number).
+            has_labour_card_col = "LABOUR CARD NO" in df.columns
 
             for index, row in df.iterrows():
                 try:
@@ -3110,7 +3124,8 @@ def bulk_upload_employees(request):
                             "passport_number":        _str("PASSPORT NO."),
                             "passport_expiry":        _parse_date(row.get("PASSPORT EXPIRY")),
                             "visa_number":            _str("VISA NO"),
-                            "labour_card_number":     _str("LABOUR NO"),
+                            "labour_card_number":     _str("LABOUR CARD NO") if has_labour_card_col else _str("LABOUR NO"),
+                            "labour_number":          _str("LABOUR NO") if has_labour_card_col else None,
                             "labour_card_expiry":     _parse_date(row.get("LABOUR EXPIRY")),
                             "eid_number":             _str("EID NO"),
                             "eid_expiry":             _parse_date(row.get("EID EXPIRY")),
@@ -3964,3 +3979,212 @@ def other_record_delete(request, pk):
     rec.delete()
     messages.success(request, f"Record '{title}' deleted.")
     return redirect('other_records_list')
+
+
+# ── Monthly Reviews (Head fills; HR/MD read) ─────────────────────────────────
+
+_REVIEW_RATINGS = ['rating_task', 'rating_punctuality', 'rating_quality', 'rating_communication']
+
+
+def _month_year_from(request, today):
+    try:
+        month = int(request.GET.get('month') or request.POST.get('month') or today.month)
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        year = int(request.GET.get('year') or request.POST.get('year') or today.year)
+    except (ValueError, TypeError):
+        year = today.year
+    if not (1 <= month <= 12):
+        month = today.month
+    return month, year
+
+
+def _review_week_from(request):
+    try:
+        week = int(request.GET.get('week') or request.POST.get('week') or 0)
+    except (ValueError, TypeError):
+        week = 0
+    return week if week in (1, 2, 3, 4, 5) else 0
+
+
+def _review_defaults_from_post(request):
+    def _rating(key):
+        try:
+            v = int(request.POST.get(key) or 0)
+        except (ValueError, TypeError):
+            return None
+        return v if 1 <= v <= 5 else None
+    return {
+        'rating_task':          _rating('rating_task'),
+        'rating_punctuality':   _rating('rating_punctuality'),
+        'rating_quality':       _rating('rating_quality'),
+        'rating_communication': _rating('rating_communication'),
+        'went_well':       (request.POST.get('went_well') or '').strip(),
+        'concerns':        (request.POST.get('concerns') or '').strip(),
+        'needs_attention': request.POST.get('needs_attention') == 'on',
+        'reviewed_by':     request.user,
+    }
+
+
+@login_required
+def review_team(request):
+    """Department head sees their team + review status for a month (or a week
+    of that month when ?week=1..5)."""
+    dept = _head_department(request)
+    if dept is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    import datetime as dt
+    today = timezone.localdate()
+    month, year = _month_year_from(request, today)
+    week = _review_week_from(request)
+
+    employees = list(
+        Employee.objects.filter(department=dept, is_active=True)
+        .exclude(user=request.user)          # heads don't review themselves
+        .order_by('emp_name')
+    )
+    if week:
+        reviews = {r.employee_id: r for r in WeeklyReview.objects.filter(
+            employee__in=employees, month=month, year=year, week=week)}
+    else:
+        reviews = {r.employee_id: r for r in MonthlyReview.objects.filter(
+            employee__in=employees, month=month, year=year)}
+    rows = [{'employee': e, 'review': reviews.get(e.id)} for e in employees]
+    done = sum(1 for r in rows if r['review'])
+
+    months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
+    years  = list(range(today.year - 2, today.year + 1))
+
+    return render(request, 'hr_de/reviews/team.html', {
+        'department': dept,
+        'rows':       rows,
+        'month':      month,
+        'year':       year,
+        'week':       week,
+        'weeks':      [1, 2, 3, 4, 5],
+        'months':     months,
+        'years':      years,
+        'done':       done,
+        'pending':    len(rows) - done,
+    })
+
+
+@login_required
+def review_edit(request, emp_pk):
+    """Head fills / updates a monthly OR weekly review (week via ?week=1..5)."""
+    dept = _head_department(request)
+    if dept is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    employee = get_object_or_404(Employee, pk=emp_pk, department=dept, is_active=True)
+
+    import datetime as dt
+    today = timezone.localdate()
+    month, year = _month_year_from(request, today)
+    week = _review_week_from(request)
+
+    if week:
+        review = WeeklyReview.objects.filter(employee=employee, month=month, year=year, week=week).first()
+    else:
+        review = MonthlyReview.objects.filter(employee=employee, month=month, year=year).first()
+
+    if request.method == 'POST':
+        defaults = _review_defaults_from_post(request)
+        if week:
+            WeeklyReview.objects.update_or_create(
+                employee=employee, month=month, year=year, week=week, defaults=defaults)
+        else:
+            MonthlyReview.objects.update_or_create(
+                employee=employee, month=month, year=year, defaults=defaults)
+        messages.success(request, f"Review saved for {employee.emp_name}.")
+        from django.urls import reverse
+        url = f"{reverse('review_team')}?month={month}&year={year}"
+        if week:
+            url += f"&week={week}"
+        return redirect(url)
+
+    return render(request, 'hr_de/reviews/form.html', {
+        'employee':     employee,
+        'review':       review,
+        'month':        month,
+        'year':         year,
+        'week':         week,
+        'month_name':   dt.date(2000, month, 1).strftime('%B'),
+        'period_word':  'week' if week else 'month',
+        'rating_range': [1, 2, 3, 4, 5],
+    })
+
+
+@login_required
+def review_employee(request, emp_pk):
+    """HR / MD: one employee's monthly + weekly reviews for a chosen month."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    employee = get_object_or_404(Employee, pk=emp_pk)
+
+    import datetime as dt
+    today = timezone.localdate()
+    month, year = _month_year_from(request, today)
+
+    monthly = MonthlyReview.objects.filter(
+        employee=employee, month=month, year=year).select_related('reviewed_by').first()
+    weeklies = list(
+        WeeklyReview.objects.filter(employee=employee, month=month, year=year)
+        .select_related('reviewed_by').order_by('week')
+    )
+
+    months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
+    years  = list(range(today.year - 2, today.year + 1))
+
+    return render(request, 'hr_de/reviews/employee.html', {
+        'employee':   employee,
+        'month':      month,
+        'year':       year,
+        'month_name': dt.date(2000, month, 1).strftime('%B'),
+        'months':     months,
+        'years':      years,
+        'monthly':    monthly,
+        'weeklies':   weeklies,
+    })
+
+
+@login_required
+def review_overview(request):
+    """HR / MD read all reviews for a month — with department & flag filters."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    import datetime as dt
+    today = timezone.localdate()
+    month, year = _month_year_from(request, today)
+
+    reviews = (MonthlyReview.objects
+               .filter(month=month, year=year)
+               .select_related('employee', 'employee__department', 'reviewed_by'))
+
+    dept_filter = (request.GET.get('department') or '').strip()
+    if dept_filter:
+        reviews = reviews.filter(employee__department_id=dept_filter)
+    flagged_only = request.GET.get('flagged') == '1'
+    if flagged_only:
+        reviews = reviews.filter(needs_attention=True)
+
+    reviews = list(reviews)
+    flagged_count = sum(1 for r in reviews if r.needs_attention)
+
+    months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
+    years  = list(range(today.year - 2, today.year + 1))
+
+    return render(request, 'hr_de/reviews/overview.html', {
+        'reviews':       reviews,
+        'month':         month,
+        'year':          year,
+        'months':        months,
+        'years':         years,
+        'departments':   Department.objects.all().order_by('name'),
+        'selected_dept': dept_filter,
+        'flagged_only':  flagged_only,
+        'flagged_count': flagged_count,
+        'total':         len(reviews),
+    })

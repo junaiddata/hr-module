@@ -1,0 +1,88 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Monthly Reviews{% endblock %}
+
+{% block extra_css %}
+<style>
+.rv-wrap { max-width: 960px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.rv-head { background: var(--gradient-primary); color: #fff; border-radius: 16px; padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; }
+.rv-head h1 { font-size: 1.4rem; font-weight: 800; margin: 0; }
+.rv-head .sub { font-size: .85rem; opacity: .9; margin-top: .25rem; }
+
+.rv-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.rv-filter { display: flex; gap: .5rem; }
+.rv-filter select { border: 1px solid var(--border-color); border-radius: 9px; padding: .5rem .7rem; font-size: .86rem; background: var(--bg-primary); }
+.rv-counts { margin-left: auto; display: flex; gap: .5rem; }
+.rv-count { font-size: .8rem; font-weight: 700; border-radius: 9999px; padding: .3rem .8rem; }
+.rv-count.done { background: rgba(16,185,129,.12); color: #059669; }
+.rv-count.pend { background: rgba(245,158,11,.12); color: #d97706; }
+
+.rv-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.rv-row { display: flex; align-items: center; gap: 1rem; padding: .85rem 1.15rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+.rv-row:last-child { border-bottom: none; }
+.rv-emp { display: flex; align-items: center; gap: .7rem; flex: 1; min-width: 190px; }
+.rv-av { width: 38px; height: 38px; border-radius: 9px; background: var(--bg-tertiary); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-secondary); }
+.rv-name { font-weight: 700; color: var(--text-primary); font-size: .92rem; }
+.rv-desig { font-size: .76rem; color: var(--text-tertiary); }
+
+.rv-avg { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; font-weight: 700; color: #f59e0b; }
+.rv-flag { font-size: .72rem; font-weight: 700; color: #dc2626; background: rgba(239,68,68,.1); border-radius: 9999px; padding: .2rem .6rem; }
+.rv-pending { font-size: .78rem; color: var(--text-tertiary); }
+.rv-btn { border: 1px solid var(--border-color); background: #fff; color: var(--accent-primary); border-radius: 8px; padding: .4rem .9rem; font-size: .8rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
+.rv-btn.filled { background: var(--gradient-primary); color: #fff; border-color: transparent; }
+.rv-btn:hover { transform: translateY(-1px); }
+.rv-empty { padding: 2.5rem; text-align: center; color: var(--text-tertiary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rv-wrap">
+    <div class="rv-head">
+        <h1><i class="fas fa-clipboard-check" style="margin-right:.5rem;"></i>Monthly Reviews</h1>
+        <div class="sub">{{ department.name }} — rate your team each month. Only HR &amp; MD can read these.</div>
+    </div>
+
+    <form method="get" class="rv-bar">
+        <div class="rv-filter">
+            <select name="month" onchange="this.form.submit()">
+                {% for m in months %}<option value="{{ m.num }}" {% if m.num == month %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+            </select>
+            <select name="year" onchange="this.form.submit()">
+                {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+            </select>
+            <select name="week" onchange="this.form.submit()">
+                <option value="0" {% if not week %}selected{% endif %}>Monthly review</option>
+                {% for w in weeks %}<option value="{{ w }}" {% if week == w %}selected{% endif %}>Week {{ w }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="rv-counts">
+            <span class="rv-count done">{{ done }} reviewed</span>
+            <span class="rv-count pend">{{ pending }} pending</span>
+        </div>
+    </form>
+
+    <div class="rv-card">
+        {% for r in rows %}
+        <div class="rv-row">
+            <div class="rv-emp">
+                <div class="rv-av">{{ r.employee.emp_name|first|upper }}</div>
+                <div>
+                    <div class="rv-name">{{ r.employee.emp_name }}</div>
+                    <div class="rv-desig">{{ r.employee.designation|default:"—" }}</div>
+                </div>
+            </div>
+
+            {% if r.review %}
+                {% if r.review.average %}<span class="rv-avg"><i class="fas fa-star"></i> {{ r.review.average }}/5</span>{% endif %}
+                {% if r.review.needs_attention %}<span class="rv-flag"><i class="fas fa-flag"></i> Needs attention</span>{% endif %}
+                <a href="{% url 'review_edit' r.employee.pk %}?month={{ month }}&year={{ year }}{% if week %}&week={{ week }}{% endif %}" class="rv-btn"><i class="fas fa-pen"></i> Edit</a>
+            {% else %}
+                <span class="rv-pending">Not reviewed yet</span>
+                <a href="{% url 'review_edit' r.employee.pk %}?month={{ month }}&year={{ year }}{% if week %}&week={{ week }}{% endif %}" class="rv-btn filled"><i class="fas fa-plus"></i> Review</a>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="rv-empty">No active employees in your department.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

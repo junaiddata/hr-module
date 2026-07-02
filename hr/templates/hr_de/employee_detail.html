@@ -390,6 +390,13 @@
                     <span class="ed-info-value">{{ employee.job_location|default:"—" }}</span>
                 </div>
                 <div class="ed-info-row">
+                    <span class="ed-info-label">Labour No.</span>
+                    <span class="ed-info-value">
+                        {{ employee.labour_number|default:"—" }}
+                        {% if employee.labour_number %}<button class="copy-btn" data-copy="{{ employee.labour_number }}" title="Copy"><i class="far fa-copy"></i></button>{% endif %}
+                    </span>
+                </div>
+                <div class="ed-info-row">
                     <span class="ed-info-label">Joining Date</span>
                     <span class="ed-info-value">{{ employee.joining_date|date:"d M Y"|default:"—" }}</span>
                 </div>
@@ -524,6 +531,26 @@
                     </span>
                 </div>
             </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Performance Reviews (HR / MD only) -->
+    {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Performance Reviews
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Weekly &amp; monthly reviews filed by this employee's department head. Visible to HR &amp; MD only.</span></span>
+            </h2>
+            <a href="{% url 'review_employee' employee.pk %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;background:var(--gradient-primary);color:#fff;border-color:transparent;">
+                <i class="fas fa-clipboard-check"></i> View Reviews
+            </a>
+        </div>
+        <div class="ed-card-body">
+            <p style="color:var(--text-secondary);font-size:.88rem;margin:0;">
+                Pick a month to see this employee's weekly and monthly reviews.
+            </p>
         </div>
     </div>
     {% endif %}

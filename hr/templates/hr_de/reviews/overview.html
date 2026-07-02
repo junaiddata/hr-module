@@ -1,0 +1,120 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Reviews Overview{% endblock %}
+
+{% block extra_css %}
+<style>
+.ro-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.ro-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.ro-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .55rem; }
+.ro-title i { color: var(--accent-primary); }
+.ro-sub { font-size: .88rem; color: var(--text-secondary); margin-top: .2rem; }
+
+.ro-bar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.ro-bar select { border: 1px solid var(--border-color); border-radius: 9px; padding: .5rem .7rem; font-size: .86rem; background: var(--bg-primary); }
+.ro-flagbtn { font-size: .82rem; font-weight: 700; border-radius: 9px; padding: .5rem .9rem; text-decoration: none; border: 1px solid var(--border-color); color: var(--text-secondary); display: inline-flex; align-items: center; gap: .4rem; }
+.ro-flagbtn.on { background: rgba(239,68,68,.1); color: #dc2626; border-color: transparent; }
+.ro-total { margin-left: auto; font-size: .82rem; color: var(--text-secondary); }
+
+.ro-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.15rem 1.3rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+.ro-card.flagged { border-left: 3px solid #ef4444; }
+.ro-head { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.ro-av { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-secondary); }
+.ro-name { font-weight: 700; color: var(--text-primary); }
+.ro-dept { font-size: .77rem; color: var(--text-tertiary); }
+.ro-avg { margin-left: auto; font-size: 1rem; font-weight: 800; color: #f59e0b; display: inline-flex; align-items: center; gap: .3rem; }
+.ro-flag { font-size: .72rem; font-weight: 700; color: #dc2626; background: rgba(239,68,68,.1); border-radius: 9999px; padding: .2rem .6rem; }
+
+.ro-ratings { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: .9rem 0 .4rem; }
+.ro-metric { font-size: .8rem; }
+.ro-metric .l { color: var(--text-secondary); }
+.ro-metric .v { font-weight: 800; color: var(--text-primary); }
+.ro-metric .v.low { color: #dc2626; }
+
+.ro-textblock { margin-top: .7rem; font-size: .86rem; }
+.ro-textblock .lab { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); margin-bottom: .2rem; }
+.ro-textblock .val { color: var(--text-primary); white-space: pre-wrap; }
+.ro-concern { background: rgba(245,158,11,.07); border: 1px dashed rgba(245,158,11,.4); border-radius: 8px; padding: .6rem .8rem; }
+.ro-concern .lab { color: #b45309; }
+.ro-meta { font-size: .74rem; color: var(--text-tertiary); margin-top: .8rem; }
+.ro-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; border: 1px dashed var(--border-color); border-radius: 12px; }
+.ro-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ro-wrap">
+
+    <div class="ro-top">
+        <div>
+            <h1 class="ro-title"><i class="fas fa-clipboard-check"></i> Monthly Reviews</h1>
+            <p class="ro-sub">Department heads' reviews of their teams. Visible to HR &amp; MD only.</p>
+        </div>
+    </div>
+
+    <form method="get" class="ro-bar">
+        <select name="month" onchange="this.form.submit()">
+            {% for m in months %}<option value="{{ m.num }}" {% if m.num == month %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+        </select>
+        <select name="year" onchange="this.form.submit()">
+            {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+        <select name="department" onchange="this.form.submit()">
+            <option value="">All departments</option>
+            {% for d in departments %}<option value="{{ d.pk }}" {% if selected_dept == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+        {% if flagged_only %}
+            <a href="?month={{ month }}&year={{ year }}{% if selected_dept %}&department={{ selected_dept }}{% endif %}" class="ro-flagbtn on"><i class="fas fa-flag"></i> Flagged only ({{ flagged_count }}) ✕</a>
+        {% else %}
+            <a href="?month={{ month }}&year={{ year }}{% if selected_dept %}&department={{ selected_dept }}{% endif %}&flagged=1" class="ro-flagbtn"><i class="fas fa-flag"></i> Flagged only ({{ flagged_count }})</a>
+        {% endif %}
+        <span class="ro-total">{{ total }} review{{ total|pluralize }}</span>
+    </form>
+
+    {% for r in reviews %}
+    <div class="ro-card {% if r.needs_attention %}flagged{% endif %}">
+        <div class="ro-head">
+            <div class="ro-av">{{ r.employee.emp_name|first|upper }}</div>
+            <div>
+                <div class="ro-name">
+                    <a href="{% url 'review_employee' r.employee.pk %}?month={{ month }}&year={{ year }}" style="color:inherit;text-decoration:none;">{{ r.employee.emp_name }} <i class="fas fa-arrow-up-right-from-square" style="font-size:.7rem;color:var(--accent-primary);"></i></a>
+                </div>
+                <div class="ro-dept">{{ r.employee.department.name|default:"—" }} · {{ r.employee.emp_id }}</div>
+            </div>
+            {% if r.needs_attention %}<span class="ro-flag"><i class="fas fa-flag"></i> Needs attention</span>{% endif %}
+            {% if r.average %}<span class="ro-avg"><i class="fas fa-star"></i> {{ r.average }}/5</span>{% endif %}
+        </div>
+
+        <div class="ro-ratings">
+            <span class="ro-metric"><span class="l">Task/output:</span> <span class="v {% if r.rating_task and r.rating_task <= 2 %}low{% endif %}">{{ r.rating_task|default:"—" }}</span></span>
+            <span class="ro-metric"><span class="l">Punctuality:</span> <span class="v {% if r.rating_punctuality and r.rating_punctuality <= 2 %}low{% endif %}">{{ r.rating_punctuality|default:"—" }}</span></span>
+            <span class="ro-metric"><span class="l">Quality:</span> <span class="v {% if r.rating_quality and r.rating_quality <= 2 %}low{% endif %}">{{ r.rating_quality|default:"—" }}</span></span>
+            <span class="ro-metric"><span class="l">Communication:</span> <span class="v {% if r.rating_communication and r.rating_communication <= 2 %}low{% endif %}">{{ r.rating_communication|default:"—" }}</span></span>
+        </div>
+
+        {% if r.went_well %}
+        <div class="ro-textblock">
+            <div class="lab">What went well</div>
+            <div class="val">{{ r.went_well }}</div>
+        </div>
+        {% endif %}
+
+        {% if r.concerns %}
+        <div class="ro-textblock ro-concern">
+            <div class="lab"><i class="fas fa-lock"></i> Concerns (private)</div>
+            <div class="val">{{ r.concerns }}</div>
+        </div>
+        {% endif %}
+
+        <div class="ro-meta">
+            Reviewed by {{ r.reviewed_by.get_full_name|default:r.reviewed_by.username|default:"—" }} · {{ r.updated_at|date:"d M Y, H:i" }}
+        </div>
+    </div>
+    {% empty %}
+    <div class="ro-empty">
+        <i class="fas fa-clipboard"></i>
+        No reviews for this period{% if flagged_only %} that are flagged{% endif %}.
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

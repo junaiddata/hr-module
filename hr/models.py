@@ -122,6 +122,7 @@ class Employee(models.Model):
     visa_number = models.CharField(max_length=30, null=True, blank=True)
     eid_number = models.CharField(max_length=20, null=True, blank=True)
     labour_card_number = models.CharField(max_length=20, null=True, blank=True)
+    labour_number = models.CharField(max_length=30, null=True, blank=True)  # Labour No. — distinct from labour card no.
     insurance_number = models.CharField(max_length=50, null=True, blank=True)
     driving_license_number = models.CharField(max_length=30, null=True, blank=True)
 
@@ -641,4 +642,87 @@ class OtherRecord(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class MonthlyReview(models.Model):
+    """A department head's monthly review of one employee under them.
+    Ratings are 1–5. Only HR & MD can read reviews (the private 'concerns'
+    field especially) — employees never see them."""
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='reviews')
+    month      = models.IntegerField()
+    year       = models.IntegerField()
+
+    # Ratings (1–5)
+    rating_task          = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)  # task completion / output
+    rating_punctuality   = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)  # punctuality & attendance
+    rating_quality       = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)  # quality of work
+    rating_communication = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)  # responsiveness / communication
+
+    went_well       = models.TextField(blank=True, default='')                 # optional, quick
+    concerns        = models.TextField(blank=True, default='')                 # private — HR/MD only
+    needs_attention = models.BooleanField(default=False)                       # flag for HR to scan
+
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='given_reviews')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'month', 'year')
+        ordering = ['-year', '-month', 'employee__emp_name']
+
+    @property
+    def ratings(self):
+        return [r for r in (self.rating_task, self.rating_punctuality,
+                            self.rating_quality, self.rating_communication) if r]
+
+    @property
+    def average(self):
+        vals = self.ratings
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — {self.month:02d}/{self.year}"
+
+
+class WeeklyReview(models.Model):
+    """A department head's weekly review of an employee (week 1–5 within a
+    month). Same fields as MonthlyReview; HR/MD only can read them."""
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='weekly_reviews')
+    year       = models.IntegerField()
+    month      = models.IntegerField()
+    week       = models.IntegerField()   # 1–5 within the month
+
+    rating_task          = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    rating_punctuality   = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    rating_quality       = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    rating_communication = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True)
+
+    went_well       = models.TextField(blank=True, default='')
+    concerns        = models.TextField(blank=True, default='')
+    needs_attention = models.BooleanField(default=False)
+
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='given_weekly_reviews')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'year', 'month', 'week')
+        ordering = ['-year', '-month', 'week', 'employee__emp_name']
+
+    @property
+    def ratings(self):
+        return [r for r in (self.rating_task, self.rating_punctuality,
+                            self.rating_quality, self.rating_communication) if r]
+
+    @property
+    def average(self):
+        vals = self.ratings
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — W{self.week} {self.month:02d}/{self.year}"
 

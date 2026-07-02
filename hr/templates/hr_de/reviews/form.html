@@ -1,0 +1,134 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Review — {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.rf-wrap { max-width: 720px; margin: 2rem auto; padding: 0 1rem 3rem; }
+.rf-top { display: flex; align-items: center; gap: .9rem; margin-bottom: 1.25rem; }
+.rf-av { width: 48px; height: 48px; border-radius: 12px; background: var(--gradient-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; }
+.rf-name { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
+.rf-meta { font-size: .84rem; color: var(--text-secondary); }
+.rf-period { margin-left: auto; font-size: .82rem; font-weight: 700; color: var(--accent-primary); background: rgba(99,102,241,.1); border-radius: 9999px; padding: .35rem .9rem; }
+
+.rf-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow-sm); }
+.rf-q { padding: .9rem 0; border-bottom: 1px solid var(--border-color); }
+.rf-q:first-child { padding-top: 0; }
+.rf-qlabel { font-weight: 700; color: var(--text-primary); font-size: .92rem; margin-bottom: .55rem; display: flex; align-items: center; gap: .5rem; }
+.rf-qlabel i { color: var(--accent-primary); width: 18px; text-align: center; }
+
+/* 1-5 rating pills */
+.rate { display: inline-flex; gap: .4rem; }
+.rate input { display: none; }
+.rate label {
+    width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--border-color);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-secondary);
+    cursor: pointer; transition: all .12s; user-select: none;
+}
+.rate label:hover { border-color: var(--accent-primary); }
+.rate input:checked + label { background: var(--gradient-primary); color: #fff; border-color: transparent; transform: translateY(-1px); }
+.rate-hint { font-size: .72rem; color: var(--text-tertiary); margin-left: .6rem; }
+
+.rf-text { padding: .9rem 0; border-bottom: 1px solid var(--border-color); }
+.rf-text textarea { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .6rem .8rem; font-family: inherit; font-size: .9rem; min-height: 70px; resize: vertical; }
+.rf-private { font-size: .72rem; font-weight: 700; color: #b45309; background: rgba(245,158,11,.12); border-radius: 6px; padding: .1rem .5rem; }
+
+.rf-flag { display: flex; align-items: center; gap: .6rem; padding: .9rem 0 0; }
+.rf-flag input { width: 18px; height: 18px; }
+.rf-flag label { font-weight: 700; color: var(--text-primary); font-size: .9rem; }
+.rf-flag .sub { font-size: .76rem; color: var(--text-tertiary); }
+
+.rf-actions { display: flex; gap: .6rem; margin-top: 1.25rem; }
+.rf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .7rem 1.5rem; font-weight: 800; cursor: pointer; }
+.rf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .7rem 1.4rem; font-weight: 600; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rf-wrap">
+    <div class="rf-top">
+        <div class="rf-av">{{ employee.emp_name|first|upper }}</div>
+        <div>
+            <div class="rf-name">{{ employee.emp_name }}</div>
+            <div class="rf-meta">{{ employee.designation|default:"—" }}{% if employee.department %} · {{ employee.department.name }}{% endif %}</div>
+        </div>
+        <span class="rf-period">{% if week %}Week {{ week }} · {% endif %}{{ month_name }} {{ year }}</span>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="week" value="{{ week }}">
+
+        <div class="rf-card">
+
+            <!-- Ratings -->
+            <div class="rf-q">
+                <div class="rf-qlabel"><i class="fas fa-list-check"></i> Task completion / output</div>
+                <div class="rate">
+                    {% for n in rating_range %}
+                    <input type="radio" name="rating_task" id="task{{ n }}" value="{{ n }}" {% if review.rating_task == n %}checked{% endif %}>
+                    <label for="task{{ n }}">{{ n }}</label>
+                    {% endfor %}
+                    <span class="rate-hint">1 = poor · 5 = excellent</span>
+                </div>
+            </div>
+
+            <div class="rf-q">
+                <div class="rf-qlabel"><i class="fas fa-clock"></i> Punctuality &amp; attendance</div>
+                <div class="rate">
+                    {% for n in rating_range %}
+                    <input type="radio" name="rating_punctuality" id="punc{{ n }}" value="{{ n }}" {% if review.rating_punctuality == n %}checked{% endif %}>
+                    <label for="punc{{ n }}">{{ n }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="rf-q">
+                <div class="rf-qlabel"><i class="fas fa-gem"></i> Quality of work</div>
+                <div class="rate">
+                    {% for n in rating_range %}
+                    <input type="radio" name="rating_quality" id="qual{{ n }}" value="{{ n }}" {% if review.rating_quality == n %}checked{% endif %}>
+                    <label for="qual{{ n }}">{{ n }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="rf-q">
+                <div class="rf-qlabel"><i class="fas fa-comments"></i> Responsiveness / communication</div>
+                <div class="rate">
+                    {% for n in rating_range %}
+                    <input type="radio" name="rating_communication" id="comm{{ n }}" value="{{ n }}" {% if review.rating_communication == n %}checked{% endif %}>
+                    <label for="comm{{ n }}">{{ n }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Text -->
+            <div class="rf-text">
+                <div class="rf-qlabel"><i class="fas fa-thumbs-up"></i> What went well this {{ period_word|default:'month' }}? <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></div>
+                <textarea name="went_well" placeholder="Quick note on highlights…">{{ review.went_well }}</textarea>
+            </div>
+
+            <div class="rf-text">
+                <div class="rf-qlabel"><i class="fas fa-triangle-exclamation"></i> Any concerns? <span class="rf-private">Private · HR/MD only</span></div>
+                <textarea name="concerns" placeholder="Private remarks — not shown to the employee.">{{ review.concerns }}</textarea>
+            </div>
+
+            <!-- Flag -->
+            <div class="rf-flag">
+                <input type="checkbox" name="needs_attention" id="needsAttention" {% if review.needs_attention %}checked{% endif %}>
+                <div>
+                    <label for="needsAttention">🚩 Needs attention</label>
+                    <div class="sub">Flags this employee so HR can scan quickly without reading every remark.</div>
+                </div>
+            </div>
+
+            <div class="rf-actions">
+                <button type="submit" class="rf-save"><i class="fas fa-save"></i> Save Review</button>
+                <a href="{% url 'review_team' %}?month={{ month }}&year={{ year }}{% if week %}&week={{ week }}{% endif %}" class="rf-cancel">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
