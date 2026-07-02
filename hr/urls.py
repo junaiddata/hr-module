@@ -107,6 +107,7 @@ urlpatterns = [
     path('payroll/<int:pk>/',                       views.payroll_detail,        name='payroll_detail'),
     path('payroll/<int:pk>/confirm/',               views.payroll_confirm,       name='payroll_confirm'),
     path('payroll/<int:pk>/delete/',                views.payroll_delete,        name='payroll_delete'),
+    path('payroll/<int:pk>/wps-export/',            views.payroll_wps_export,    name='payroll_wps_export'),
     path('payroll/entry/<int:entry_pk>/edit/',      views.payroll_entry_update,  name='payroll_entry_update'),
     path('payroll/entry/<int:entry_pk>/remove/',    views.payroll_entry_remove,  name='payroll_entry_remove'),
     path('payroll/entry/<int:entry_pk>/payslip/',   views.payslip,               name='payslip'),

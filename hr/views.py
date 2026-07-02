@@ -1829,7 +1829,117 @@ def payroll_detail(request, pk):
         'run':        run,
         'entries':    entries,
         'mol_groups': mol_groups,
+        'today':      timezone.localdate(),
     })
+
+
+@login_required
+def payroll_wps_export(request, pk):
+    """Export selected payroll entries as a WPS SIF (.xlsx): EDR rows per employee
+    followed by a single SCR footer row. No headers — the bank's exact layout."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    run = get_object_or_404(PayrollRun, pk=pk)
+    if request.method != 'POST':
+        return redirect('payroll_detail', pk=pk)
+
+    import calendar
+    import datetime as dt
+    from openpyxl import Workbook
+    from django.http import HttpResponse
+
+    entry_ids = request.POST.getlist('entries')
+    entries = list(
+        run.entries.filter(pk__in=entry_ids)
+        .select_related('employee', 'employee__mol')
+        .order_by('employee__emp_name')
+    )
+    if not entries:
+        messages.error(request, 'Select at least one employee to export.')
+        return redirect('payroll_detail', pk=pk)
+
+    # WPS files are per establishment (MOL) — all selected must share one MOL
+    mol_ids = {e.employee.mol_id for e in entries}
+    if len(mol_ids) > 1:
+        messages.error(request, 'WPS export must be for a single MOL — select employees from one company only.')
+        return redirect('payroll_detail', pk=pk)
+    mol = entries[0].employee.mol
+    if mol is None:
+        messages.error(request, 'The selected employees have no MOL assigned.')
+        return redirect('payroll_detail', pk=pk)
+
+    # Payroll period
+    num_days  = calendar.monthrange(run.year, run.month)[1]
+    date_from = dt.date(run.year, run.month, 1).strftime('%Y-%m-%d')
+    date_to   = dt.date(run.year, run.month, num_days).strftime('%Y-%m-%d')
+    salary_month = f"{run.month:02d}{run.year}"          # e.g. 062026
+
+    proc_date = (request.POST.get('processing_date') or '').strip() or dt.date.today().strftime('%Y-%m-%d')
+    proc_time = (request.POST.get('processing_time') or '').strip()
+
+    def _t(v):
+        return '' if v is None else str(v)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'SIF'
+    TEXT = '@'   # keep leading zeros on IBAN / labour card / routing / codes
+
+    r = 0
+    total_net = 0.0
+    for e in entries:
+        emp = e.employee
+        net = round(e.net_salary or 0, 2)
+        total_net += net
+        r += 1
+        ws.append([
+            'EDR',
+            _t(emp.labour_card_number),
+            emp.emp_name or '',
+            _t(emp.routing_code),
+            _t(emp.iban),
+            date_from,
+            date_to,
+            num_days,
+            net,
+            0.0,
+            0,
+        ])
+        for col in (2, 4, 5, 6, 7):          # text-format the id/date columns
+            ws.cell(row=r, column=col).number_format = TEXT
+        ws.cell(row=r, column=10).number_format = '0.00'   # variable → 0.00
+
+    # SCR footer
+    r += 1
+    ws.append([
+        'SCR',
+        _t(mol.company_code),
+        '',
+        _t(mol.wps_number),
+        proc_date,
+        _t(proc_time),
+        salary_month,
+        len(entries),
+        round(total_net, 2),
+        'AED',
+        _t(mol.iban),
+    ])
+    for col in (2, 4, 5, 6, 7, 11):
+        ws.cell(row=r, column=col).number_format = TEXT
+
+    # Sensible column widths
+    for i, w in enumerate([8, 18, 34, 14, 26, 12, 12, 8, 12, 10, 26], start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+
+    safe_mol = ''.join(c for c in (mol.mol or 'MOL') if c.isalnum() or c in ' _-').strip() or 'MOL'
+    filename = f"WPS_SIF_{safe_mol}_{salary_month}.xlsx"
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required

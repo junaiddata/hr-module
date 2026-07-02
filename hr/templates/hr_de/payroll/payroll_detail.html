@@ -5,6 +5,26 @@
 <style>
 .pw { padding: 2rem; }
 
+/* WPS export */
+.wps-bar {
+    display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+    background: #fff; border: 1px solid var(--border-color); border-left: 3px solid #10b981;
+    border-radius: 12px; padding: .9rem 1.15rem; margin-bottom: 1.25rem;
+}
+.wps-title { font-weight: 700; color: var(--text-primary); display: inline-flex; align-items: center; gap: .5rem; }
+.wps-fields { display: flex; gap: 1rem; flex-wrap: wrap; }
+.wps-fields label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); display: flex; flex-direction: column; gap: .25rem; }
+.wps-fields input { border: 1.5px solid var(--border-color); border-radius: 8px; padding: .4rem .6rem; font-size: .85rem; }
+.wps-hint { font-size: .76rem; color: var(--text-tertiary); flex: 1; min-width: 220px; }
+.wps-selall { font-size: .78rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
+.wps-export-btn {
+    border: none; background: #10b981; color: #fff; border-radius: 8px;
+    padding: .45rem .9rem; font-size: .8rem; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .4rem;
+}
+.wps-export-btn:hover { opacity: .92; }
+.wps-export-btn:disabled { background: var(--bg-tertiary); color: var(--text-tertiary); cursor: not-allowed; }
+
 .run-hdr {
     background: var(--gradient-primary);
     border-radius: 14px; padding: 1.5rem 2rem; color: #fff;
@@ -200,21 +220,43 @@ tbody tr:hover { background: #fafafa; }
         </div>
     </div>
 
+    <!-- WPS export toolbar -->
+    <div class="wps-bar">
+        <div class="wps-title"><i class="fas fa-file-export" style="color:#10b981;"></i> WPS (SIF) Export</div>
+        <div class="wps-fields">
+            <label>Processing date
+                <input type="date" id="wpsProcDate" value="{{ today|date:'Y-m-d' }}">
+            </label>
+            <label>Time
+                <input type="text" id="wpsProcTime" placeholder="e.g. 1030" maxlength="8" style="width:90px;">
+            </label>
+        </div>
+        <div class="wps-hint">Tick employees in a company below, then click <strong>Export WPS</strong> on that company. One file per MOL.</div>
+    </div>
+
     <!-- MOL groups -->
     {% for group in mol_groups %}
-    <div class="mol-block">
+    <div class="mol-block" data-mol="{{ group.mol_key|default:'none' }}">
         <div class="mol-header">
             <div class="mol-name">
                 <i class="fas fa-building" style="color:#6366f1;"></i>
                 {{ group.mol_label }}
             </div>
-            <span class="mol-count">{{ group.entries|length }} employee{{ group.entries|length|pluralize }}</span>
+            <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+                <span class="mol-count">{{ group.entries|length }} employee{{ group.entries|length|pluralize }}</span>
+                <label class="wps-selall"><input type="checkbox" class="wps-selall-cb"> Select all</label>
+                <button type="button" class="wps-export-btn"
+                        {% if not group.mol_key %}disabled title="Assign a MOL to these employees to export WPS"{% endif %}>
+                    <i class="fas fa-file-export"></i> Export WPS
+                </button>
+            </div>
         </div>
 
         <div style="overflow-x:auto;">
             <table>
                 <thead>
                     <tr>
+                        <th style="width:28px;"><i class="fas fa-check"></i></th>
                         <th>#</th>
                         <th>Employee</th>
                         <th>Dept</th>
@@ -238,6 +280,7 @@ tbody tr:hover { background: #fafafa; }
                 <tbody>
                     {% for entry in group.entries %}
                     <tr>
+                        <td><input type="checkbox" class="wps-cb" value="{{ entry.pk }}"></td>
                         <td style="color:var(--text-tertiary);">{{ forloop.counter }}</td>
                         <td>
                             <strong>{{ entry.employee.emp_name }}</strong><br>
@@ -282,7 +325,7 @@ tbody tr:hover { background: #fafafa; }
 
                     <!-- MOL subtotal -->
                     <tr class="mol-subtotal">
-                        <td colspan="15" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
+                        <td colspan="16" style="text-align:right;padding-right:1rem;font-size:.78rem;letter-spacing:.04em;">
                             {{ group.mol_label }} SUBTOTAL
                         </td>
                         <td class="num">AED {{ group.total_gross|floatformat:2 }}</td>
@@ -327,4 +370,54 @@ tbody tr:hover { background: #fafafa; }
     </div>
     {% endif %}
 </div>
+
+<script>
+(function () {
+    'use strict';
+    const EXPORT_URL = "{% url 'payroll_wps_export' run.pk %}";
+    const CSRF = "{{ csrf_token }}";
+
+    // Select-all per MOL group
+    document.querySelectorAll('.wps-selall-cb').forEach(function (master) {
+        master.addEventListener('change', function () {
+            const block = master.closest('.mol-block');
+            block.querySelectorAll('.wps-cb').forEach(cb => { cb.checked = master.checked; });
+        });
+    });
+
+    // Export a MOL group's checked employees as a WPS SIF
+    document.querySelectorAll('.wps-export-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const block = btn.closest('.mol-block');
+            const checked = Array.from(block.querySelectorAll('.wps-cb:checked'));
+            if (!checked.length) {
+                alert('Tick at least one employee in this company to export.');
+                return;
+            }
+            const procDate = (document.getElementById('wpsProcDate') || {}).value || '';
+            const procTime = (document.getElementById('wpsProcTime') || {}).value || '';
+
+            // Native file download via a throwaway POST form
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = EXPORT_URL;
+            form.style.display = 'none';
+
+            function add(name, value) {
+                const i = document.createElement('input');
+                i.type = 'hidden'; i.name = name; i.value = value;
+                form.appendChild(i);
+            }
+            add('csrfmiddlewaretoken', CSRF);
+            add('processing_date', procDate);
+            add('processing_time', procTime);
+            checked.forEach(cb => add('entries', cb.value));
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        });
+    });
+})();
+</script>
 {% endblock %}
