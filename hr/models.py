@@ -612,10 +612,11 @@ class Notification(models.Model):
     is_read    = models.BooleanField(default=False)
 
     # Document-expiry specific fields
-    category = models.CharField(max_length=50, blank=True, default='')   # 'document_expiry' / 'mol_document_expiry'
+    category = models.CharField(max_length=50, blank=True, default='')   # 'document_expiry' / 'mol_document_expiry' / 'vehicle_document_expiry'
     urgency  = models.CharField(max_length=20, blank=True, default='info', choices=URGENCY_CHOICES)
-    doc_type = models.CharField(max_length=50, blank=True, default='')   # 'VISA','EID','MOL_TRADE_LICENSE',…
+    doc_type = models.CharField(max_length=50, blank=True, default='')   # 'VISA','EID','MOL_TRADE_LICENSE','MULKIYA',…
     mol      = models.ForeignKey('Mol', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    vehicle  = models.ForeignKey('Vehicle', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
 
     class Meta:
         ordering = ['-created_at']
@@ -726,3 +727,39 @@ class WeeklyReview(models.Model):
     def __str__(self):
         return f"{self.employee.emp_name} — W{self.week} {self.month:02d}/{self.year}"
 
+
+class Vehicle(models.Model):
+    """Fleet register (HR/MD only). Tracks company- and personally-owned
+    vehicles: registration, tracking device, mulkiya (registration card) and
+    its expiry, mortgage/finance status, etc."""
+    OWNERSHIP_CHOICES = [
+        ('Company',  'Company Vehicle'),
+        ('Personal', 'Personal Vehicle'),
+    ]
+
+    ownership       = models.CharField(max_length=20, choices=OWNERSHIP_CHOICES, default='Company')
+    name            = models.CharField('Name', max_length=200)
+    car_number      = models.CharField('Car Number', max_length=50)
+    model           = models.CharField('Model', max_length=100, blank=True, default='')
+    tracking        = models.CharField('Tracking', max_length=100, blank=True, default='')
+    tracking_exp_date = models.DateField('Tracking Exp Date', null=True, blank=True)
+    state           = models.CharField('State', max_length=100, blank=True, default='')
+    traffic_code    = models.CharField('Traffic Code', max_length=100, blank=True, default='')
+    mortgage        = models.CharField('Mortgage', max_length=150, blank=True, default='')
+    car_and_model   = models.CharField('Car and Model', max_length=200, blank=True, default='')
+    company         = models.CharField('Company', max_length=200, blank=True, default='')
+    mulkiya_expiry  = models.DateField('Mulkiya Expiry', null=True, blank=True)
+    mulkiya_document = models.FileField('Mulkiya Document', upload_to='vehicles/mulkiya/', null=True, blank=True)
+
+    # Some vehicles are assigned to / associated with a specific employee.
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicles')
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_vehicles')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.car_number})"

@@ -129,6 +129,14 @@ urlpatterns = [
     path('other-records/<int:pk>/edit/',   views.other_record_edit,   name='other_record_edit'),
     path('other-records/<int:pk>/delete/', views.other_record_delete, name='other_record_delete'),
 
+    # Vehicle Management (fleet register — HR & MD only)
+    path('vehicles/',                 views.vehicle_list,   name='vehicle_list'),
+    path('vehicles/add/',             views.vehicle_add,    name='vehicle_add'),
+    path('vehicles/upload/',          views.vehicle_bulk_upload,    name='vehicle_upload'),
+    path('vehicles/upload/template/', views.vehicle_upload_template, name='vehicle_upload_template'),
+    path('vehicles/<int:pk>/edit/',   views.vehicle_edit,   name='vehicle_edit'),
+    path('vehicles/<int:pk>/delete/', views.vehicle_delete, name='vehicle_delete'),
+
 
 
 

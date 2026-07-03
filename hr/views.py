@@ -1654,9 +1654,26 @@ def payroll_create(request):
         year  = int(request.POST.get('year',  0))
         notes = request.POST.get('notes', '')
 
+        if not (1 <= month <= 12) or year < 2000:
+            messages.error(request, "Please choose a valid month and year.")
+            return redirect('payroll_create')
+
         if PayrollRun.objects.filter(month=month, year=year).exists():
             messages.error(request, f"Payroll for {month}/{year} already exists.")
             return redirect('payroll_list')
+
+        # Block future months — attendance for a month that hasn't started yet
+        # can't be complete, so payroll must not run for it.
+        import datetime as _dt
+        _today = timezone.localdate()
+        if _dt.date(year, month, 1) > _dt.date(_today.year, _today.month, 1):
+            month_name = dict(PayrollRun.MONTH_CHOICES).get(month, month)
+            messages.error(
+                request,
+                f"Cannot run payroll for {month_name} {year} — that month hasn't "
+                f"started yet. Attendance can only be completed once the month begins."
+            )
+            return redirect('payroll_create')
 
         # Attendance must be complete for the month before payroll can run
         gaps = _attendance_incomplete(year, month)
@@ -2756,6 +2773,49 @@ def _expiry_urgency_and_text(expiry, today, label, subject):
     return days_left, urgency, title, message
 
 
+_URGENCY_RANK = {'critical': 0, 'warning': 1, 'info': 2}
+
+
+def _upsert_expiry_notification(*, category, doc_type, urgency, title, message,
+                                employee=None, mol=None, vehicle=None):
+    """Create/update ONE notification per document, dedup-safe across refreshes.
+
+    Looks at the latest notification for this document regardless of read state:
+      • none yet          → create it
+      • exists, unread    → update text/urgency in place if it changed
+      • exists, read      → suppress (do NOT recreate) unless the urgency has
+                            escalated (e.g. warning → critical / expired), in
+                            which case surface one fresh alert.
+    """
+    qs = Notification.objects.filter(category=category, doc_type=doc_type)
+    qs = qs.filter(employee=employee) if employee is not None else qs.filter(employee__isnull=True)
+    qs = qs.filter(mol=mol) if mol is not None else qs.filter(mol__isnull=True)
+    qs = qs.filter(vehicle=vehicle) if vehicle is not None else qs.filter(vehicle__isnull=True)
+    existing = qs.order_by('-created_at').first()
+
+    if existing is None:
+        Notification.objects.create(
+            employee=employee, mol=mol, vehicle=vehicle, title=title, message=message,
+            category=category, urgency=urgency, doc_type=doc_type,
+        )
+        return
+
+    if not existing.is_read:
+        if existing.urgency != urgency or existing.title != title:
+            existing.urgency = urgency
+            existing.title   = title
+            existing.message = message
+            existing.save(update_fields=['urgency', 'title', 'message'])
+        return
+
+    # Already read — only re-surface if it got more severe than what was seen.
+    if _URGENCY_RANK.get(urgency, 3) < _URGENCY_RANK.get(existing.urgency, 3):
+        Notification.objects.create(
+            employee=employee, mol=mol, vehicle=vehicle, title=title, message=message,
+            category=category, urgency=urgency, doc_type=doc_type,
+        )
+
+
 def _generate_expiry_notifications():
     today = timezone.now().date()
 
@@ -2765,28 +2825,13 @@ def _generate_expiry_notifications():
             expiry = getattr(emp, expiry_field, None)
             if not expiry:
                 continue
-            days_left = (expiry - today).days
-            if days_left > 60:
+            if (expiry - today).days > 60:
                 continue
-
             _, urgency, title, message = _expiry_urgency_and_text(expiry, today, doc_label, emp.emp_name)
-
-            existing = Notification.objects.filter(
-                employee=emp, doc_type=doc_key,
-                category='document_expiry', is_read=False,
-            ).first()
-
-            if existing:
-                if existing.urgency != urgency or existing.title != title:
-                    existing.urgency = urgency
-                    existing.title   = title
-                    existing.message = message
-                    existing.save()
-            else:
-                Notification.objects.create(
-                    employee=emp, title=title, message=message,
-                    category='document_expiry', urgency=urgency, doc_type=doc_key,
-                )
+            _upsert_expiry_notification(
+                category='document_expiry', doc_type=doc_key, employee=emp,
+                urgency=urgency, title=title, message=message,
+            )
 
     # ── MOL document expiries ────────────────────────────────────────────────
     for mol in Mol.objects.all():
@@ -2794,28 +2839,45 @@ def _generate_expiry_notifications():
             expiry = getattr(mol, expiry_field, None)
             if not expiry:
                 continue
-            days_left = (expiry - today).days
-            if days_left > 60:
+            if (expiry - today).days > 60:
                 continue
-
             _, urgency, title, message = _expiry_urgency_and_text(expiry, today, doc_label, mol.mol)
+            _upsert_expiry_notification(
+                category='mol_document_expiry', doc_type=doc_key, mol=mol,
+                urgency=urgency, title=title, message=message,
+            )
 
-            existing = Notification.objects.filter(
-                mol=mol, doc_type=doc_key,
-                category='mol_document_expiry', is_read=False,
-            ).first()
+    # ── Vehicle Mulkiya expiries ─────────────────────────────────────────────
+    for vehicle in Vehicle.objects.select_related('employee').all():
+        expiry = vehicle.mulkiya_expiry
+        if not expiry:
+            continue
+        if (expiry - today).days > 60:
+            continue
+        subject = f"{vehicle.name} ({vehicle.car_number})" if vehicle.car_number else vehicle.name
+        _, urgency, title, message = _expiry_urgency_and_text(expiry, today, 'Mulkiya', subject)
+        _upsert_expiry_notification(
+            category='vehicle_document_expiry', doc_type='MULKIYA', vehicle=vehicle,
+            urgency=urgency, title=title, message=message,
+        )
 
-            if existing:
-                if existing.urgency != urgency or existing.title != title:
-                    existing.urgency = urgency
-                    existing.title   = title
-                    existing.message = message
-                    existing.save()
-            else:
-                Notification.objects.create(
-                    mol=mol, title=title, message=message,
-                    category='mol_document_expiry', urgency=urgency, doc_type=doc_key,
-                )
+
+def _dedupe_read_notifications():
+    """Remove duplicate READ expiry notifications left behind by the old logic —
+    keep the newest read one per document, drop the rest."""
+    seen, dupes = set(), []
+    for n in (Notification.objects
+              .filter(is_read=True,
+                      category__in=['document_expiry', 'mol_document_expiry', 'vehicle_document_expiry'])
+              .order_by('-created_at')
+              .values('id', 'category', 'doc_type', 'employee_id', 'mol_id', 'vehicle_id')):
+        key = (n['category'], n['doc_type'], n['employee_id'], n['mol_id'], n['vehicle_id'])
+        if key in seen:
+            dupes.append(n['id'])
+        else:
+            seen.add(key)
+    if dupes:
+        Notification.objects.filter(id__in=dupes).delete()
 
 
 def _cleanup_old_read_notifications():
@@ -2830,16 +2892,18 @@ def notification_list(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
 
     _generate_expiry_notifications()
+    _dedupe_read_notifications()          # clean up any old duplicate read alerts
+    _cleanup_old_read_notifications()     # drop read alerts older than 30 days
 
     _urgency_rank = {'critical': 0, 'warning': 1, 'info': 2}
     unread = sorted(
         Notification.objects.filter(is_read=False)
-            .select_related('employee', 'employee__department'),
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee'),
         key=lambda n: _urgency_rank.get(n.urgency, 3),
     )
     read = list(
         Notification.objects.filter(is_read=True)
-            .select_related('employee', 'employee__department')
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee')
             .order_by('-created_at')[:50]
     )
 
@@ -3979,6 +4043,311 @@ def other_record_delete(request, pk):
     rec.delete()
     messages.success(request, f"Record '{title}' deleted.")
     return redirect('other_records_list')
+
+
+# ── Vehicle Management (fleet register — HR & MD only) ───────────────────────
+
+_VEHICLE_TEXT_FIELDS = [
+    'name', 'car_number', 'model', 'tracking', 'state',
+    'traffic_code', 'mortgage', 'car_and_model', 'company',
+]
+
+
+def _apply_vehicle_post(vehicle, request):
+    """Copy submitted fields onto a Vehicle instance (shared by add & edit)."""
+    for f in _VEHICLE_TEXT_FIELDS:
+        setattr(vehicle, f, (request.POST.get(f) or '').strip())
+
+    ownership = request.POST.get('ownership')
+    if ownership in dict(Vehicle.OWNERSHIP_CHOICES):
+        vehicle.ownership = ownership
+
+    vehicle.tracking_exp_date = request.POST.get('tracking_exp_date') or None
+    vehicle.mulkiya_expiry    = request.POST.get('mulkiya_expiry') or None
+
+    emp_id = request.POST.get('employee')
+    vehicle.employee = Employee.objects.filter(pk=emp_id).first() if emp_id else None
+
+    if request.FILES.get('mulkiya_document'):
+        vehicle.mulkiya_document = request.FILES['mulkiya_document']
+
+
+@login_required
+def vehicle_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    vehicles = Vehicle.objects.select_related('created_by', 'employee').all()
+
+    ownership = (request.GET.get('ownership') or '').strip()
+    if ownership in dict(Vehicle.OWNERSHIP_CHOICES):
+        vehicles = vehicles.filter(ownership=ownership)
+
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        vehicles = vehicles.filter(
+            Q(name__icontains=query) |
+            Q(car_number__icontains=query) |
+            Q(model__icontains=query) |
+            Q(car_and_model__icontains=query) |
+            Q(company__icontains=query) |
+            Q(traffic_code__icontains=query) |
+            Q(employee__emp_name__icontains=query) |
+            Q(employee__emp_id__icontains=query)
+        ).distinct()
+
+    return render(request, 'hr_de/vehicles/list.html', {
+        'vehicles':        vehicles,
+        'query':           query,
+        'ownership':       ownership,
+        'company_count':   Vehicle.objects.filter(ownership='Company').count(),
+        'personal_count':  Vehicle.objects.filter(ownership='Personal').count(),
+    })
+
+
+@login_required
+def vehicle_add(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        car_number = (request.POST.get('car_number') or '').strip()
+        if not name or not car_number:
+            messages.error(request, 'Name and Car Number are required.')
+            return redirect('vehicle_add')
+        vehicle = Vehicle(created_by=request.user)
+        _apply_vehicle_post(vehicle, request)
+        vehicle.save()
+        messages.success(request, f"Vehicle '{vehicle.name}' added.")
+        return redirect('vehicle_list')
+
+    return render(request, 'hr_de/vehicles/form.html', {
+        'ownership_choices': Vehicle.OWNERSHIP_CHOICES,
+        'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+    })
+
+
+@login_required
+def vehicle_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        car_number = (request.POST.get('car_number') or '').strip()
+        if not name or not car_number:
+            messages.error(request, 'Name and Car Number are required.')
+            return redirect('vehicle_edit', pk=pk)
+        _apply_vehicle_post(vehicle, request)
+        vehicle.save()
+        messages.success(request, f"Vehicle '{vehicle.name}' updated.")
+        return redirect('vehicle_list')
+
+    return render(request, 'hr_de/vehicles/form.html', {
+        'vehicle':           vehicle,
+        'ownership_choices': Vehicle.OWNERSHIP_CHOICES,
+        'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+    })
+
+
+@require_POST
+@login_required
+def vehicle_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+    name = vehicle.name
+    vehicle.delete()
+    messages.success(request, f"Vehicle '{name}' deleted.")
+    return redirect('vehicle_list')
+
+
+# ── Vehicle Bulk Upload (Excel) ──────────────────────────────────────────────
+
+# (Excel header, note/instruction). NAME + CAR NUMBER are required; the rest
+# are optional. OWNERSHIP defaults to "Company" when left blank.
+_VEHICLE_BULK_COLUMNS = [
+    ("NAME",             "Required · owner / vehicle name"),
+    ("CAR NUMBER",       "Required · plate / registration no. (used to match on re-upload)"),
+    ("MODEL",            "e.g. 2022"),
+    ("CAR AND MODEL",    "e.g. Toyota Camry 2022"),
+    ("COMPANY",          "Owning / registered company"),
+    ("TRACKING",         "Provider / device / Yes"),
+    ("TRACKING EXP DATE","YYYY-MM-DD"),
+    ("STATE",            "e.g. Dubai / Abu Dhabi"),
+    ("TRAFFIC CODE",     "Traffic file / code"),
+    ("MORTGAGE",         "Bank name / None"),
+    ("MULKIYA EXPIRY",   "YYYY-MM-DD"),
+    ("OWNERSHIP",        "Company or Personal · blank = Company"),
+    ("EMPLOYEE EMP ID",  "Optional · EMP ID of associated employee"),
+]
+
+
+@login_required
+def vehicle_upload_template(request):
+    """Return a pre-formatted .xlsx template for bulk-adding vehicles."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Vehicles"
+
+    header_fill = PatternFill("solid", fgColor="1E3A5F")
+    note_fill   = PatternFill("solid", fgColor="EBF3FF")
+    sample_fill = PatternFill("solid", fgColor="F0FFF4")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    note_font   = Font(italic=True, color="1E3A5F", size=9)
+    sample_font = Font(color="1E3A5F", size=10)
+    thin_border = Border(
+        left=Side(style="thin", color="CCCCCC"),
+        right=Side(style="thin", color="CCCCCC"),
+        top=Side(style="thin", color="CCCCCC"),
+        bottom=Side(style="thin", color="CCCCCC"),
+    )
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    # Row 1 – headers
+    for col_idx, (header, _) in enumerate(_VEHICLE_BULK_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill, cell.font, cell.alignment, cell.border = header_fill, header_font, center, thin_border
+
+    # Row 2 – notes
+    for col_idx, (_, note) in enumerate(_VEHICLE_BULK_COLUMNS, start=1):
+        cell = ws.cell(row=2, column=col_idx, value=note)
+        cell.fill      = note_fill
+        cell.font      = note_font
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+        cell.border    = thin_border
+
+    # Row 3 – sample
+    sample = [
+        "Ali Hassan", "A 12345", "2022", "Toyota Camry 2022", "ABC Trading LLC",
+        "Yes", "2026-12-31", "Dubai", "TC-99887", "Emirates NBD",
+        "2026-08-15", "Company", "EMP001",
+    ]
+    for col_idx, val in enumerate(sample, start=1):
+        cell = ws.cell(row=3, column=col_idx, value=val)
+        cell.fill, cell.font, cell.border = sample_fill, sample_font, thin_border
+
+    # Keep CAR NUMBER / TRAFFIC CODE / EMP ID as text so leading zeros survive
+    text_cols = {"CAR NUMBER", "TRAFFIC CODE", "EMPLOYEE EMP ID"}
+    for ci, (h, _) in enumerate(_VEHICLE_BULK_COLUMNS, start=1):
+        if h in text_cols:
+            for ri in range(3, 1001):
+                ws.cell(row=ri, column=ci).number_format = "@"
+
+    ws.row_dimensions[1].height = 26
+    ws.row_dimensions[2].height = 38
+    ws.freeze_panes = "A4"
+    col_widths = [20, 16, 10, 22, 22, 14, 16, 16, 14, 16, 16, 14, 18]
+    for i, width in enumerate(col_widths, start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="vehicle_upload_template.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def vehicle_bulk_upload(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == "POST" and request.FILES.get("excel_file"):
+        import pandas as pd
+        excel_file = request.FILES["excel_file"]
+        try:
+            df = pd.read_excel(
+                excel_file, header=0, skiprows=[1],   # skip the notes row
+                dtype={"CAR NUMBER": str, "TRAFFIC CODE": str, "EMPLOYEE EMP ID": str},
+            )
+
+            created_count = 0
+            updated_count = 0
+            error_rows    = []
+            valid_owner   = dict(Vehicle.OWNERSHIP_CHOICES)
+
+            def _str(row, key):
+                val = row.get(key)
+                if val is None or (isinstance(val, float) and pd.isnull(val)):
+                    return ''
+                s = str(val).strip()
+                if s.lower() == 'nan':
+                    return ''
+                if s.endswith('.0') and s[:-2].isdigit():   # Excel numeric coercion
+                    s = s[:-2]
+                return s
+
+            for index, row in df.iterrows():
+                try:
+                    name = _str(row, "NAME")
+                    car_number = _str(row, "CAR NUMBER")
+                    if not name and not car_number:
+                        continue   # blank row
+                    if not name or not car_number:
+                        error_rows.append(f"Row {index + 3}: NAME and CAR NUMBER are both required — skipped.")
+                        continue
+
+                    ownership = _str(row, "OWNERSHIP") or "Company"
+                    ownership = ownership if ownership in valid_owner else "Company"
+
+                    emp_id = _str(row, "EMPLOYEE EMP ID")
+                    employee = None
+                    if emp_id:
+                        employee = Employee.objects.filter(emp_id__iexact=emp_id).first()
+                        if employee is None:
+                            error_rows.append(f"Row {index + 3}: no employee with EMP ID '{emp_id}' — association left blank.")
+
+                    _, created = Vehicle.objects.update_or_create(
+                        car_number=car_number,
+                        defaults={
+                            "name":              name,
+                            "ownership":         ownership,
+                            "model":             _str(row, "MODEL"),
+                            "car_and_model":     _str(row, "CAR AND MODEL"),
+                            "company":           _str(row, "COMPANY"),
+                            "tracking":          _str(row, "TRACKING"),
+                            "tracking_exp_date": _parse_date(row.get("TRACKING EXP DATE")),
+                            "state":             _str(row, "STATE"),
+                            "traffic_code":      _str(row, "TRAFFIC CODE"),
+                            "mortgage":          _str(row, "MORTGAGE"),
+                            "mulkiya_expiry":    _parse_date(row.get("MULKIYA EXPIRY")),
+                            "employee":          employee,
+                            "created_by":        request.user,
+                        },
+                    )
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                except Exception as e:
+                    error_rows.append(f"Row {index + 3}: {e}")
+
+            for err in error_rows:
+                messages.error(request, err)
+            if created_count or updated_count:
+                messages.success(
+                    request,
+                    f"Upload complete — {created_count} added, {updated_count} updated."
+                )
+            elif not error_rows:
+                messages.warning(request, "No vehicles found in the file.")
+            return redirect("vehicle_upload")
+
+        except Exception as e:
+            messages.error(request, f"Upload failed: {e}")
+
+    columns = [col for col, _ in _VEHICLE_BULK_COLUMNS]
+    return render(request, "hr_de/vehicles/bulk_upload.html", {"columns": columns})
 
 
 # ── Monthly Reviews (Head fills; HR/MD read) ─────────────────────────────────

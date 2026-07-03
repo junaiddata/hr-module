@@ -191,7 +191,7 @@
     <div class="topbar">
         <div>
             <h1 class="page-h"><i class="fas fa-bell"></i> Notifications</h1>
-            <p class="page-sub">Document expiry alerts for employees and MOL companies — auto-refreshed each visit.</p>
+            <p class="page-sub">Document expiry alerts for employees, MOL companies and vehicle mulkiya — auto-refreshed each visit.</p>
         </div>
         {% if unread_count %}
         <button class="btn-mark-all" id="btnMarkAll" onclick="markAllRead()">
@@ -234,6 +234,10 @@
             <i class="fas fa-building"></i> MOL
             <span class="tab-count" id="count-mol">0</span>
         </button>
+        <button class="tab-btn" data-filter="vehicle" onclick="setTab(this,'vehicle')">
+            <i class="fas fa-car"></i> Mulkiya
+            <span class="tab-count" id="count-vehicle">0</span>
+        </button>
     </div>
 
     <!-- ── UNREAD ──────────────────────────────────────────────────────────── -->
@@ -245,7 +249,7 @@
     <div id="unreadList">
     {% for n in unread %}
     <div class="notif-card" id="notif-{{ n.id }}"
-         data-source="{% if n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+         data-source="{% if n.vehicle %}vehicle{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
         <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
         <div class="notif-inner">
 
@@ -257,6 +261,7 @@
                 {% elif n.doc_type == 'LABOUR_CARD' %}<i class="fas fa-briefcase"></i>
                 {% elif n.doc_type == 'INSURANCE' %}<i class="fas fa-shield-halved"></i>
                 {% elif n.doc_type == 'DRIVING_LICENSE' %}<i class="fas fa-car"></i>
+                {% elif n.doc_type == 'MULKIYA' %}<i class="fas fa-car-side"></i>
                 {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}<i class="fas fa-file-certificate"></i>
                 {% elif n.doc_type == 'MOL_TENANCY' %}<i class="fas fa-file-contract"></i>
                 {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}<i class="fas fa-id-badge"></i>
@@ -264,7 +269,11 @@
             </div>
 
             <!-- Avatar -->
-            {% if n.employee %}
+            {% if n.vehicle %}
+                <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#0ea5e9,#4f46e5);">
+                    <i class="fas fa-car" style="font-size:.9rem;"></i>
+                </div>
+            {% elif n.employee %}
                 {% if n.employee.photo %}
                     <img src="{{ n.employee.photo.url }}" alt="{{ n.employee.emp_name }}" class="notif-emp-avatar">
                 {% else %}
@@ -289,10 +298,12 @@
                         <span class="doc-badge db-info"><i class="fas fa-circle-info"></i> Info</span>
                     {% endif %}
 
-                    {% if n.mol %}
+                    {% if n.vehicle %}
+                        <span class="doc-badge db-read"><i class="fas fa-car"></i> Mulkiya</span>
+                    {% elif n.mol %}
                         <span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>
                     {% endif %}
-                    {% if n.doc_type %}
+                    {% if n.doc_type and n.doc_type != 'MULKIYA' %}
                         <span class="doc-badge db-read">
                             {% if n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                             {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
@@ -301,7 +312,12 @@
                         </span>
                     {% endif %}
 
-                    {% if n.employee and n.employee.department %}
+                    {% if n.vehicle %}
+                        <span class="notif-time"><i class="fas fa-hashtag"></i> {{ n.vehicle.car_number }}</span>
+                        {% if n.vehicle.employee %}
+                            <span class="notif-time"><i class="fas fa-user"></i> {{ n.vehicle.employee.emp_name }}</span>
+                        {% endif %}
+                    {% elif n.employee and n.employee.department %}
                         <span class="notif-time"><i class="fas fa-sitemap"></i> {{ n.employee.department.name }}</span>
                     {% elif n.mol %}
                         <span class="notif-time"><i class="fas fa-building"></i> {{ n.mol.mol }}</span>
@@ -312,7 +328,11 @@
 
             <!-- Actions -->
             <div class="notif-actions">
-                {% if n.employee %}
+                {% if n.vehicle %}
+                <a href="{% url 'vehicle_edit' n.vehicle.pk %}" class="btn-profile">
+                    <i class="fas fa-car"></i> View Vehicle
+                </a>
+                {% elif n.employee %}
                 <a href="{% url 'employee_detail' n.employee.pk %}" class="btn-profile">
                     <i class="fas fa-user"></i> Profile
                 </a>
@@ -358,7 +378,7 @@
         </p>
         {% for n in read %}
         <div class="notif-card is-read"
-             data-source="{% if n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+             data-source="{% if n.vehicle %}vehicle{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
             <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
             <div class="notif-inner">
                 <div class="notif-doc-icon di-{{ n.urgency|default:'default' }}" style="opacity:.6;">
@@ -368,12 +388,17 @@
                     {% elif n.doc_type == 'LABOUR_CARD' %}<i class="fas fa-briefcase"></i>
                     {% elif n.doc_type == 'INSURANCE' %}<i class="fas fa-shield-halved"></i>
                     {% elif n.doc_type == 'DRIVING_LICENSE' %}<i class="fas fa-car"></i>
+                    {% elif n.doc_type == 'MULKIYA' %}<i class="fas fa-car-side"></i>
                     {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}<i class="fas fa-file-certificate"></i>
                     {% elif n.doc_type == 'MOL_TENANCY' %}<i class="fas fa-file-contract"></i>
                     {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}<i class="fas fa-id-badge"></i>
                     {% else %}<i class="fas fa-bell"></i>{% endif %}
                 </div>
-                {% if n.employee %}
+                {% if n.vehicle %}
+                    <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#0ea5e9,#4f46e5);opacity:.7;">
+                        <i class="fas fa-car" style="font-size:.9rem;"></i>
+                    </div>
+                {% elif n.employee %}
                     {% if n.employee.photo %}
                         <img src="{{ n.employee.photo.url }}" alt="{{ n.employee.emp_name }}" class="notif-emp-avatar">
                     {% else %}
@@ -389,8 +414,9 @@
                     <div class="notif-msg">{{ n.message }}</div>
                     <div class="notif-meta">
                         <span class="doc-badge db-read"><i class="fas fa-check"></i> Read</span>
-                        {% if n.mol %}<span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>{% endif %}
-                        {% if n.doc_type %}
+                        {% if n.vehicle %}<span class="doc-badge db-read"><i class="fas fa-car"></i> Mulkiya</span>
+                        {% elif n.mol %}<span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>{% endif %}
+                        {% if n.doc_type and n.doc_type != 'MULKIYA' %}
                             <span class="doc-badge db-read">
                                 {% if n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                                 {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
@@ -398,13 +424,21 @@
                                 {% else %}{{ n.doc_type|title|cut:"_" }}{% endif %}
                             </span>
                         {% endif %}
-                        {% if n.mol %}
+                        {% if n.vehicle %}
+                            <span class="notif-time"><i class="fas fa-hashtag"></i> {{ n.vehicle.car_number }}</span>
+                        {% elif n.mol %}
                             <span class="notif-time"><i class="fas fa-building"></i> {{ n.mol.mol }}</span>
                         {% endif %}
                         <span class="notif-time"><i class="fas fa-clock"></i> {{ n.created_at|date:"d M Y" }}</span>
                     </div>
                 </div>
-                {% if n.employee %}
+                {% if n.vehicle %}
+                <div class="notif-actions">
+                    <a href="{% url 'vehicle_edit' n.vehicle.pk %}" class="btn-profile">
+                        <i class="fas fa-car"></i> View Vehicle
+                    </a>
+                </div>
+                {% elif n.employee %}
                 <div class="notif-actions">
                     <a href="{% url 'employee_detail' n.employee.pk %}" class="btn-profile">
                         <i class="fas fa-user"></i> Profile
@@ -445,6 +479,7 @@ function countSource(cards, src) {
 document.getElementById('count-all').textContent      = allUnread.length;
 document.getElementById('count-employee').textContent = countSource(allUnread, 'employee');
 document.getElementById('count-mol').textContent      = countSource(allUnread, 'mol');
+document.getElementById('count-vehicle').textContent  = countSource(allUnread, 'vehicle');
 
 // ── Tab switching ────────────────────────────────────────────────────────
 let activeFilter = 'all';
@@ -554,7 +589,7 @@ function markAllRead() {
                 checkEmpty();
                 updateUnreadBadge(0, true);
                 // reset counts
-                ['count-all','count-employee','count-mol'].forEach(id => {
+                ['count-all','count-employee','count-mol','count-vehicle'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.textContent = '0';
                 });

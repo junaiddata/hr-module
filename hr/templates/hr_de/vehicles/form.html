@@ -1,0 +1,164 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{% if vehicle %}Edit Vehicle{% else %}Add Vehicle{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.vf-wrap { max-width: 860px; margin: 0 auto; padding: 2rem; }
+.vf-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1.5rem; display: flex; align-items: center; gap: .6rem; }
+.vf-title i { color: var(--accent-primary); }
+.vf-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow-sm); }
+.vf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.25rem; }
+.vf-group { margin-bottom: 0; }
+.vf-group.full { grid-column: 1 / -1; }
+.vf-label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; }
+.vf-input, .vf-select { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .6rem .8rem; font-size: .92rem; font-family: inherit; background: #fff; }
+.vf-file-current { font-size: .8rem; color: var(--text-secondary); margin-top: .4rem; }
+.vf-file-current a { color: var(--accent-primary); font-weight: 600; }
+.vf-req { color: #ef4444; }
+.vf-actions { display: flex; gap: .6rem; margin-top: 1.5rem; }
+.vf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .65rem 1.4rem; font-weight: 700; cursor: pointer; }
+.vf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .65rem 1.4rem; font-weight: 600; text-decoration: none; }
+@media (max-width: 640px) { .vf-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vf-wrap">
+    <h1 class="vf-title">
+        <i class="fas fa-car"></i>
+        {% if vehicle %}Edit Vehicle{% else %}Add Vehicle{% endif %}
+    </h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="vf-card">
+            <div class="vf-grid">
+
+                <div class="vf-group">
+                    <label class="vf-label">Ownership</label>
+                    <select name="ownership" class="vf-select">
+                        {% for value, label in ownership_choices %}
+                        <option value="{{ value }}" {% if vehicle.ownership == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Name <span class="vf-req">*</span></label>
+                    <input type="text" name="name" class="vf-input" required
+                           value="{{ vehicle.name|default:'' }}" placeholder="e.g. Ahmed Ali / Fleet Car 1">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Car Number <span class="vf-req">*</span></label>
+                    <input type="text" name="car_number" class="vf-input" required
+                           value="{{ vehicle.car_number|default:'' }}" placeholder="e.g. A 12345">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Model</label>
+                    <input type="text" name="model" class="vf-input"
+                           value="{{ vehicle.model|default:'' }}" placeholder="e.g. 2022">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Car and Model</label>
+                    <input type="text" name="car_and_model" class="vf-input"
+                           value="{{ vehicle.car_and_model|default:'' }}" placeholder="e.g. Toyota Camry 2022">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Company</label>
+                    <input type="text" name="company" class="vf-input"
+                           value="{{ vehicle.company|default:'' }}" placeholder="Owning / registered company">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Tracking</label>
+                    <input type="text" name="tracking" class="vf-input"
+                           value="{{ vehicle.tracking|default:'' }}" placeholder="e.g. Provider / device / Yes">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Tracking Exp Date</label>
+                    <input type="date" name="tracking_exp_date" class="vf-input"
+                           value="{{ vehicle.tracking_exp_date|date:'Y-m-d' }}">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">State</label>
+                    <input type="text" name="state" class="vf-input"
+                           value="{{ vehicle.state|default:'' }}" placeholder="e.g. Dubai / Abu Dhabi">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Traffic Code</label>
+                    <input type="text" name="traffic_code" class="vf-input"
+                           value="{{ vehicle.traffic_code|default:'' }}" placeholder="Traffic file / code">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Mortgage</label>
+                    <input type="text" name="mortgage" class="vf-input"
+                           value="{{ vehicle.mortgage|default:'' }}" placeholder="e.g. Bank name / None">
+                </div>
+
+                <div class="vf-group">
+                    <label class="vf-label">Mulkiya Expiry</label>
+                    <input type="date" name="mulkiya_expiry" class="vf-input"
+                           value="{{ vehicle.mulkiya_expiry|date:'Y-m-d' }}">
+                </div>
+
+                <div class="vf-group full">
+                    <label class="vf-label">Associated Employee <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></label>
+                    <input type="text" class="vf-input" id="empSearch" placeholder="Type to filter employees…" autocomplete="off" style="margin-bottom:.5rem;">
+                    <select name="employee" id="empSelect" class="vf-select">
+                        <option value="">— Not associated —</option>
+                        {% for e in employees %}
+                        <option value="{{ e.pk }}" data-name="{{ e.emp_name|lower }} {{ e.emp_id|lower }}"
+                                {% if vehicle.employee_id == e.pk %}selected{% endif %}>
+                            {{ e.emp_name }} ({{ e.emp_id }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vf-group full">
+                    <label class="vf-label">Mulkiya Document</label>
+                    <input type="file" name="mulkiya_document" class="vf-input">
+                    {% if vehicle.mulkiya_document %}
+                    <div class="vf-file-current">
+                        Current: <a href="{{ vehicle.mulkiya_document.url }}" target="_blank">View file</a> — uploading a new file replaces it.
+                    </div>
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <div class="vf-actions">
+                <button type="submit" class="vf-save"><i class="fas fa-save"></i> Save Vehicle</button>
+                <a href="{% url 'vehicle_list' %}" class="vf-cancel">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var search = document.getElementById('empSearch');
+    var select = document.getElementById('empSelect');
+    if (!search || !select) return;
+    var opts = Array.from(select.options);
+    search.addEventListener('input', function () {
+        var q = search.value.trim().toLowerCase();
+        opts.forEach(function (o) {
+            if (!o.value) return;                         // keep the "Not associated" option
+            var hay = o.getAttribute('data-name') || '';
+            o.hidden = q && hay.indexOf(q) === -1;
+        });
+    });
+})();
+</script>
+{% endblock %}

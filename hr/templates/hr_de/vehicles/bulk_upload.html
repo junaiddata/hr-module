@@ -1,0 +1,169 @@
+{% extends "hr_de/base.html" %}
+{% load static %}
+
+{% block title %}Bulk Upload Vehicles{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Bulk Upload Vehicles</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'vehicle_list' %}">Vehicles</a></li>
+                    <li class="breadcrumb-item active">Bulk Upload</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'vehicle_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Vehicles
+        </a>
+    </div>
+
+    <!-- Alerts -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'success' %}success{% elif message.tags == 'warning' %}warning{% else %}danger{% endif %} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-4">
+
+        <!-- Upload Card -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                             style="width:80px;height:80px;">
+                            <i class="fas fa-file-excel text-success fs-2"></i>
+                        </div>
+                        <h5 class="fw-bold">Upload Vehicle Excel</h5>
+                        <p class="text-muted small">Select the filled template and click Upload.<br>
+                            Existing vehicles (matched by CAR NUMBER) will be updated.</p>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label fw-semibold">Excel File (.xlsx / .xls)</label>
+                            <input type="file" name="excel_file" id="excelFile"
+                                   class="form-control form-control-lg" accept=".xlsx,.xls" required>
+                            <div class="invalid-feedback">Please select an Excel file.</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-upload me-2"></i>Upload &amp; Import
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <!-- Download template -->
+                    <div class="text-center">
+                        <p class="text-muted small mb-2">Don't have the template yet?</p>
+                        <a href="{% url 'vehicle_upload_template' %}" class="btn btn-success">
+                            <i class="fas fa-download me-2"></i>Download Excel Template
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions / Column Reference -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom py-3 px-4">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Template Column Reference</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height:480px;overflow-y:auto;">
+                        <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Column Header</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for col in columns %}
+                                <tr {% if col == "NAME" or col == "CAR NUMBER" %}class="table-warning fw-semibold"{% endif %}>
+                                    <td class="text-muted">{{ forloop.counter }}</td>
+                                    <td><code>{{ col }}</code></td>
+                                    <td class="text-muted">
+                                        {% if col == "NAME" %}Required · owner / vehicle name
+                                        {% elif col == "CAR NUMBER" %}Required · plate / registration no. (matches on re-upload)
+                                        {% elif col == "MODEL" %}e.g. 2022
+                                        {% elif col == "CAR AND MODEL" %}e.g. Toyota Camry 2022
+                                        {% elif col == "COMPANY" %}Owning / registered company
+                                        {% elif col == "TRACKING" %}Provider / device / Yes
+                                        {% elif col == "TRACKING EXP DATE" %}YYYY-MM-DD
+                                        {% elif col == "STATE" %}e.g. Dubai / Abu Dhabi
+                                        {% elif col == "TRAFFIC CODE" %}Traffic file / code
+                                        {% elif col == "MORTGAGE" %}Bank name / None
+                                        {% elif col == "MULKIYA EXPIRY" %}YYYY-MM-DD
+                                        {% elif col == "OWNERSHIP" %}Company or Personal · blank defaults to Company
+                                        {% elif col == "EMPLOYEE EMP ID" %}Optional · EMP ID to associate a vehicle with an employee
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top px-4 py-3">
+                    <div class="row text-muted" style="font-size:0.8rem;">
+                        <div class="col-6">
+                            <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                            Highlighted rows (<span class="text-warning fw-bold">yellow</span>) are <strong>required</strong>.
+                        </div>
+                        <div class="col-6">
+                            <i class="fas fa-sync-alt text-primary me-1"></i>
+                            Existing vehicles matched by <strong>CAR NUMBER</strong> are updated, not duplicated.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card shadow-sm border-0 mt-3">
+                <div class="card-body py-3 px-4">
+                    <p class="mb-1 fw-semibold small"><i class="fas fa-lightbulb text-warning me-1"></i>Tips</p>
+                    <ul class="mb-0 ps-3 text-muted" style="font-size:0.82rem;">
+                        <li>Row 1 = headers &nbsp;·&nbsp; Row 2 = notes (skipped automatically) &nbsp;·&nbsp; Row 3+ = data</li>
+                        <li>All dates must be in <strong>YYYY-MM-DD</strong> format or a standard Excel date cell.</li>
+                        <li><strong>OWNERSHIP</strong> defaults to <strong>Company</strong> when left blank — leave it as-is unless a row is a personal vehicle.</li>
+                        <li>The <strong>Mulkiya document</strong> can't be bulk-uploaded — attach files individually from each vehicle's Edit page.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /row -->
+</div>
+
+<script>
+(function () {
+    'use strict';
+    document.querySelectorAll('.needs-validation').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>
+{% endblock %}

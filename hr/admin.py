@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry
+from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle
 
 admin.site.register(Employee)
 admin.site.register(ChangeLog)
@@ -8,6 +8,13 @@ admin.site.register(Role)
 admin.site.register(SalaryStructure)
 admin.site.register(PayrollRun)
 admin.site.register(PayrollEntry)
+
+
+@admin.register(Vehicle)
+class VehicleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'ownership', 'car_number', 'car_and_model', 'company', 'mulkiya_expiry']
+    list_filter = ['ownership', 'company']
+    search_fields = ['name', 'car_number', 'model', 'car_and_model', 'company', 'traffic_code']
 
 
 @admin.register(Leave)
