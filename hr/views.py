@@ -4274,7 +4274,9 @@ def vehicle_bulk_upload(request):
             created_count = 0
             updated_count = 0
             error_rows    = []
-            valid_owner   = dict(Vehicle.OWNERSHIP_CHOICES)
+            # map lower-cased input → canonical value, so "personal"/"PERSONAL"
+            # all resolve to "Personal" (blank/unknown → Company).
+            owner_lookup  = {v.lower(): v for v, _ in Vehicle.OWNERSHIP_CHOICES}
 
             def _str(row, key):
                 val = row.get(key)
@@ -4297,8 +4299,7 @@ def vehicle_bulk_upload(request):
                         error_rows.append(f"Row {index + 3}: NAME and CAR NUMBER are both required — skipped.")
                         continue
 
-                    ownership = _str(row, "OWNERSHIP") or "Company"
-                    ownership = ownership if ownership in valid_owner else "Company"
+                    ownership = owner_lookup.get(_str(row, "OWNERSHIP").lower(), "Company")
 
                     emp_id = _str(row, "EMPLOYEE EMP ID")
                     employee = None
