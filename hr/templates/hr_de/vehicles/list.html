@@ -23,7 +23,8 @@
 .vh-search input { flex: 1; max-width: 360px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
 .vh-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
 
-.vh-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.vh-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); transform: rotateX(180deg); }
+.vh-table-wrap table.vh-table { transform: rotateX(180deg); }
 table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; white-space: nowrap; }
 .vh-table th { text-align: left; padding: .75rem .9rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
 .vh-table td { padding: .7rem .9rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
@@ -81,6 +82,7 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
         <table class="vh-table">
             <thead>
                 <tr>
+                    <th>Actions</th>
                     <th>Name</th>
                     <th>Type</th>
                     <th>Employee</th>
@@ -95,12 +97,21 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
                     <th>Mortgage</th>
                     <th>Mulkiya Expiry</th>
                     <th>Mulkiya</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for v in vehicles %}
                 <tr>
+                    <td>
+                        <div class="vh-actions">
+                            <a href="{% url 'vehicle_edit' v.pk %}" class="vh-btn edit"><i class="fas fa-pen"></i></a>
+                            <form method="post" action="{% url 'vehicle_delete' v.pk %}" style="margin:0;"
+                                  onsubmit="return confirm('Delete “{{ v.name }}”? This cannot be undone.')">
+                                {% csrf_token %}
+                                <button type="submit" class="vh-btn del"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
                     <td class="vh-name">{{ v.name }}</td>
                     <td><span class="vh-badge {{ v.ownership|lower }}">{{ v.get_ownership_display }}</span></td>
                     <td>
@@ -122,16 +133,6 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
                         {% if v.mulkiya_document %}
                         <a href="{{ v.mulkiya_document.url }}" target="_blank" class="vh-doc"><i class="fas fa-file-lines"></i> View</a>
                         {% else %}<span class="vh-muted">—</span>{% endif %}
-                    </td>
-                    <td>
-                        <div class="vh-actions">
-                            <a href="{% url 'vehicle_edit' v.pk %}" class="vh-btn edit"><i class="fas fa-pen"></i></a>
-                            <form method="post" action="{% url 'vehicle_delete' v.pk %}" style="margin:0;"
-                                  onsubmit="return confirm('Delete “{{ v.name }}”? This cannot be undone.')">
-                                {% csrf_token %}
-                                <button type="submit" class="vh-btn del"><i class="fas fa-trash"></i></button>
-                            </form>
-                        </div>
                     </td>
                 </tr>
                 {% empty %}
