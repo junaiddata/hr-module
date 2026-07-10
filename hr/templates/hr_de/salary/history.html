@@ -198,7 +198,7 @@
                     {% for r in revisions %}
                     <tr>
                         <td>
-                            <strong>{{ r.effective_date|date:"d M Y" }}</strong><br>
+                            <strong>{{ r.effective_date|date:"M Y" }}</strong><br>
                             <span class="meta-text">Recorded {{ r.changed_at|date:"d M Y, H:i" }}</span>
                         </td>
                         <td>

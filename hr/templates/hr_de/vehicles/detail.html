@@ -1,0 +1,175 @@
+{% extends "hr_de/base.html" %}
+{% load hr_extras %}
+{% block title %}{{ vehicle.name }} — Vehicle{% endblock %}
+
+{% block extra_css %}
+<style>
+.vd-wrap { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+.vd-back { color: var(--text-secondary); text-decoration: none; font-size: .85rem; font-weight: 600; }
+.vd-back:hover { color: var(--accent-primary); }
+
+.vd-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: .75rem 0 1.5rem; }
+.vd-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.vd-title i { color: var(--accent-primary); }
+.vd-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .3rem; }
+.vd-badge { font-size: .72rem; font-weight: 700; padding: .2rem .6rem; border-radius: 9999px; }
+.vd-badge.company  { background: rgba(99,102,241,.12); color: #4f46e5; }
+.vd-badge.personal { background: rgba(16,185,129,.12); color: #059669; }
+.vd-badge.sold     { background: rgba(239,68,68,.12); color: #dc2626; }
+
+.vd-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.vd-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; border-radius: 9px; font-size: .84rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
+.vd-btn.primary   { background: var(--gradient-primary); color: #fff; }
+.vd-btn.secondary { background: #fff; color: var(--text-secondary); border: 1.5px solid var(--border-color); }
+.vd-btn.danger    { background: rgba(239,68,68,.1); color: #ef4444; }
+
+.vd-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1.25rem 1.4rem; margin-bottom: 1.5rem; }
+.vd-card-h { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; display: flex; align-items: center; gap: .5rem; }
+.vd-card-h i { color: var(--accent-primary); }
+
+.vd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem 1.25rem; }
+.vd-field-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); font-weight: 700; }
+.vd-field-val { font-size: .95rem; color: var(--text-primary); margin-top: .2rem; word-break: break-word; }
+.vd-field-val.muted { color: var(--text-tertiary); }
+.vd-doc { color: var(--accent-primary); font-weight: 600; text-decoration: none; }
+
+.vd-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: .75rem; }
+.vd-chip { border: 1px solid var(--border-color); border-radius: 11px; padding: .7rem .85rem; }
+.vd-chip-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); font-weight: 700; }
+.vd-chip-date { font-size: .95rem; font-weight: 700; color: var(--text-primary); margin-top: .2rem; }
+.vd-chip-date.none { color: var(--text-tertiary); font-weight: 500; }
+
+.vd-table-wrap { overflow-x: auto; }
+table.vd-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.vd-table th { text-align: left; padding: .6rem .8rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.vd-table td { padding: .6rem .8rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+.vd-sbadge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; }
+.b-Requested { background: rgba(245,158,11,.14); color: #b45309; }
+.b-Approved  { background: rgba(59,130,246,.14); color: #2563eb; }
+.b-Completed { background: rgba(16,185,129,.14); color: #059669; }
+.b-Rejected  { background: rgba(239,68,68,.12);  color: #dc2626; }
+.vd-muted { color: var(--text-tertiary); }
+.vd-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vd-wrap">
+
+    <a href="{% url 'vehicle_list' %}" class="vd-back"><i class="fas fa-arrow-left"></i> Back to Vehicles</a>
+
+    <div class="vd-top">
+        <div>
+            <h1 class="vd-title">
+                <i class="fas fa-car"></i> {{ vehicle.name }}
+                <span class="vd-badge {{ vehicle.ownership|lower }}">{{ vehicle.get_ownership_display }}</span>
+                {% if vehicle.is_sold %}<span class="vd-badge sold">Sold</span>{% endif %}
+            </h1>
+            <p class="vd-sub"><i class="fas fa-hashtag"></i> {{ vehicle.car_number }}{% if vehicle.car_and_model %} &middot; {{ vehicle.car_and_model }}{% endif %}</p>
+        </div>
+        <div class="vd-actions">
+            <a href="{% url 'vehicle_services' vehicle.pk %}" class="vd-btn secondary"><i class="fas fa-screwdriver-wrench"></i> Services</a>
+            <a href="{% url 'vehicle_edit' vehicle.pk %}" class="vd-btn primary"><i class="fas fa-pen"></i> Edit</a>
+            <form method="post" action="{% url 'vehicle_delete' vehicle.pk %}" style="margin:0;"
+                  onsubmit="return confirm('Delete “{{ vehicle.name }}”? This cannot be undone.')">
+                {% csrf_token %}
+                <button type="submit" class="vd-btn danger"><i class="fas fa-trash"></i> Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Details -->
+    <div class="vd-card">
+        <h2 class="vd-card-h"><i class="fas fa-circle-info"></i> Vehicle Details</h2>
+        <div class="vd-grid">
+            <div><div class="vd-field-label">Car Number</div><div class="vd-field-val">{{ vehicle.car_number }}</div></div>
+            <div><div class="vd-field-label">Model</div><div class="vd-field-val {% if not vehicle.model %}muted{% endif %}">{{ vehicle.model|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Car &amp; Model</div><div class="vd-field-val {% if not vehicle.car_and_model %}muted{% endif %}">{{ vehicle.car_and_model|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Company</div><div class="vd-field-val {% if not vehicle.company %}muted{% endif %}">{{ vehicle.company|default:"—" }}</div></div>
+            <div><div class="vd-field-label">State</div><div class="vd-field-val {% if not vehicle.state %}muted{% endif %}">{{ vehicle.state|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Traffic Code</div><div class="vd-field-val {% if not vehicle.traffic_code %}muted{% endif %}">{{ vehicle.traffic_code|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Mortgage</div><div class="vd-field-val {% if not vehicle.mortgage %}muted{% endif %}">{{ vehicle.mortgage|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Tracking</div><div class="vd-field-val {% if not vehicle.tracking %}muted{% endif %}">{{ vehicle.tracking|default:"—" }}</div></div>
+            <div><div class="vd-field-label">Tracking Exp</div><div class="vd-field-val {% if not vehicle.tracking_exp_date %}muted{% endif %}">{% if vehicle.tracking_exp_date %}{{ vehicle.tracking_exp_date|date:"d M Y" }}{% else %}—{% endif %}</div></div>
+            <div><div class="vd-field-label">Mulkiya Expiry</div><div class="vd-field-val {% if not vehicle.mulkiya_expiry %}muted{% endif %}">{% if vehicle.mulkiya_expiry %}{{ vehicle.mulkiya_expiry|date:"d M Y" }}{% else %}—{% endif %}</div></div>
+            <div>
+                <div class="vd-field-label">Associated Employee</div>
+                <div class="vd-field-val {% if not vehicle.employee %}muted{% endif %}">
+                    {% if vehicle.employee %}<a href="{% url 'employee_detail' vehicle.employee.pk %}" class="vd-doc"><i class="fas fa-user"></i> {{ vehicle.employee.emp_name }}</a>{% else %}—{% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="vd-field-label">Mulkiya Document</div>
+                <div class="vd-field-val {% if not vehicle.mulkiya_document %}muted{% endif %}">
+                    {% if vehicle.mulkiya_document %}<a href="{{ vehicle.mulkiya_document.url }}" target="_blank" class="vd-doc"><i class="fas fa-file-lines"></i> View file</a>{% else %}Not uploaded{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if vehicle.is_sold %}
+    <!-- Sold -->
+    <div class="vd-card" style="border-left:4px solid #dc2626;">
+        <h2 class="vd-card-h" style="color:#dc2626;"><i class="fas fa-tag"></i> Sale Details</h2>
+        <div class="vd-grid">
+            <div><div class="vd-field-label">Sold On</div><div class="vd-field-val {% if not vehicle.sold_on %}muted{% endif %}">{% if vehicle.sold_on %}{{ vehicle.sold_on|date:"d M Y" }}{% else %}—{% endif %}</div></div>
+            <div><div class="vd-field-label">Amount</div><div class="vd-field-val {% if not vehicle.sold_amount %}muted{% endif %}">{% if vehicle.sold_amount %}AED {{ vehicle.sold_amount }}{% else %}—{% endif %}</div></div>
+            <div><div class="vd-field-label">Sold To</div><div class="vd-field-val {% if not vehicle.sold_to %}muted{% endif %}">{{ vehicle.sold_to|default:"—" }}</div></div>
+            <div>
+                <div class="vd-field-label">Sale Document</div>
+                <div class="vd-field-val {% if not vehicle.sold_document %}muted{% endif %}">
+                    {% if vehicle.sold_document %}<a href="{{ vehicle.sold_document.url }}" target="_blank" class="vd-doc"><i class="fas fa-file-lines"></i> View file</a>{% else %}Not uploaded{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Last serviced -->
+    <div class="vd-card">
+        <h2 class="vd-card-h"><i class="fas fa-clock-rotate-left"></i> Last Serviced</h2>
+        <div class="vd-summary">
+            {% for value, label in type_choices %}
+            <div class="vd-chip">
+                <div class="vd-chip-label">{{ label }}</div>
+                {% with dt=last_dates|get_item:value %}
+                <div class="vd-chip-date {% if not dt %}none{% endif %}">{% if dt %}{{ dt|date:"d M Y" }}{% else %}—{% endif %}</div>
+                {% endwith %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Service history -->
+    <div class="vd-card">
+        <h2 class="vd-card-h"><i class="fas fa-list"></i> Service History
+            <a href="{% url 'vehicle_services' vehicle.pk %}" style="margin-left:auto;font-size:.8rem;font-weight:600;color:var(--accent-primary);text-decoration:none;">Manage →</a>
+        </h2>
+        {% if services %}
+        <div class="vd-table-wrap">
+            <table class="vd-table">
+                <thead><tr><th>Type</th><th>Status</th><th>Service Date</th><th>Cost</th><th>Notes</th></tr></thead>
+                <tbody>
+                {% for s in services %}
+                <tr>
+                    <td><strong>{{ s.type_label }}</strong></td>
+                    <td><span class="vd-sbadge b-{{ s.status }}">{{ s.status }}</span></td>
+                    <td>{% if s.service_date %}{{ s.service_date|date:"d M Y" }}{% else %}<span class="vd-muted">—</span>{% endif %}</td>
+                    <td>{% if s.cost %}AED {{ s.cost }}{% else %}<span class="vd-muted">—</span>{% endif %}</td>
+                    <td>{{ s.notes|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vd-empty"><i class="fas fa-screwdriver-wrench"></i> No service history yet.</div>
+        {% endif %}
+    </div>
+
+    <div class="vd-muted" style="font-size:.76rem;">
+        Added {{ vehicle.created_at|date:"d M Y, H:i" }}{% if vehicle.created_by %} by {{ vehicle.created_by.get_full_name|default:vehicle.created_by.username }}{% endif %} &middot; Last updated {{ vehicle.updated_at|date:"d M Y, H:i" }}
+    </div>
+
+</div>
+{% endblock %}

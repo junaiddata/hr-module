@@ -1,0 +1,140 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{% if member %}Edit{% else %}Add{% endif %} {% if is_family %}Family Member{% else %}Management Person{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.mf-wrap { max-width: 880px; margin: 0 auto; padding: 2rem; }
+.mf-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 .3rem; display: flex; align-items: center; gap: .6rem; }
+.mf-title i { color: var(--accent-primary); }
+.mf-sub { color: var(--text-secondary); font-size: .88rem; margin-bottom: 1.5rem; }
+.mf-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow-sm); margin-bottom: 1.25rem; }
+.mf-card-h { font-size: .95rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; display: flex; align-items: center; gap: .5rem; }
+.mf-card-h i { color: var(--accent-primary); }
+.mf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.15rem; }
+.mf-group.full { grid-column: 1 / -1; }
+.mf-label { display: block; font-size: .8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .35rem; }
+.mf-input, .mf-select { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .75rem; font-size: .9rem; font-family: inherit; background: #fff; }
+.mf-req { color: #ef4444; }
+.mf-file-current { font-size: .78rem; color: var(--text-secondary); margin-top: .35rem; }
+.mf-file-current a { color: var(--accent-primary); font-weight: 600; }
+.mf-actions { display: flex; gap: .6rem; margin-top: 1.25rem; }
+.mf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .65rem 1.4rem; font-weight: 700; cursor: pointer; }
+.mf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .65rem 1.4rem; font-weight: 600; text-decoration: none; }
+@media (max-width: 640px) { .mf-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mf-wrap">
+    <h1 class="mf-title">
+        <i class="fas fa-user-tie"></i>
+        {% if member %}Edit {{ member.name }}{% else %}Add {% if is_family %}Family Member{% else %}Management Person{% endif %}{% endif %}
+    </h1>
+    {% if is_family and head %}<p class="mf-sub">Family member of <strong>{{ head.name }}</strong></p>{% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Personal -->
+        <div class="mf-card">
+            <h2 class="mf-card-h"><i class="fas fa-id-badge"></i> Personal Information</h2>
+            <div class="mf-grid">
+                <div class="mf-group">
+                    <label class="mf-label">Full Name <span class="mf-req">*</span></label>
+                    <input type="text" name="name" class="mf-input" required value="{{ member.name|default:'' }}">
+                </div>
+                {% if is_family %}
+                <div class="mf-group">
+                    <label class="mf-label">Relation</label>
+                    <select name="relation" class="mf-select">
+                        {% for value, label in relation_choices %}
+                        <option value="{{ value }}" {% if member.relation == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <div class="mf-group">
+                    <label class="mf-label">Designation / Role</label>
+                    <input type="text" name="designation" class="mf-input" value="{{ member.designation|default:'' }}" placeholder="e.g. Managing Director">
+                </div>
+                {% endif %}
+                <div class="mf-group">
+                    <label class="mf-label">Nationality</label>
+                    <input type="text" name="nationality" class="mf-input" value="{{ member.nationality|default:'' }}">
+                </div>
+                <div class="mf-group">
+                    <label class="mf-label">Date of Birth</label>
+                    <input type="date" name="dob" class="mf-input" value="{{ member.dob|date:'Y-m-d' }}">
+                </div>
+                <div class="mf-group">
+                    <label class="mf-label">Phone</label>
+                    <input type="text" name="phone" class="mf-input" value="{{ member.phone|default:'' }}">
+                </div>
+                <div class="mf-group">
+                    <label class="mf-label">Email</label>
+                    <input type="email" name="email" class="mf-input" value="{{ member.email|default:'' }}">
+                </div>
+                <div class="mf-group full">
+                    <label class="mf-label">Photo</label>
+                    <input type="file" name="photo" accept="image/*" class="mf-input">
+                    {% if member.photo %}<div class="mf-file-current">Current: <a href="{{ member.photo.url }}" target="_blank">View</a> — uploading replaces it.</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Emirates ID -->
+        <div class="mf-card">
+            <h2 class="mf-card-h"><i class="fas fa-id-card"></i> Emirates ID</h2>
+            <div class="mf-grid">
+                <div class="mf-group"><label class="mf-label">EID Number</label><input type="text" name="eid_number" class="mf-input" value="{{ member.eid_number|default:'' }}"></div>
+                <div class="mf-group"><label class="mf-label">Expiry</label><input type="date" name="eid_expiry" class="mf-input" value="{{ member.eid_expiry|date:'Y-m-d' }}"></div>
+                <div class="mf-group full"><label class="mf-label">Document</label><input type="file" name="eid_document" class="mf-input">{% if member.eid_document %}<div class="mf-file-current">Current: <a href="{{ member.eid_document.url }}" target="_blank">View</a></div>{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Passport -->
+        <div class="mf-card">
+            <h2 class="mf-card-h"><i class="fas fa-passport"></i> Passport</h2>
+            <div class="mf-grid">
+                <div class="mf-group"><label class="mf-label">Passport Number</label><input type="text" name="passport_number" class="mf-input" value="{{ member.passport_number|default:'' }}"></div>
+                <div class="mf-group"><label class="mf-label">Expiry</label><input type="date" name="passport_expiry" class="mf-input" value="{{ member.passport_expiry|date:'Y-m-d' }}"></div>
+                <div class="mf-group full"><label class="mf-label">Document</label><input type="file" name="passport_document" class="mf-input">{% if member.passport_document %}<div class="mf-file-current">Current: <a href="{{ member.passport_document.url }}" target="_blank">View</a></div>{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Driving License -->
+        <div class="mf-card">
+            <h2 class="mf-card-h"><i class="fas fa-car"></i> Driving License</h2>
+            <div class="mf-grid">
+                <div class="mf-group"><label class="mf-label">License Number</label><input type="text" name="dl_number" class="mf-input" value="{{ member.dl_number|default:'' }}"></div>
+                <div class="mf-group"><label class="mf-label">Expiry</label><input type="date" name="dl_expiry" class="mf-input" value="{{ member.dl_expiry|date:'Y-m-d' }}"></div>
+                <div class="mf-group full"><label class="mf-label">Document</label><input type="file" name="dl_document" class="mf-input">{% if member.dl_document %}<div class="mf-file-current">Current: <a href="{{ member.dl_document.url }}" target="_blank">View</a></div>{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Visa -->
+        <div class="mf-card">
+            <h2 class="mf-card-h"><i class="fas fa-stamp"></i> Visa</h2>
+            <div class="mf-grid">
+                <div class="mf-group">
+                    <label class="mf-label">Visa Type</label>
+                    <select name="visa_type" class="mf-select">
+                        <option value="">— Select —</option>
+                        {% for value, label in visa_choices %}
+                        <option value="{{ value }}" {% if member.visa_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mf-group"><label class="mf-label">Visa Number</label><input type="text" name="visa_number" class="mf-input" value="{{ member.visa_number|default:'' }}"></div>
+                <div class="mf-group"><label class="mf-label">Expiry</label><input type="date" name="visa_expiry" class="mf-input" value="{{ member.visa_expiry|date:'Y-m-d' }}"></div>
+                <div class="mf-group full"><label class="mf-label">Document</label><input type="file" name="visa_document" class="mf-input">{% if member.visa_document %}<div class="mf-file-current">Current: <a href="{{ member.visa_document.url }}" target="_blank">View</a></div>{% endif %}</div>
+            </div>
+        </div>
+
+        <div class="mf-actions">
+            <button type="submit" class="mf-save"><i class="fas fa-save"></i> Save</button>
+            <a href="{% if member %}{% url 'management_detail' member.pk %}{% elif head %}{% url 'management_detail' head.pk %}{% else %}{% url 'management_list' %}{% endif %}" class="mf-cancel">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

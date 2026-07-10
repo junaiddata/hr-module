@@ -1,0 +1,144 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Vehicle Service Requests{% endblock %}
+
+{% block extra_css %}
+<style>
+.sr-wrap { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+.sr-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 .25rem; display: flex; align-items: center; gap: .6rem; }
+.sr-title i { color: var(--accent-primary); }
+.sr-sub { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1.5rem; }
+.sr-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1.25rem 1.4rem; margin-bottom: 1.5rem; }
+.sr-card-h { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; display: flex; align-items: center; gap: .5rem; }
+.sr-card-h i { color: var(--accent-primary); }
+.sr-table-wrap { overflow-x: auto; }
+table.sr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.sr-table th { text-align: left; padding: .6rem .8rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.sr-table td { padding: .6rem .8rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.sr-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; }
+.b-Requested { background: rgba(245,158,11,.14); color: #b45309; }
+.b-Approved  { background: rgba(59,130,246,.14); color: #2563eb; }
+.b-Completed { background: rgba(16,185,129,.14); color: #059669; }
+.b-Rejected  { background: rgba(239,68,68,.12);  color: #dc2626; }
+.sr-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .76rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: .3rem; }
+.sr-btn.complete { background: rgba(16,185,129,.14); color: #059669; }
+.sr-btn.reject   { background: rgba(239,68,68,.1);  color: #dc2626; }
+.sr-btn.view     { background: rgba(8,11,177,.06);  color: var(--accent-primary); }
+.sr-actions-row { display: flex; gap: .35rem; flex-wrap: wrap; align-items: center; }
+.sr-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; }
+.sr-muted { color: var(--text-tertiary); }
+.sr-input { border: 1.5px solid var(--border-color); border-radius: 7px; padding: .3rem .5rem; font-size: .82rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sr-wrap">
+
+    <h1 class="sr-title"><i class="fas fa-screwdriver-wrench"></i> Vehicle Service Requests</h1>
+    <p class="sr-sub">Employee-submitted service requests awaiting HR action.</p>
+
+    <div class="sr-card">
+        <h2 class="sr-card-h"><i class="fas fa-hourglass-half"></i> Pending ({{ pending|length }})</h2>
+        {% if pending %}
+        <div class="sr-table-wrap">
+            <table class="sr-table">
+                <thead><tr>
+                    <th>Vehicle</th><th>Type</th><th>Requested By</th><th>Notes</th><th>When</th><th>Action</th>
+                </tr></thead>
+                <tbody>
+                {% for s in pending %}
+                <tr>
+                    <td><strong>{{ s.vehicle.name }}</strong><br><span class="sr-muted">{{ s.vehicle.car_number }}</span></td>
+                    <td>{{ s.type_label }}</td>
+                    <td>{{ s.requested_by.emp_name|default:"—" }}</td>
+                    <td>{{ s.notes|default:"—" }}</td>
+                    <td class="sr-muted">{{ s.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <div class="sr-actions-row">
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="requests">
+                                <button name="action" value="approve" class="sr-btn complete"><i class="fas fa-check"></i> Approve</button>
+                            </form>
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="requests">
+                                <button name="action" value="reject" class="sr-btn reject" onclick="return confirm('Reject this request?')"><i class="fas fa-xmark"></i></button>
+                            </form>
+                            <a href="{% url 'vehicle_services' s.vehicle.pk %}" class="sr-btn view"><i class="fas fa-eye"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="sr-empty"><i class="fas fa-check-circle"></i> No pending service requests.</div>
+        {% endif %}
+    </div>
+
+    <div class="sr-card">
+        <h2 class="sr-card-h"><i class="fas fa-coins"></i> Awaiting Cost Approval ({{ cost_pending|length }})</h2>
+        {% if cost_pending %}
+        <div class="sr-table-wrap">
+            <table class="sr-table">
+                <thead><tr>
+                    <th>Vehicle</th><th>Type</th><th>Completed By</th><th>Service Date</th><th>Cost (AED)</th><th>Action</th>
+                </tr></thead>
+                <tbody>
+                {% for s in cost_pending %}
+                <tr>
+                    <td><strong>{{ s.vehicle.name }}</strong><br><span class="sr-muted">{{ s.vehicle.car_number }}</span></td>
+                    <td>{{ s.type_label }}</td>
+                    <td>{{ s.requested_by.emp_name|default:"—" }}</td>
+                    <td class="sr-muted">{% if s.service_date %}{{ s.service_date|date:"d M Y" }}{% else %}—{% endif %}</td>
+                    <td>{{ s.cost }}</td>
+                    <td>
+                        <div class="sr-actions-row">
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;display:inline-flex;gap:.35rem;align-items:center;">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="requests">
+                                <input type="number" step="0.01" name="cost" class="sr-input" style="width:90px;" value="{{ s.cost|stringformat:'.2f' }}">
+                                <button name="action" value="approve_cost" class="sr-btn complete"><i class="fas fa-check-double"></i> Approve Cost</button>
+                            </form>
+                            <a href="{% url 'vehicle_services' s.vehicle.pk %}" class="sr-btn view"><i class="fas fa-eye"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="sr-empty"><i class="fas fa-check-circle"></i> No costs awaiting approval.</div>
+        {% endif %}
+    </div>
+
+    <div class="sr-card">
+        <h2 class="sr-card-h"><i class="fas fa-clock-rotate-left"></i> Recently Processed</h2>
+        {% if recent %}
+        <div class="sr-table-wrap">
+            <table class="sr-table">
+                <thead><tr>
+                    <th>Vehicle</th><th>Type</th><th>Status</th><th>Service Date</th><th>By</th>
+                </tr></thead>
+                <tbody>
+                {% for s in recent %}
+                <tr>
+                    <td>{{ s.vehicle.name }}</td>
+                    <td>{{ s.type_label }}</td>
+                    <td><span class="sr-badge b-{{ s.status }}">{{ s.status }}</span></td>
+                    <td>{% if s.service_date %}{{ s.service_date|date:"d M Y" }}{% else %}<span class="sr-muted">—</span>{% endif %}</td>
+                    <td class="sr-muted">{% if s.requested_by %}Req: {{ s.requested_by.emp_name }}{% else %}HR log{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="sr-empty"><i class="fas fa-inbox"></i> Nothing processed yet.</div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

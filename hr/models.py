@@ -617,6 +617,7 @@ class Notification(models.Model):
     doc_type = models.CharField(max_length=50, blank=True, default='')   # 'VISA','EID','MOL_TRADE_LICENSE','MULKIYA',…
     mol      = models.ForeignKey('Mol', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     vehicle  = models.ForeignKey('Vehicle', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    management_member = models.ForeignKey('ManagementMember', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
 
     class Meta:
         ordering = ['-created_at']
@@ -630,10 +631,25 @@ class OtherRecord(models.Model):
     """A general document store (HR/MD only). Each record has a heading, an
     optional comment and file, and can be linked to one or more employees —
     linked employees see it as a 'related document' on their detail page."""
+    EXPENSE_CHOICES = [
+        ('visa',      'Visa Expense'),
+        ('vehicle',   'Vehicle'),
+        ('office',    'Office'),
+        ('marketing', 'Marketing'),
+        ('it',        'IT'),
+        ('general',   'General'),
+        ('other',     'Other'),
+    ]
+
     title       = models.CharField(max_length=200)
     comment     = models.TextField(blank=True, default='')
     document    = models.FileField(upload_to='other_records/', null=True, blank=True)
     employees   = models.ManyToManyField(Employee, blank=True, related_name='other_records')
+
+    # Expense classification. 'other' is free-text via expense_other.
+    expense_category = models.CharField(max_length=20, choices=EXPENSE_CHOICES, blank=True, default='')
+    expense_other    = models.CharField('Other expense (specify)', max_length=200, blank=True, default='')
+
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_other_records')
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
@@ -643,6 +659,15 @@ class OtherRecord(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def expense_label(self):
+        """Display label for the expense category; free-text for 'other'."""
+        if not self.expense_category:
+            return ''
+        if self.expense_category == 'other':
+            return self.expense_other or 'Other'
+        return self.get_expense_category_display()
 
 
 class MonthlyReview(models.Model):
@@ -754,6 +779,13 @@ class Vehicle(models.Model):
     # Some vehicles are assigned to / associated with a specific employee.
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicles')
 
+    # Sale / disposal record — filled in by HR when a vehicle is sold.
+    is_sold       = models.BooleanField('Sold', default=False)
+    sold_on       = models.DateField('Sold On', null=True, blank=True)
+    sold_amount   = models.DecimalField('Sold Amount', max_digits=12, decimal_places=2, null=True, blank=True)
+    sold_to       = models.CharField('Sold To', max_length=200, blank=True, default='')
+    sold_document = models.FileField('Sale Document', upload_to='vehicles/sold/', null=True, blank=True)
+
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_vehicles')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -763,3 +795,301 @@ class Vehicle(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.car_number})"
+
+    def last_service_dates(self):
+        """Most-recent completed service date per type — the vehicle's service
+        history ('previous dates'). Returns a dict of service_type -> date."""
+        result = {}
+        for svc in self.services.filter(status='Completed', service_date__isnull=False):
+            cur = result.get(svc.service_type)
+            if cur is None or svc.service_date > cur:
+                result[svc.service_type] = svc.service_date
+        return result
+
+    @property
+    def pending_service_count(self):
+        return self.services.filter(status='Requested').count()
+
+
+class VehicleService(models.Model):
+    """A service / maintenance record for a Vehicle.
+
+    Serves two purposes:
+      1. HISTORY — each completed record stores the date a service was performed,
+         giving the vehicle a maintenance log of previous service dates.
+      2. REQUEST workflow — an employee assigned to a vehicle can request a
+         service (General Service, Tyre Change or Other). HR/MD then approve &
+         complete it (recording the service date) or reject it.
+    """
+    SERVICE_TYPE_CHOICES = [
+        ('general', 'General Service'),
+        ('tyre',    'Tyre Change'),
+        ('battery', 'Battery'),
+        ('major',   'Major Service'),
+        ('other',   'Other'),
+    ]
+    # Service types a self-service employee is allowed to request.
+    EMPLOYEE_REQUESTABLE = ['general', 'tyre', 'battery', 'major', 'other']
+
+    STATUS_CHOICES = [
+        ('Requested', 'Requested'),
+        ('Approved',  'Approved'),
+        ('Completed', 'Completed'),
+        ('Rejected',  'Rejected'),
+    ]
+
+    vehicle      = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='services')
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
+    other_detail = models.CharField('Other (specify)', max_length=200, blank=True, default='')
+
+    status       = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Requested')
+    service_date = models.DateField('Service Date', null=True, blank=True)
+    notes        = models.TextField(blank=True, default='')
+    cost         = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    # Who requested it (employee self-service) and who logged it (HR/MD).
+    requested_by = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicle_service_requests')
+    created_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='logged_vehicle_services')
+
+    approved_by      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_vehicle_services')
+    approved_at      = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default='')
+
+    # Cost approval — after the employee completes the service and records the
+    # cost, HR signs off (approves) that cost.
+    cost_approved    = models.BooleanField(default=False)
+    cost_approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cost_approved_vehicle_services')
+    cost_approved_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-service_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.get_service_type_display()} — {self.vehicle.name}"
+
+    @property
+    def type_label(self):
+        """Human label; falls back to the free-text detail for 'Other'."""
+        if self.service_type == 'other' and self.other_detail:
+            return self.other_detail
+        return self.get_service_type_display()
+
+    @property
+    def awaiting_cost_approval(self):
+        """Completed with a cost recorded but HR hasn't approved the cost yet."""
+        return self.status == 'Completed' and self.cost is not None and not self.cost_approved
+
+
+class ManagementMember(models.Model):
+    """A company management person (owner / director / partner) or one of their
+    family members. Stores personal documents — Emirates ID, Passport, Driving
+    License and Visa (with a visa type) — plus a travel history. HR/MD only."""
+
+    RELATION_CHOICES = [
+        ('self',     'Management'),
+        ('spouse',   'Spouse'),
+        ('son',      'Son'),
+        ('daughter', 'Daughter'),
+        ('father',   'Father'),
+        ('mother',   'Mother'),
+        ('other',    'Other'),
+    ]
+
+    VISA_TYPE_CHOICES = [
+        ('employment', 'Employment Visa'),
+        ('residence',  'Residence Visa'),
+        ('investor',   'Investor Visa'),
+        ('partner',    'Partner Visa'),
+        ('golden',     'Golden Visa'),
+        ('green',      'Green Visa'),
+        ('family',     'Family / Dependent Visa'),
+        ('visit',      'Visit Visa'),
+        ('tourist',    'Tourist Visa'),
+        ('mission',    'Mission Visa'),
+        ('student',    'Student Visa'),
+        ('retirement', 'Retirement Visa'),
+        ('other',      'Other'),
+    ]
+
+    # Family link: null head = a management person; set = a family member.
+    head        = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='family')
+    relation    = models.CharField(max_length=20, choices=RELATION_CHOICES, default='self')
+
+    name        = models.CharField('Full Name', max_length=200)
+    designation = models.CharField('Designation / Role', max_length=150, blank=True, default='')
+    nationality = models.CharField(max_length=100, blank=True, default='')
+    dob         = models.DateField('Date of Birth', null=True, blank=True)
+    phone       = models.CharField(max_length=40, blank=True, default='')
+    email       = models.EmailField(blank=True, default='')
+    photo       = models.ImageField(upload_to='management/photos/', null=True, blank=True)
+
+    # Emirates ID
+    eid_number   = models.CharField('Emirates ID Number', max_length=50, blank=True, default='')
+    eid_expiry   = models.DateField('Emirates ID Expiry', null=True, blank=True)
+    eid_document = models.FileField('Emirates ID Document', upload_to='management/eid/', null=True, blank=True)
+
+    # Passport
+    passport_number   = models.CharField('Passport Number', max_length=50, blank=True, default='')
+    passport_expiry   = models.DateField('Passport Expiry', null=True, blank=True)
+    passport_document = models.FileField('Passport Document', upload_to='management/passport/', null=True, blank=True)
+
+    # Driving License
+    dl_number   = models.CharField('Driving License Number', max_length=50, blank=True, default='')
+    dl_expiry   = models.DateField('Driving License Expiry', null=True, blank=True)
+    dl_document = models.FileField('Driving License Document', upload_to='management/dl/', null=True, blank=True)
+
+    # Visa
+    visa_type     = models.CharField('Visa Type', max_length=20, choices=VISA_TYPE_CHOICES, blank=True, default='')
+    visa_number   = models.CharField('Visa Number', max_length=50, blank=True, default='')
+    visa_expiry   = models.DateField('Visa Expiry', null=True, blank=True)
+    visa_document = models.FileField('Visa Document', upload_to='management/visa/', null=True, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_management')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_family(self):
+        return self.head_id is not None
+
+    @property
+    def visa_type_label(self):
+        return self.get_visa_type_display() if self.visa_type else ''
+
+
+class TravelRecord(models.Model):
+    """A single trip for a management member — its travel history."""
+    member         = models.ForeignKey(ManagementMember, on_delete=models.CASCADE, related_name='travels')
+    destination    = models.CharField(max_length=150)
+    purpose        = models.CharField(max_length=200, blank=True, default='')
+    departure_date = models.DateField(null=True, blank=True)
+    return_date    = models.DateField(null=True, blank=True)
+    notes          = models.TextField(blank=True, default='')
+    document       = models.FileField('Travel Document', upload_to='management/travel/', null=True, blank=True)
+    created_by     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_travels')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-departure_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.member.name} → {self.destination}"
+
+
+class CountryVisa(models.Model):
+    """A visa a management member holds for a country other than the UAE
+    (e.g. US, UK, Schengen). Separate from the primary UAE visa on the member."""
+    VISA_TYPE_CHOICES = [
+        ('tourist',   'Tourist'),
+        ('visit',     'Visit'),
+        ('business',  'Business'),
+        ('work',      'Work'),
+        ('student',   'Student'),
+        ('residence', 'Residence'),
+        ('transit',   'Transit'),
+        ('other',     'Other'),
+    ]
+
+    member     = models.ForeignKey(ManagementMember, on_delete=models.CASCADE, related_name='country_visas')
+    country    = models.CharField(max_length=100)
+    visa_type  = models.CharField('Visa Type', max_length=20, choices=VISA_TYPE_CHOICES, blank=True, default='')
+    number     = models.CharField('Visa Number', max_length=50, blank=True, default='')
+    issue_date = models.DateField('Issue Date', null=True, blank=True)
+    expiry     = models.DateField('Expiry', null=True, blank=True)
+    document   = models.FileField('Visa Document', upload_to='management/country_visa/', null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_country_visas')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['country', '-expiry']
+
+    def __str__(self):
+        return f"{self.member.name} — {self.country} visa"
+
+    @property
+    def visa_type_label(self):
+        return self.get_visa_type_display() if self.visa_type else ''
+
+
+class CompanyProperty(models.Model):
+    """A company-owned asset/property that can be assigned to an employee.
+    When assigned, it appears on that employee's detail page. HR/MD only."""
+    CATEGORY_CHOICES = [
+        ('laptop',    'Laptop'),
+        ('desktop',   'Desktop'),
+        ('phone',     'Phone'),
+        ('sim',       'SIM Card'),
+        ('tablet',    'Tablet'),
+        ('furniture', 'Furniture'),
+        ('equipment', 'Equipment'),
+        ('tool',      'Tool'),
+        ('other',     'Other'),
+    ]
+
+    name          = models.CharField('Property Name', max_length=200)
+    category      = models.CharField(max_length=20, choices=CATEGORY_CHOICES, blank=True, default='')
+    serial_number = models.CharField('Serial / Asset No.', max_length=100, blank=True, default='')
+    description   = models.TextField(blank=True, default='')
+    purchase_date = models.DateField(null=True, blank=True)
+    value         = models.DecimalField('Value (AED)', max_digits=12, decimal_places=2, null=True, blank=True)
+    document      = models.FileField('Document', upload_to='properties/', null=True, blank=True)
+
+    # Assignment
+    assigned_to = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
+    assigned_on = models.DateField(null=True, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_properties')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Company properties'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def category_label(self):
+        return self.get_category_display() if self.category else ''
+
+
+class Memo(models.Model):
+    """An official memorandum issued on the company letterhead and rendered to a
+    PDF. HR/MD only."""
+    MEMO_TYPE_CHOICES = [
+        ('holiday',            'National Holiday Declaration'),
+        ('warning_employee',   'Warning to Employee'),
+        ('warning_department', 'Warning to Department'),
+        ('general',            'General Memo to All Staff'),
+    ]
+
+    memo_type   = models.CharField(max_length=25, choices=MEMO_TYPE_CHOICES, default='general')
+    ref_no      = models.CharField('Reference No.', max_length=60, blank=True, default='')
+    to_text     = models.CharField('To', max_length=200, default='All Staff')
+    employee    = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='memos')
+    department  = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='memos')
+    memo_date   = models.DateField()
+    subject     = models.CharField('Subject (Re)', max_length=300)
+    body        = models.TextField()
+    signatory   = models.CharField(max_length=120, default='HR/ADMIN DIVISION')
+    signature   = models.ImageField(upload_to='memos/signatures/', null=True, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_memos')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-memo_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.ref_no or 'Memo'} — {self.subject}"

@@ -1,0 +1,74 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Management Details{% endblock %}
+
+{% block extra_css %}
+<style>
+.mg-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.mg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.mg-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.mg-title i { color: var(--accent-primary); }
+.mg-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.mg-add { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 10px; background: var(--gradient-primary); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; }
+.mg-add:hover { color: #fff; transform: translateY(-1px); }
+.mg-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; }
+.mg-search input { flex: 1; max-width: 340px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.mg-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+
+.mg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.mg-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.2rem; box-shadow: var(--shadow-sm); text-decoration: none; display: flex; gap: .9rem; align-items: center; transition: transform .16s, box-shadow .16s; }
+.mg-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.mg-avatar, .mg-avatar-fb { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border-color); }
+.mg-avatar-fb { display: flex; align-items: center; justify-content: center; background: var(--gradient-primary); color: #fff; font-weight: 700; font-size: 1.25rem; }
+.mg-name { font-weight: 700; color: var(--text-primary); font-size: 1rem; }
+.mg-role { font-size: .82rem; color: var(--text-secondary); margin-top: .1rem; }
+.mg-meta { font-size: .74rem; color: var(--text-tertiary); margin-top: .35rem; display: flex; gap: .7rem; flex-wrap: wrap; }
+.mg-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; border: 1px dashed var(--border-color); border-radius: 12px; }
+.mg-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mg-wrap">
+
+    <div class="mg-top">
+        <div>
+            <h1 class="mg-title"><i class="fas fa-user-tie"></i> Management Details</h1>
+            <p class="mg-sub">Company management persons &amp; their families — documents and travel history. Visible to HR &amp; MD only.</p>
+        </div>
+        <a href="{% url 'management_add' %}" class="mg-add"><i class="fas fa-plus"></i> Add Management Person</a>
+    </div>
+
+    <form method="get" class="mg-search">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search name, role, nationality…">
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    {% if members %}
+    <div class="mg-grid">
+        {% for m in members %}
+        <a href="{% url 'management_detail' m.pk %}" class="mg-card">
+            {% if m.photo %}
+                <img src="{{ m.photo.url }}" alt="{{ m.name }}" class="mg-avatar">
+            {% else %}
+                <div class="mg-avatar-fb">{{ m.name|first|upper }}</div>
+            {% endif %}
+            <div style="min-width:0;">
+                <div class="mg-name">{{ m.name }}</div>
+                <div class="mg-role">{{ m.designation|default:"Management" }}</div>
+                <div class="mg-meta">
+                    {% if m.nationality %}<span><i class="fas fa-flag"></i> {{ m.nationality }}</span>{% endif %}
+                    <span><i class="fas fa-users"></i> {{ m.family.count }} family</span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="mg-empty">
+        <i class="fas fa-user-tie"></i>
+        {% if query %}No management persons match “{{ query }}”.{% else %}No management persons yet. Click <strong>Add Management Person</strong> to add one.{% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

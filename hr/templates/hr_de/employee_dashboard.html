@@ -5,194 +5,159 @@
 
 {% block extra_css %}
 <style>
-    .dash-wrap { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+    /* App-like centred column */
+    .edash { max-width: 620px; margin: 0 auto; padding: 1rem 1rem 2.5rem; }
 
-    /* ── Greeting header ─────────────────────────────────────────── */
-    .dash-hero {
-        display: flex;
-        align-items: center;
-        gap: 1.75rem;
-        margin-bottom: 2.25rem;
-        flex-wrap: wrap;
-    }
-    .dash-photo {
-        width: 104px; height: 104px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 4px solid var(--bg-primary);
-        box-shadow: 0 6px 18px rgba(0,0,0,.12);
-        flex-shrink: 0;
-    }
-    .dash-photo-fallback {
-        width: 104px; height: 104px;
-        border-radius: 50%;
-        background: var(--gradient-primary);
-        display: flex; align-items: center; justify-content: center;
-        color: #fff; font-size: 2.6rem; font-weight: 700;
-        border: 4px solid var(--bg-primary);
-        box-shadow: 0 6px 18px rgba(0,0,0,.12);
-        flex-shrink: 0;
-    }
-    .dash-greet-hi {
-        font-size: 2.1rem;
-        font-weight: 700;
-        color: var(--accent-primary);
-        line-height: 1.15;
-        margin: 0;
-    }
-    .dash-greet-role {
-        font-size: 1.05rem;
-        color: var(--text-secondary);
-        margin-top: .15rem;
-    }
-    .dash-greet-meta {
-        margin-top: .5rem;
-        display: flex;
-        gap: .5rem;
-        flex-wrap: wrap;
-    }
-    .dash-pill {
-        font-size: .76rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 9999px;
-        padding: .25rem .8rem;
-        display: inline-flex; align-items: center; gap: .4rem;
-    }
-
-    /* ── Happy Birthday banner ───────────────────────────────────── */
-    .bday-hero {
-        display: flex; align-items: center; gap: 1.25rem;
-        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-        color: #fff; border-radius: 18px; padding: 1.25rem 1.6rem;
-        margin-bottom: 2rem; box-shadow: 0 10px 24px rgba(236,72,153,.28);
-        animation: bdayPop .5s ease;
-    }
-    .bday-hero-emoji { font-size: 2.4rem; line-height: 1; flex-shrink: 0; animation: bdayWiggle 2.5s ease-in-out infinite; }
-    .bday-hero-title { font-size: 1.35rem; font-weight: 800; }
-    .bday-hero-sub { font-size: .92rem; opacity: .95; margin-top: .15rem; }
-    @keyframes bdayPop { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
-    @keyframes bdayWiggle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-
-    /* ── Tile grid ───────────────────────────────────────────────── */
-    .dash-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 1.25rem;
-    }
-    .dash-tile {
+    /* ── Profile header ─────────────────────────────────────────────── */
+    .edash-header {
         position: relative;
-        border-radius: 18px;
-        padding: 1.5rem;
-        min-height: 190px;
+        background: var(--gradient-primary, linear-gradient(160deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%));
+        border-radius: 22px;
+        padding: 2rem 1.25rem 1.75rem;
+        text-align: center;
         color: #fff;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
+        box-shadow: 0 10px 26px rgba(30, 58, 138, .22);
         overflow: hidden;
-        transition: transform .2s ease, box-shadow .2s ease;
-        box-shadow: 0 6px 16px rgba(0,0,0,.08);
     }
-    .dash-tile:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 14px 28px rgba(0,0,0,.16);
-        color: #fff;
-    }
-    .dash-tile-icon {
-        width: 52px; height: 52px;
-        border-radius: 13px;
-        background: rgba(255,255,255,.22);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.4rem;
-        margin-bottom: 1.1rem;
-    }
-    .dash-tile-title {
-        font-size: .8rem;
-        font-weight: 700;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        margin-bottom: .5rem;
-    }
-    .dash-tile-desc {
-        font-size: .9rem;
-        line-height: 1.45;
-        color: rgba(255,255,255,.92);
-        flex: 1;
-    }
-    .dash-tile-foot {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 1rem;
-        font-weight: 700;
-        font-size: .85rem;
-    }
-    .dash-tile-foot .arrow { transition: transform .2s ease; }
-    .dash-tile:hover .dash-tile-foot .arrow { transform: translateX(5px); }
-
-    /* count badge */
-    .dash-badge {
+    .edash-header::before,
+    .edash-header::after {
+        content: "";
         position: absolute;
-        top: 1.25rem; right: 1.25rem;
-        background: rgba(255,255,255,.28);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .07);
+    }
+    .edash-header::before { width: 200px; height: 200px; top: -70px; right: -60px; }
+    .edash-header::after  { width: 150px; height: 150px; bottom: -60px; left: -40px; }
+
+    .edash-photo, .edash-photo-fb {
+        width: 96px; height: 96px; border-radius: 50%;
+        margin: 0 auto .85rem; position: relative; z-index: 1;
+        border: 4px solid rgba(255, 255, 255, .9);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+        object-fit: cover;
+    }
+    .edash-photo-fb {
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, .2);
+        color: #fff; font-size: 2.4rem; font-weight: 700;
+    }
+    .edash-name { position: relative; z-index: 1; font-size: 1.4rem; font-weight: 700; margin: 0; line-height: 1.2; }
+    .edash-role { position: relative; z-index: 1; font-size: .95rem; opacity: .92; margin-top: .25rem; }
+    .edash-team { position: relative; z-index: 1; font-size: .85rem; opacity: .8; margin-top: .1rem; }
+    .edash-pills {
+        position: relative; z-index: 1;
+        display: flex; justify-content: center; flex-wrap: wrap; gap: .4rem; margin-top: .9rem;
+    }
+    .edash-pill {
+        font-size: .72rem; font-weight: 600;
+        background: rgba(255, 255, 255, .16);
+        border: 1px solid rgba(255, 255, 255, .22);
+        border-radius: 9999px; padding: .22rem .7rem;
+        display: inline-flex; align-items: center; gap: .35rem;
+    }
+    .edash-pill .dot { width: .5rem; height: .5rem; border-radius: 50%; display: inline-block; }
+
+    /* ── Birthday banner ────────────────────────────────────────────── */
+    .bday-hero {
+        display: flex; align-items: center; gap: 1rem;
+        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+        color: #fff; border-radius: 16px; padding: 1rem 1.25rem;
+        margin-top: 1rem; box-shadow: 0 8px 20px rgba(236, 72, 153, .26);
+    }
+    .bday-hero-emoji { font-size: 2rem; line-height: 1; }
+    .bday-hero-title { font-size: 1.1rem; font-weight: 800; }
+    .bday-hero-sub { font-size: .85rem; opacity: .95; margin-top: .1rem; }
+
+    /* ── Tile grid ──────────────────────────────────────────────────── */
+    .edash-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .8rem;
+        margin-top: 1.25rem;
+    }
+    .edash-tile {
+        position: relative;
+        background: var(--bg-card, #fff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 16px;
+        padding: 1rem .55rem;
+        text-decoration: none;
+        display: flex; flex-direction: column; align-items: center; text-align: center;
+        gap: .55rem;
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        min-height: 108px; justify-content: center;
+    }
+    .edash-tile:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, .1);
+        border-color: transparent;
+    }
+    .edash-tile-ic {
+        width: 46px; height: 46px; border-radius: 13px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.15rem;
+        background: var(--ic-bg, rgba(99, 102, 241, .12));
+        color: var(--ic-fg, #6366f1);
+    }
+    .edash-tile-label {
+        font-size: .78rem; font-weight: 600; line-height: 1.25;
+        color: var(--text-primary, #1f2937);
+    }
+    .edash-badge {
+        position: absolute; top: .5rem; right: .5rem;
+        min-width: 18px; height: 18px; padding: 0 .3rem;
+        background: #ef4444; color: #fff;
         border-radius: 9999px;
-        min-width: 28px; height: 28px;
-        padding: 0 .55rem;
+        font-size: .68rem; font-weight: 800;
         display: inline-flex; align-items: center; justify-content: center;
-        font-size: .8rem; font-weight: 800;
     }
 
-    /* tile colour themes */
-    .t-red    { background: linear-gradient(135deg,#f0475b 0%,#e11d48 100%); }
-    .t-green  { background: linear-gradient(135deg,#12b886 0%,#0d9488 100%); }
-    .t-blue   { background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%); }
-    .t-orange { background: linear-gradient(135deg,#fb923c 0%,#f97316 100%); }
-    .t-purple { background: linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%); }
-    .t-teal   { background: linear-gradient(135deg,#22d3ee 0%,#0891b2 100%); }
-    .t-slate  { background: linear-gradient(135deg,#475569 0%,#1e293b 100%); }
-    .t-gray   { background: linear-gradient(135deg,#94a3b8 0%,#64748b 100%); }
+    /* minimal icon tints */
+    .ic-indigo { --ic-bg: rgba(99,102,241,.12);  --ic-fg: #6366f1; }
+    .ic-emerald{ --ic-bg: rgba(16,185,129,.12);  --ic-fg: #10b981; }
+    .ic-blue   { --ic-bg: rgba(59,130,246,.12);  --ic-fg: #3b82f6; }
+    .ic-amber  { --ic-bg: rgba(245,158,11,.14);  --ic-fg: #d97706; }
+    .ic-violet { --ic-bg: rgba(139,92,246,.12);  --ic-fg: #8b5cf6; }
+    .ic-cyan   { --ic-bg: rgba(6,182,212,.12);   --ic-fg: #0891b2; }
+    .ic-rose   { --ic-bg: rgba(244,63,94,.12);   --ic-fg: #f43f5e; }
+    .ic-slate  { --ic-bg: rgba(100,116,139,.14); --ic-fg: #475569; }
 
-    /* ── Mobile responsive ───────────────────────────────────────── */
-    @media (max-width: 768px) {
-        .dash-wrap { padding: 1.25rem; }
-        .dash-hero { gap: 1.1rem; margin-bottom: 1.75rem; }
-        .dash-photo, .dash-photo-fallback { width: 78px; height: 78px; font-size: 1.9rem; border-width: 3px; }
-        .dash-greet-hi { font-size: 1.55rem; }
-        .dash-greet-role { font-size: .92rem; }
-        .dash-grid { grid-template-columns: 1fr; gap: 1rem; }
-        .dash-tile { min-height: 160px; padding: 1.25rem; }
+    /* Larger screens: keep it app-like but comfortable */
+    @media (min-width: 560px) {
+        .edash-grid { gap: 1rem; }
+        .edash-tile { min-height: 122px; padding: 1.1rem .6rem; }
+        .edash-tile-label { font-size: .84rem; }
     }
-    @media (min-width: 769px) and (max-width: 1024px) {
-        .dash-grid { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 360px) {
+        .edash-tile-ic { width: 42px; height: 42px; }
+        .edash-tile-label { font-size: .72rem; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="dash-wrap">
+<div class="edash">
 
-    <!-- Greeting -->
-    <div class="dash-hero">
+    <!-- Profile header -->
+    <div class="edash-header">
         {% if employee.photo %}
-            <img src="{{ employee.photo.url }}" alt="{{ employee.emp_name }}" class="dash-photo">
+            <img src="{{ employee.photo.url }}" alt="{{ employee.emp_name }}" class="edash-photo">
         {% else %}
-            <div class="dash-photo-fallback">{{ employee.emp_name|first|upper }}</div>
+            <div class="edash-photo-fb">{{ employee.emp_name|first|upper }}</div>
         {% endif %}
-        <div>
-            <h1 class="dash-greet-hi">Hi, {{ employee.emp_name }}</h1>
-            <div class="dash-greet-role">{{ employee.designation|default:"Employee" }}</div>
-            <div class="dash-greet-meta">
-                {% if employee.department %}<span class="dash-pill"><i class="fas fa-sitemap"></i> {{ employee.department.name }}</span>{% endif %}
-                <span class="dash-pill"><i class="fas fa-id-badge"></i> {{ employee.emp_id }}</span>
-                <span class="dash-pill"><i class="fas fa-circle" style="font-size:.5rem;color:{% if employee.is_active %}#10b981{% else %}#ef4444{% endif %};"></i> {{ employee.get_employee_status_display }}</span>
-            </div>
+        <h1 class="edash-name">{{ employee.emp_name }}</h1>
+        <div class="edash-role">{{ employee.designation|default:"Employee" }}</div>
+        {% if employee.department %}<div class="edash-team">{{ employee.department.name }}</div>{% endif %}
+        <div class="edash-pills">
+            <span class="edash-pill"><i class="fas fa-id-badge"></i> {{ employee.emp_id }}</span>
+            <span class="edash-pill">
+                <span class="dot" style="background:{% if employee.is_active %}#4ade80{% else %}#f87171{% endif %};"></span>
+                {{ employee.get_employee_status_display }}
+            </span>
         </div>
     </div>
 
     {% if is_birthday %}
-    <!-- Happy Birthday banner -->
     <div class="bday-hero">
         <div class="bday-hero-emoji">🎉🎂</div>
         <div>
@@ -203,65 +168,49 @@
     {% endif %}
 
     <!-- Feature tiles -->
-    <div class="dash-grid">
+    <div class="edash-grid">
 
-        <!-- My Leaves -->
-        <a href="{% url 'my_leaves' %}" class="dash-tile t-red">
-            {% if stats.pending_leaves %}<span class="dash-badge">{{ stats.pending_leaves }}</span>{% endif %}
-            <div class="dash-tile-icon"><i class="fas fa-calendar-check"></i></div>
-            <div class="dash-tile-title">My Leaves</div>
-            <div class="dash-tile-desc">View your leave history and track the approval status of every request.</div>
-            <div class="dash-tile-foot"><span>VIEW</span><span class="arrow">→</span></div>
+        <a href="{% url 'my_leaves' %}" class="edash-tile">
+            {% if stats.pending_leaves %}<span class="edash-badge">{{ stats.pending_leaves }}</span>{% endif %}
+            <div class="edash-tile-ic ic-rose"><i class="fas fa-calendar-check"></i></div>
+            <div class="edash-tile-label">My Leaves</div>
         </a>
 
-        <!-- Apply Leave -->
-        <a href="{% url 'submit_my_leave' %}" class="dash-tile t-green">
-            <div class="dash-tile-icon"><i class="fas fa-plus"></i></div>
-            <div class="dash-tile-title">Apply Leave</div>
-            <div class="dash-tile-desc">Submit a new leave request with your dates, reason and supporting documents.</div>
-            <div class="dash-tile-foot"><span>APPLY</span><span class="arrow">→</span></div>
+        <a href="{% url 'submit_my_leave' %}" class="edash-tile">
+            <div class="edash-tile-ic ic-emerald"><i class="fas fa-calendar-plus"></i></div>
+            <div class="edash-tile-label">Apply Leave</div>
         </a>
 
-        <!-- My Advances -->
-        <a href="{% url 'my_advances' %}" class="dash-tile t-blue">
-            {% if stats.pending_advances %}<span class="dash-badge">{{ stats.pending_advances }}</span>{% endif %}
-            <div class="dash-tile-icon"><i class="fas fa-hand-holding-usd"></i></div>
-            <div class="dash-tile-title">My Advances</div>
-            <div class="dash-tile-desc">Track your advance salary applications and monthly repayment progress.</div>
-            <div class="dash-tile-foot"><span>VIEW</span><span class="arrow">→</span></div>
+        <a href="{% url 'my_advances' %}" class="edash-tile">
+            {% if stats.pending_advances %}<span class="edash-badge">{{ stats.pending_advances }}</span>{% endif %}
+            <div class="edash-tile-ic ic-blue"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="edash-tile-label">My Advances</div>
         </a>
 
-        <!-- Apply Advance -->
-        <a href="{% url 'advance_apply' %}" class="dash-tile t-orange">
-            <div class="dash-tile-icon"><i class="fas fa-coins"></i></div>
-            <div class="dash-tile-title">Request Advance</div>
-            <div class="dash-tile-desc">Apply for an advance on your salary and set a comfortable monthly deduction.</div>
-            <div class="dash-tile-foot"><span>APPLY</span><span class="arrow">→</span></div>
+        <a href="{% url 'advance_apply' %}" class="edash-tile">
+            <div class="edash-tile-ic ic-amber"><i class="fas fa-coins"></i></div>
+            <div class="edash-tile-label">Request Advance</div>
         </a>
 
-        <!-- My Passport Requests -->
-        <a href="{% url 'my_passport_requests' %}" class="dash-tile t-teal">
-            {% if stats.pending_passport %}<span class="dash-badge">{{ stats.pending_passport }}</span>{% endif %}
-            <div class="dash-tile-icon"><i class="fas fa-passport"></i></div>
-            <div class="dash-tile-title">My Passport</div>
-            <div class="dash-tile-desc">See your passport custody requests and their current approval status.</div>
-            <div class="dash-tile-foot"><span>VIEW</span><span class="arrow">→</span></div>
+        <a href="{% url 'my_passport_requests' %}" class="edash-tile">
+            {% if stats.pending_passport %}<span class="edash-badge">{{ stats.pending_passport }}</span>{% endif %}
+            <div class="edash-tile-ic ic-cyan"><i class="fas fa-passport"></i></div>
+            <div class="edash-tile-label">My Passport</div>
         </a>
 
-        <!-- Request Passport -->
-        <a href="{% url 'passport_apply' %}" class="dash-tile t-purple">
-            <div class="dash-tile-icon"><i class="fas fa-id-card"></i></div>
-            <div class="dash-tile-title">Request Passport</div>
-            <div class="dash-tile-desc">Ask HR for temporary custody of your passport for travel or paperwork.</div>
-            <div class="dash-tile-foot"><span>APPLY</span><span class="arrow">→</span></div>
+        <a href="{% url 'passport_apply' %}" class="edash-tile">
+            <div class="edash-tile-ic ic-violet"><i class="fas fa-id-card"></i></div>
+            <div class="edash-tile-label">Request Passport</div>
         </a>
 
-        <!-- My Profile -->
-        <a href="{% url 'employee_detail' employee.id %}" class="dash-tile t-slate">
-            <div class="dash-tile-icon"><i class="fas fa-user"></i></div>
-            <div class="dash-tile-title">My Profile</div>
-            <div class="dash-tile-desc">Review your personal details, job information and document expiry dates.</div>
-            <div class="dash-tile-foot"><span>VIEW</span><span class="arrow">→</span></div>
+        <a href="{% url 'my_vehicles' %}" class="edash-tile">
+            <div class="edash-tile-ic ic-indigo"><i class="fas fa-car"></i></div>
+            <div class="edash-tile-label">My Vehicles</div>
+        </a>
+
+        <a href="{% url 'employee_detail' employee.id %}" class="edash-tile">
+            <div class="edash-tile-ic ic-slate"><i class="fas fa-user"></i></div>
+            <div class="edash-tile-label">My Profile</div>
         </a>
 
     </div>

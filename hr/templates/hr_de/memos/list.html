@@ -1,0 +1,88 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Memos{% endblock %}
+
+{% block extra_css %}
+<style>
+.ml-wrap { max-width: 1050px; margin: 0 auto; padding: 2rem; }
+.ml-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.ml-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.ml-title i { color: var(--accent-primary); }
+.ml-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.ml-add { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 10px; background: var(--gradient-primary); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; }
+.ml-add:hover { color: #fff; transform: translateY(-1px); }
+.ml-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.ml-search input { flex: 1; max-width: 320px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.ml-search select { border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; background: #fff; cursor: pointer; }
+.ml-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+
+.ml-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
+.ml-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.ml-ref { font-size: .74rem; font-weight: 700; color: var(--accent-primary); }
+.ml-h { font-weight: 700; color: var(--text-primary); font-size: 1.02rem; margin-top: .15rem; }
+.ml-type { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(99,102,241,.1); color: #4f46e5; }
+.ml-meta { font-size: .78rem; color: var(--text-tertiary); margin-top: .5rem; display: flex; gap: .9rem; flex-wrap: wrap; }
+.ml-actions { display: flex; gap: .4rem; align-items: center; flex-shrink: 0; }
+.ml-btn { padding: .4rem .8rem; border-radius: 7px; font-size: .8rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; }
+.ml-btn.pdf  { background: rgba(239,68,68,.1); color: #dc2626; }
+.ml-btn.edit { background: rgba(251,191,36,.15); color: #d97706; }
+.ml-btn.del  { background: rgba(239,68,68,.1); color: #ef4444; }
+.ml-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; border: 1px dashed var(--border-color); border-radius: 12px; }
+.ml-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ml-wrap">
+
+    <div class="ml-top">
+        <div>
+            <h1 class="ml-title"><i class="fas fa-file-signature"></i> Memos</h1>
+            <p class="ml-sub">Official memorandums on the company letterhead — holidays, warnings and general notices. HR &amp; MD only.</p>
+        </div>
+        <a href="{% url 'memo_add' %}" class="ml-add"><i class="fas fa-plus"></i> New Memo</a>
+    </div>
+
+    <form method="get" class="ml-search">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search ref, subject, recipient…">
+        <select name="memo_type" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            {% for value, label in type_choices %}
+            <option value="{{ value }}" {% if memo_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    {% for m in memos %}
+    <div class="ml-card">
+        <div class="ml-head">
+            <div style="min-width:0;">
+                <div class="ml-ref">{{ m.ref_no }}</div>
+                <div class="ml-h">{{ m.subject }}</div>
+                <div class="ml-meta">
+                    <span class="ml-type">{{ m.get_memo_type_display }}</span>
+                    <span><i class="fas fa-user-group"></i> {{ m.to_text }}</span>
+                    <span><i class="fas fa-calendar"></i> {{ m.memo_date|date:"d M Y" }}</span>
+                </div>
+            </div>
+            <div class="ml-actions">
+                <a href="{% url 'memo_pdf' m.pk %}" target="_blank" class="ml-btn pdf"><i class="fas fa-file-pdf"></i> PDF</a>
+                <a href="{% url 'memo_edit' m.pk %}" class="ml-btn edit"><i class="fas fa-pen"></i></a>
+                <form method="post" action="{% url 'memo_delete' m.pk %}" style="margin:0;"
+                      data-confirm="Delete memo “{{ m.ref_no }}”? This cannot be undone."
+                      data-confirm-title="Delete memo?">
+                    {% csrf_token %}
+                    <button type="submit" class="ml-btn del"><i class="fas fa-trash"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="ml-empty">
+        <i class="fas fa-file-signature"></i>
+        {% if query or memo_type %}No memos match your filters.{% else %}No memos yet. Click <strong>New Memo</strong> to issue one.{% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

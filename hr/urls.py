@@ -134,8 +134,46 @@ urlpatterns = [
     path('vehicles/add/',             views.vehicle_add,    name='vehicle_add'),
     path('vehicles/upload/',          views.vehicle_bulk_upload,    name='vehicle_upload'),
     path('vehicles/upload/template/', views.vehicle_upload_template, name='vehicle_upload_template'),
+    path('vehicles/<int:pk>/',        views.vehicle_detail, name='vehicle_detail'),
     path('vehicles/<int:pk>/edit/',   views.vehicle_edit,   name='vehicle_edit'),
     path('vehicles/<int:pk>/delete/', views.vehicle_delete, name='vehicle_delete'),
+
+    # Vehicle Services (maintenance history + employee requests)
+    path('vehicles/<int:pk>/services/',      views.vehicle_services,     name='vehicle_services'),
+    path('vehicles/<int:pk>/services/add/',  views.vehicle_service_add,  name='vehicle_service_add'),
+    path('vehicle-services/requests/',       views.vehicle_service_requests, name='vehicle_service_requests'),
+    path('vehicle-services/<int:pk>/process/', views.vehicle_service_process, name='vehicle_service_process'),
+    path('vehicle-services/<int:pk>/delete/',  views.vehicle_service_delete,  name='vehicle_service_delete'),
+
+    # Management Details (owners/directors + families — HR & MD only)
+    path('management/',                          views.management_list,       name='management_list'),
+    path('management/add/',                      views.management_add,        name='management_add'),
+    path('management/<int:pk>/',                 views.management_detail,     name='management_detail'),
+    path('management/<int:pk>/edit/',            views.management_edit,       name='management_edit'),
+    path('management/<int:pk>/delete/',          views.management_delete,     name='management_delete'),
+    path('management/<int:head_pk>/family/add/', views.management_family_add, name='management_family_add'),
+    path('management/<int:member_pk>/travel/add/', views.travel_add,          name='travel_add'),
+    path('management-travel/<int:pk>/delete/',   views.travel_delete,         name='travel_delete'),
+    path('management/<int:member_pk>/visa/add/', views.country_visa_add,      name='country_visa_add'),
+    path('management-visa/<int:pk>/delete/',     views.country_visa_delete,   name='country_visa_delete'),
+
+    # Memos (official memorandums — HR & MD only)
+    path('memos/',               views.memo_list,   name='memo_list'),
+    path('memos/add/',           views.memo_add,    name='memo_add'),
+    path('memos/<int:pk>/edit/', views.memo_edit,   name='memo_edit'),
+    path('memos/<int:pk>/pdf/',  views.memo_pdf,    name='memo_pdf'),
+    path('memos/<int:pk>/delete/', views.memo_delete, name='memo_delete'),
+
+    # Company Properties (assets assignable to employees — HR & MD only)
+    path('properties/',              views.property_list,   name='property_list'),
+    path('properties/add/',          views.property_add,    name='property_add'),
+    path('properties/<int:pk>/edit/',   views.property_edit,   name='property_edit'),
+    path('properties/<int:pk>/delete/', views.property_delete, name='property_delete'),
+
+    # Employee self-service: my vehicles + request service
+    path('my-vehicles/',                     views.my_vehicles,          name='my_vehicles'),
+    path('my-vehicles/<int:pk>/request-service/', views.request_vehicle_service, name='request_vehicle_service'),
+    path('my-vehicle-services/<int:pk>/complete/', views.complete_vehicle_service, name='complete_vehicle_service'),
 
 
 

@@ -1,0 +1,12 @@
+{% comment %}Reusable sortable table header. Params: key, label. Uses parent context: sort, dir, ownership, query.{% endcomment %}
+<th>
+    <a class="vh-sort{% if sort == key %} active{% endif %}"
+       href="?{% if ownership %}ownership={{ ownership }}&amp;{% endif %}{% if query %}q={{ query|urlencode }}&amp;{% endif %}{% if company %}company={{ company|urlencode }}&amp;{% endif %}{% if state %}state={{ state|urlencode }}&amp;{% endif %}sort={{ key }}&amp;dir={% if sort == key and dir == 'asc' %}desc{% else %}asc{% endif %}">
+        {{ label }}
+        {% if sort == key %}
+            <i class="fas fa-sort-{% if dir == 'asc' %}up{% else %}down{% endif %}"></i>
+        {% else %}
+            <i class="fas fa-sort"></i>
+        {% endif %}
+    </a>
+</th>

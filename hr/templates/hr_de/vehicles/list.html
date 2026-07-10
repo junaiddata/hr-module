@@ -21,12 +21,18 @@
 
 .vh-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; }
 .vh-search input { flex: 1; max-width: 360px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.vh-search select { border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; background: #fff; color: var(--text-primary); cursor: pointer; max-width: 220px; }
 .vh-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
 
 .vh-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); transform: rotateX(180deg); }
 .vh-table-wrap table.vh-table { transform: rotateX(180deg); }
 table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; white-space: nowrap; }
 .vh-table th { text-align: left; padding: .75rem .9rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.vh-sort { display: inline-flex; align-items: center; gap: .35rem; color: inherit; text-decoration: none; white-space: nowrap; }
+.vh-sort:hover { color: var(--text-primary); }
+.vh-sort i { font-size: .72rem; opacity: .4; }
+.vh-sort.active { color: var(--accent-primary); }
+.vh-sort.active i { opacity: 1; }
 .vh-table td { padding: .7rem .9rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
 .vh-table tr:last-child td { border-bottom: none; }
 .vh-table tr:hover td { background: var(--bg-hover); }
@@ -34,12 +40,18 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
 .vh-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; }
 .vh-badge.company  { background: rgba(99,102,241,.12); color: #4f46e5; }
 .vh-badge.personal { background: rgba(16,185,129,.12); color: #059669; }
+.vh-badge.sold     { background: rgba(239,68,68,.12); color: #dc2626; }
 .vh-exp-warn { color: #ef4444; font-weight: 700; }
 .vh-doc { color: var(--accent-primary); font-weight: 600; text-decoration: none; }
 .vh-actions { display: flex; gap: .4rem; }
 .vh-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .78rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: .3rem; }
 .vh-btn.edit { background: rgba(251,191,36,.15); color: #d97706; }
 .vh-btn.del  { background: rgba(239,68,68,.1); color: #ef4444; }
+.vh-btn.svc  { background: rgba(8,11,177,.08); color: var(--accent-primary); }
+.vh-btn.view { background: rgba(16,185,129,.12); color: #059669; }
+.vh-namelink { color: inherit; text-decoration: none; }
+.vh-namelink:hover { color: var(--accent-primary); text-decoration: underline; }
+.vh-svc-dot { background: #ef4444; color: #fff; font-size: .66rem; font-weight: 800; border-radius: 9999px; padding: 0 .35rem; min-width: 1rem; text-align: center; }
 .vh-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; }
 .vh-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
 .vh-muted { color: var(--text-tertiary); }
@@ -55,6 +67,7 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
             <p class="vh-sub">Company &amp; personal vehicles — registration, tracking, mulkiya &amp; expiries.</p>
         </div>
         <div class="vh-actions-top">
+            <a href="{% url 'vehicle_service_requests' %}" class="vh-add secondary"><i class="fas fa-screwdriver-wrench"></i> Service Requests</a>
             <a href="{% url 'vehicle_upload' %}" class="vh-add secondary"><i class="fas fa-file-excel"></i> Bulk Upload</a>
             <a href="{% url 'vehicle_add' %}" class="vh-add"><i class="fas fa-plus"></i> Add Vehicle</a>
         </div>
@@ -75,6 +88,18 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
     <form method="get" class="vh-search">
         {% if ownership %}<input type="hidden" name="ownership" value="{{ ownership }}">{% endif %}
         <input type="text" name="q" value="{{ query }}" placeholder="Search name, car number, model, company…">
+        <select name="company" onchange="this.form.submit()">
+            <option value="">All Companies</option>
+            {% for c in companies %}
+            <option value="{{ c }}" {% if c == company %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+        <select name="state" onchange="this.form.submit()">
+            <option value="">All States</option>
+            {% for s in states %}
+            <option value="{{ s }}" {% if s == state %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
         <button type="submit"><i class="fas fa-search"></i> Search</button>
     </form>
 
@@ -82,28 +107,34 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
         <table class="vh-table">
             <thead>
                 <tr>
+                    <th>Sl No</th>
                     <th>Actions</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Employee</th>
-                    <th>Car Number</th>
-                    <th>Model</th>
-                    <th>Car &amp; Model</th>
-                    <th>Company</th>
-                    <th>Tracking</th>
-                    <th>Tracking Exp</th>
-                    <th>State</th>
-                    <th>Traffic Code</th>
-                    <th>Mortgage</th>
-                    <th>Mulkiya Expiry</th>
+                    {% include "hr_de/vehicles/_sort_th.html" with key="name" label="Name" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="ownership" label="Type" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="employee" label="Employee" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="car_number" label="Car Number" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="model" label="Model" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="car_and_model" label="Car & Model" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="company" label="Company" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="tracking" label="Tracking" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="tracking_exp_date" label="Tracking Exp" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="state" label="State" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="traffic_code" label="Traffic Code" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="mortgage" label="Mortgage" %}
+                    {% include "hr_de/vehicles/_sort_th.html" with key="mulkiya_expiry" label="Mulkiya Expiry" %}
                     <th>Mulkiya</th>
                 </tr>
             </thead>
             <tbody>
                 {% for v in vehicles %}
                 <tr>
+                    <td class="vh-muted">{{ forloop.counter }}</td>
                     <td>
                         <div class="vh-actions">
+                            <a href="{% url 'vehicle_detail' v.pk %}" class="vh-btn view" title="View details"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'vehicle_services' v.pk %}" class="vh-btn svc" title="Services{% if v.pending_services %} — {{ v.pending_services }} pending{% endif %}">
+                                <i class="fas fa-screwdriver-wrench"></i>{% if v.pending_services %} <span class="vh-svc-dot">{{ v.pending_services }}</span>{% endif %}
+                            </a>
                             <a href="{% url 'vehicle_edit' v.pk %}" class="vh-btn edit"><i class="fas fa-pen"></i></a>
                             <form method="post" action="{% url 'vehicle_delete' v.pk %}" style="margin:0;"
                                   onsubmit="return confirm('Delete “{{ v.name }}”? This cannot be undone.')">
@@ -112,7 +143,7 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
                             </form>
                         </div>
                     </td>
-                    <td class="vh-name">{{ v.name }}</td>
+                    <td class="vh-name"><a href="{% url 'vehicle_detail' v.pk %}" class="vh-namelink">{{ v.name }}</a>{% if v.is_sold %} <span class="vh-badge sold" title="Sold{% if v.sold_on %} on {{ v.sold_on|date:'d M Y' }}{% endif %}">Sold</span>{% endif %}</td>
                     <td><span class="vh-badge {{ v.ownership|lower }}">{{ v.get_ownership_display }}</span></td>
                     <td>
                         {% if v.employee %}
@@ -137,7 +168,7 @@ table.vh-table { width: 100%; border-collapse: collapse; font-size: .84rem; whit
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="15">
+                    <td colspan="16">
                         <div class="vh-empty">
                             <i class="fas fa-car-side"></i>
                             {% if query %}No vehicles match “{{ query }}”.{% else %}No vehicles yet. Click <strong>Add Vehicle</strong> to add one.{% endif %}

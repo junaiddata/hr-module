@@ -1,0 +1,116 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Company Properties{% endblock %}
+
+{% block extra_css %}
+<style>
+.pr-wrap { max-width: 1150px; margin: 0 auto; padding: 2rem; }
+.pr-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.pr-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.pr-title i { color: var(--accent-primary); }
+.pr-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.pr-add { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 10px; background: var(--gradient-primary); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; }
+.pr-add:hover { color: #fff; transform: translateY(-1px); }
+
+.pr-tabs { display: flex; gap: .5rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
+.pr-tab { padding: .45rem 1rem; border-radius: 9999px; font-size: .82rem; font-weight: 600; text-decoration: none; border: 1.5px solid var(--border-color); color: var(--text-secondary); background: #fff; }
+.pr-tab.active { background: var(--gradient-primary); color: #fff; border-color: transparent; }
+
+.pr-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.pr-search input { flex: 1; max-width: 320px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.pr-search select { border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; background: #fff; cursor: pointer; }
+.pr-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+
+.pr-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); }
+table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.pr-table th { text-align: left; padding: .7rem .9rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.pr-table td { padding: .7rem .9rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.pr-table tr:last-child td { border-bottom: none; }
+.pr-name { font-weight: 700; }
+.pr-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(99,102,241,.1); color: #4f46e5; }
+.pr-chip-assigned { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(16,185,129,.12); color: #059669; }
+.pr-chip-available { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: var(--bg-tertiary); color: var(--text-tertiary); }
+.pr-doc { color: var(--accent-primary); font-weight: 600; text-decoration: none; }
+.pr-actions { display: flex; gap: .4rem; }
+.pr-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .78rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
+.pr-btn.edit { background: rgba(251,191,36,.15); color: #d97706; }
+.pr-btn.del  { background: rgba(239,68,68,.1); color: #ef4444; }
+.pr-muted { color: var(--text-tertiary); }
+.pr-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; }
+.pr-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pr-wrap">
+
+    <div class="pr-top">
+        <div>
+            <h1 class="pr-title"><i class="fas fa-box-open"></i> Company Properties</h1>
+            <p class="pr-sub">Company-owned assets — assign them to employees to show on their profile. HR &amp; MD only.</p>
+        </div>
+        <a href="{% url 'property_add' %}" class="pr-add"><i class="fas fa-plus"></i> Add Property</a>
+    </div>
+
+    <div class="pr-tabs">
+        <a href="?" class="pr-tab {% if not assigned %}active{% endif %}">All</a>
+        <a href="?assigned=assigned" class="pr-tab {% if assigned == 'assigned' %}active{% endif %}">Assigned ({{ assigned_count }})</a>
+        <a href="?assigned=available" class="pr-tab {% if assigned == 'available' %}active{% endif %}">Available ({{ available_count }})</a>
+    </div>
+
+    <form method="get" class="pr-search">
+        {% if assigned %}<input type="hidden" name="assigned" value="{{ assigned }}">{% endif %}
+        <input type="text" name="q" value="{{ query }}" placeholder="Search name, serial, employee…">
+        <select name="category" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            {% for value, label in category_choices %}
+            <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    {% if properties %}
+    <div class="pr-table-wrap">
+        <table class="pr-table">
+            <thead>
+                <tr>
+                    <th>Property</th><th>Category</th><th>Serial / Asset</th><th>Assigned To</th><th>Assigned On</th><th>Value</th><th>Doc</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in properties %}
+                <tr>
+                    <td class="pr-name">{{ p.name }}</td>
+                    <td>{% if p.category %}<span class="pr-badge">{{ p.category_label }}</span>{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>{{ p.serial_number|default:"—" }}</td>
+                    <td>
+                        {% if p.assigned_to %}
+                        <a href="{% url 'employee_detail' p.assigned_to.pk %}" class="pr-doc"><i class="fas fa-user"></i> {{ p.assigned_to.emp_name }}</a>
+                        {% else %}<span class="pr-chip-available">Available</span>{% endif %}
+                    </td>
+                    <td>{% if p.assigned_on %}{{ p.assigned_on|date:"d M Y" }}{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>{% if p.value %}AED {{ p.value }}{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>{% if p.document %}<a href="{{ p.document.url }}" target="_blank" class="pr-doc">View</a>{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>
+                        <div class="pr-actions">
+                            <a href="{% url 'property_edit' p.pk %}" class="pr-btn edit"><i class="fas fa-pen"></i></a>
+                            <form method="post" action="{% url 'property_delete' p.pk %}" style="margin:0;" onsubmit="return confirm('Delete “{{ p.name }}”?')">
+                                {% csrf_token %}
+                                <button type="submit" class="pr-btn del"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="pr-empty">
+        <i class="fas fa-box-open"></i>
+        {% if query or category or assigned %}No properties match your filters.{% else %}No company properties yet. Click <strong>Add Property</strong> to add one.{% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

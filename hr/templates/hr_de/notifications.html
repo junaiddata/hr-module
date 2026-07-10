@@ -27,6 +27,9 @@
 .sc-green  { background: rgba(16,185,129,.1); color: #10b981; }
 .stat-chip-val   { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
 .stat-chip-label { font-size: .74rem; color: var(--text-secondary); margin-top: .15rem; }
+.stat-chip.clickable { cursor: pointer; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.stat-chip.clickable:hover { border-color: var(--accent-primary); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.stat-chip.clickable.active { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(8,11,177,.15); }
 
 /* ── Filter tabs ────────────────────────────────────────────────────────── */
 .filter-tabs {
@@ -200,21 +203,21 @@
         {% endif %}
     </div>
 
-    <!-- Stats -->
+    <!-- Stats (clickable filters) -->
     <div class="stats-row">
-        <div class="stat-chip">
+        <div class="stat-chip clickable active" data-stat="unread" onclick="setStat(this,'unread')" title="Show unread">
             <div class="stat-chip-icon sc-red"><i class="fas fa-bell"></i></div>
             <div><div class="stat-chip-val">{{ unread_count }}</div><div class="stat-chip-label">Unread</div></div>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip clickable" data-stat="critical" onclick="setStat(this,'critical')" title="Show critical only">
             <div class="stat-chip-icon sc-red"><i class="fas fa-circle-exclamation"></i></div>
             <div><div class="stat-chip-val">{{ critical_count }}</div><div class="stat-chip-label">Critical</div></div>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip clickable" data-stat="warning" onclick="setStat(this,'warning')" title="Show warnings only">
             <div class="stat-chip-icon sc-amber"><i class="fas fa-triangle-exclamation"></i></div>
             <div><div class="stat-chip-val">{{ warning_count }}</div><div class="stat-chip-label">Warning</div></div>
         </div>
-        <div class="stat-chip">
+        <div class="stat-chip clickable" data-stat="read" onclick="setStat(this,'read')" title="Show read messages">
             <div class="stat-chip-icon sc-green"><i class="fas fa-envelope-open"></i></div>
             <div><div class="stat-chip-val">{{ read|length }}</div><div class="stat-chip-label">Read (last 30 days)</div></div>
         </div>
@@ -238,33 +241,39 @@
             <i class="fas fa-car"></i> Mulkiya
             <span class="tab-count" id="count-vehicle">0</span>
         </button>
+        <button class="tab-btn" data-filter="management" onclick="setTab(this,'management')">
+            <i class="fas fa-user-tie"></i> Management
+            <span class="tab-count" id="count-management">0</span>
+        </button>
     </div>
 
     <!-- ── UNREAD ──────────────────────────────────────────────────────────── -->
-    <div class="section-title">
-        <i class="fas fa-envelope"></i> Unread Notifications
+    <div class="section-title" id="unreadSectionTitle">
+        <i class="fas fa-envelope"></i> <span id="unreadSectionLabel">Unread Notifications</span>
         <span class="section-count" id="unreadSectionCount">{{ unread_count }}</span>
     </div>
 
     <div id="unreadList">
     {% for n in unread %}
     <div class="notif-card" id="notif-{{ n.id }}"
-         data-source="{% if n.vehicle %}vehicle{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+         data-urgency="{{ n.urgency|default:'info' }}"
+         data-source="{% if n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
         <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
         <div class="notif-inner">
 
             <!-- Doc icon -->
             <div class="notif-doc-icon di-{{ n.urgency|default:'default' }}">
-                {% if n.doc_type == 'PASSPORT' %}<i class="fas fa-passport"></i>
-                {% elif n.doc_type == 'VISA' %}<i class="fas fa-stamp"></i>
-                {% elif n.doc_type == 'EID' %}<i class="fas fa-id-card"></i>
+                {% if n.doc_type == 'PASSPORT' or n.doc_type == 'MGMT_PASSPORT' %}<i class="fas fa-passport"></i>
+                {% elif n.doc_type == 'VISA' or n.doc_type == 'MGMT_VISA' %}<i class="fas fa-stamp"></i>
+                {% elif n.doc_type == 'EID' or n.doc_type == 'MGMT_EID' %}<i class="fas fa-id-card"></i>
                 {% elif n.doc_type == 'LABOUR_CARD' %}<i class="fas fa-briefcase"></i>
                 {% elif n.doc_type == 'INSURANCE' %}<i class="fas fa-shield-halved"></i>
-                {% elif n.doc_type == 'DRIVING_LICENSE' %}<i class="fas fa-car"></i>
+                {% elif n.doc_type == 'DRIVING_LICENSE' or n.doc_type == 'MGMT_DL' %}<i class="fas fa-car"></i>
                 {% elif n.doc_type == 'MULKIYA' %}<i class="fas fa-car-side"></i>
                 {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}<i class="fas fa-file-certificate"></i>
                 {% elif n.doc_type == 'MOL_TENANCY' %}<i class="fas fa-file-contract"></i>
                 {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}<i class="fas fa-id-badge"></i>
+                {% elif 'MGMT_COUNTRY_VISA' in n.doc_type %}<i class="fas fa-earth-americas"></i>
                 {% else %}<i class="fas fa-bell"></i>{% endif %}
             </div>
 
@@ -273,6 +282,12 @@
                 <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#0ea5e9,#4f46e5);">
                     <i class="fas fa-car" style="font-size:.9rem;"></i>
                 </div>
+            {% elif n.management_member %}
+                {% if n.management_member.photo %}
+                    <img src="{{ n.management_member.photo.url }}" alt="{{ n.management_member.name }}" class="notif-emp-avatar">
+                {% else %}
+                    <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#f59e0b,#b45309);">{{ n.management_member.name|first|upper }}</div>
+                {% endif %}
             {% elif n.employee %}
                 {% if n.employee.photo %}
                     <img src="{{ n.employee.photo.url }}" alt="{{ n.employee.emp_name }}" class="notif-emp-avatar">
@@ -300,6 +315,8 @@
 
                     {% if n.vehicle %}
                         <span class="doc-badge db-read"><i class="fas fa-car"></i> Mulkiya</span>
+                    {% elif n.management_member %}
+                        <span class="doc-badge db-read"><i class="fas fa-user-tie"></i> Management</span>
                     {% elif n.mol %}
                         <span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>
                     {% endif %}
@@ -308,6 +325,11 @@
                             {% if n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                             {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
                             {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}Establishment Card
+                            {% elif n.doc_type == 'MGMT_EID' %}Emirates ID
+                            {% elif n.doc_type == 'MGMT_PASSPORT' %}Passport
+                            {% elif n.doc_type == 'MGMT_DL' %}Driving License
+                            {% elif n.doc_type == 'MGMT_VISA' %}Visa
+                            {% elif 'MGMT_COUNTRY_VISA' in n.doc_type %}Country Visa
                             {% else %}{{ n.doc_type|title|cut:"_" }}{% endif %}
                         </span>
                     {% endif %}
@@ -317,6 +339,8 @@
                         {% if n.vehicle.employee %}
                             <span class="notif-time"><i class="fas fa-user"></i> {{ n.vehicle.employee.emp_name }}</span>
                         {% endif %}
+                    {% elif n.management_member %}
+                        <span class="notif-time"><i class="fas fa-user"></i> {{ n.management_member.name }}</span>
                     {% elif n.employee and n.employee.department %}
                         <span class="notif-time"><i class="fas fa-sitemap"></i> {{ n.employee.department.name }}</span>
                     {% elif n.mol %}
@@ -329,8 +353,12 @@
             <!-- Actions -->
             <div class="notif-actions">
                 {% if n.vehicle %}
-                <a href="{% url 'vehicle_edit' n.vehicle.pk %}" class="btn-profile">
+                <a href="{% url 'vehicle_edit' n.vehicle.pk %}?next=notifications" class="btn-profile">
                     <i class="fas fa-car"></i> View Vehicle
+                </a>
+                {% elif n.management_member %}
+                <a href="{% url 'management_detail' n.management_member.pk %}" class="btn-profile">
+                    <i class="fas fa-user-tie"></i> View
                 </a>
                 {% elif n.employee %}
                 <a href="{% url 'employee_detail' n.employee.pk %}" class="btn-profile">
@@ -358,7 +386,7 @@
     <!-- Shown when a tab filter returns nothing -->
     <div class="filter-empty empty-state" id="filterEmpty">
         <i class="fas fa-filter-circle-xmark"></i>
-        <p>No unread notifications match this filter.</p>
+        <p>No notifications match this filter.</p>
     </div>
     </div>
 
@@ -378,26 +406,33 @@
         </p>
         {% for n in read %}
         <div class="notif-card is-read"
-             data-source="{% if n.vehicle %}vehicle{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+             data-source="{% if n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
             <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
             <div class="notif-inner">
                 <div class="notif-doc-icon di-{{ n.urgency|default:'default' }}" style="opacity:.6;">
-                    {% if n.doc_type == 'PASSPORT' %}<i class="fas fa-passport"></i>
-                    {% elif n.doc_type == 'VISA' %}<i class="fas fa-stamp"></i>
-                    {% elif n.doc_type == 'EID' %}<i class="fas fa-id-card"></i>
+                    {% if n.doc_type == 'PASSPORT' or n.doc_type == 'MGMT_PASSPORT' %}<i class="fas fa-passport"></i>
+                    {% elif n.doc_type == 'VISA' or n.doc_type == 'MGMT_VISA' %}<i class="fas fa-stamp"></i>
+                    {% elif n.doc_type == 'EID' or n.doc_type == 'MGMT_EID' %}<i class="fas fa-id-card"></i>
                     {% elif n.doc_type == 'LABOUR_CARD' %}<i class="fas fa-briefcase"></i>
                     {% elif n.doc_type == 'INSURANCE' %}<i class="fas fa-shield-halved"></i>
-                    {% elif n.doc_type == 'DRIVING_LICENSE' %}<i class="fas fa-car"></i>
+                    {% elif n.doc_type == 'DRIVING_LICENSE' or n.doc_type == 'MGMT_DL' %}<i class="fas fa-car"></i>
                     {% elif n.doc_type == 'MULKIYA' %}<i class="fas fa-car-side"></i>
                     {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}<i class="fas fa-file-certificate"></i>
                     {% elif n.doc_type == 'MOL_TENANCY' %}<i class="fas fa-file-contract"></i>
                     {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}<i class="fas fa-id-badge"></i>
+                    {% elif 'MGMT_COUNTRY_VISA' in n.doc_type %}<i class="fas fa-earth-americas"></i>
                     {% else %}<i class="fas fa-bell"></i>{% endif %}
                 </div>
                 {% if n.vehicle %}
                     <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#0ea5e9,#4f46e5);opacity:.7;">
                         <i class="fas fa-car" style="font-size:.9rem;"></i>
                     </div>
+                {% elif n.management_member %}
+                    {% if n.management_member.photo %}
+                        <img src="{{ n.management_member.photo.url }}" alt="{{ n.management_member.name }}" class="notif-emp-avatar">
+                    {% else %}
+                        <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#f59e0b,#b45309);opacity:.7;">{{ n.management_member.name|first|upper }}</div>
+                    {% endif %}
                 {% elif n.employee %}
                     {% if n.employee.photo %}
                         <img src="{{ n.employee.photo.url }}" alt="{{ n.employee.emp_name }}" class="notif-emp-avatar">
@@ -415,17 +450,25 @@
                     <div class="notif-meta">
                         <span class="doc-badge db-read"><i class="fas fa-check"></i> Read</span>
                         {% if n.vehicle %}<span class="doc-badge db-read"><i class="fas fa-car"></i> Mulkiya</span>
+                        {% elif n.management_member %}<span class="doc-badge db-read"><i class="fas fa-user-tie"></i> Management</span>
                         {% elif n.mol %}<span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>{% endif %}
                         {% if n.doc_type and n.doc_type != 'MULKIYA' %}
                             <span class="doc-badge db-read">
                                 {% if n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                                 {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
                                 {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}Establishment Card
+                                {% elif n.doc_type == 'MGMT_EID' %}Emirates ID
+                                {% elif n.doc_type == 'MGMT_PASSPORT' %}Passport
+                                {% elif n.doc_type == 'MGMT_DL' %}Driving License
+                                {% elif n.doc_type == 'MGMT_VISA' %}Visa
+                                {% elif 'MGMT_COUNTRY_VISA' in n.doc_type %}Country Visa
                                 {% else %}{{ n.doc_type|title|cut:"_" }}{% endif %}
                             </span>
                         {% endif %}
                         {% if n.vehicle %}
                             <span class="notif-time"><i class="fas fa-hashtag"></i> {{ n.vehicle.car_number }}</span>
+                        {% elif n.management_member %}
+                            <span class="notif-time"><i class="fas fa-user"></i> {{ n.management_member.name }}</span>
                         {% elif n.mol %}
                             <span class="notif-time"><i class="fas fa-building"></i> {{ n.mol.mol }}</span>
                         {% endif %}
@@ -434,8 +477,14 @@
                 </div>
                 {% if n.vehicle %}
                 <div class="notif-actions">
-                    <a href="{% url 'vehicle_edit' n.vehicle.pk %}" class="btn-profile">
+                    <a href="{% url 'vehicle_edit' n.vehicle.pk %}?next=notifications" class="btn-profile">
                         <i class="fas fa-car"></i> View Vehicle
+                    </a>
+                </div>
+                {% elif n.management_member %}
+                <div class="notif-actions">
+                    <a href="{% url 'management_detail' n.management_member.pk %}" class="btn-profile">
+                        <i class="fas fa-user-tie"></i> View
                     </a>
                 </div>
                 {% elif n.employee %}
@@ -480,9 +529,11 @@ document.getElementById('count-all').textContent      = allUnread.length;
 document.getElementById('count-employee').textContent = countSource(allUnread, 'employee');
 document.getElementById('count-mol').textContent      = countSource(allUnread, 'mol');
 document.getElementById('count-vehicle').textContent  = countSource(allUnread, 'vehicle');
+document.getElementById('count-management').textContent = countSource(allUnread, 'management');
 
-// ── Tab switching ────────────────────────────────────────────────────────
-let activeFilter = 'all';
+// ── Tab switching (source) ───────────────────────────────────────────────
+let activeFilter = 'all';   // source: all | employee | mol | vehicle
+let activeStat   = 'unread'; // status/urgency: unread | critical | warning | read
 
 function setTab(btn, filter) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -491,27 +542,67 @@ function setTab(btn, filter) {
     applyFilter(filter);
 }
 
+// ── Stat-chip filtering (status / urgency) ───────────────────────────────
+function setStat(chip, stat) {
+    // Clicking the active chip (other than the default) returns to "unread".
+    if (activeStat === stat && stat !== 'unread') stat = 'unread';
+    activeStat = stat;
+
+    document.querySelectorAll('.stat-chip.clickable').forEach(c => c.classList.remove('active'));
+    const target = document.querySelector('.stat-chip.clickable[data-stat="' + stat + '"]');
+    if (target) target.classList.add('active');
+
+    // Auto-open / close the read section to match the chosen view.
+    const readSection = document.getElementById('readSection');
+    const readChevron = document.getElementById('readChevron');
+    if (readSection) {
+        const openRead = stat === 'read';
+        readSection.classList.toggle('open', openRead);
+        if (readChevron) readChevron.style.transform = openRead ? 'rotate(180deg)' : '';
+    }
+
+    applyFilter(activeFilter);
+}
+
 function applyFilter(filter) {
-    // --- Unread ---
+    const readView = activeStat === 'read';
+
+    // --- Unread section (hidden entirely in "read" view) ---
+    const unreadTitle = document.getElementById('unreadSectionTitle');
+    const unreadLabel = document.getElementById('unreadSectionLabel');
+    if (unreadTitle) unreadTitle.style.display = readView ? 'none' : '';
+    if (unreadLabel) {
+        unreadLabel.textContent = activeStat === 'critical' ? 'Critical Notifications'
+                                : activeStat === 'warning'  ? 'Warning Notifications'
+                                : 'Unread Notifications';
+    }
+
     let visibleUnread = 0;
     allUnread.forEach(card => {
-        const match = filter === 'all' || card.dataset.source === filter;
+        const srcMatch = filter === 'all' || card.dataset.source === filter;
+        let statMatch = true;
+        if (readView)                       statMatch = false;
+        else if (activeStat === 'critical') statMatch = card.dataset.urgency === 'critical';
+        else if (activeStat === 'warning')  statMatch = card.dataset.urgency === 'warning';
+        const match = srcMatch && statMatch;
         card.classList.toggle('tab-hidden', !match);
         if (match && !card.classList.contains('removing')) visibleUnread++;
     });
 
-    const globalEmpty   = document.getElementById('globalEmpty');
-    const filterEmpty   = document.getElementById('filterEmpty');
+    const globalEmpty = document.getElementById('globalEmpty');
+    const filterEmpty = document.getElementById('filterEmpty');
 
-    if (globalEmpty) {
-        // static empty — always visible when there are no cards at all
-    } else if (filterEmpty) {
-        filterEmpty.classList.toggle('show', visibleUnread === 0);
+    const hasReadSection = !!document.getElementById('readSection');
+    if (filterEmpty) {
+        // Show the "nothing here" note when the current view yields no cards.
+        const noReadToShow = readView && !hasReadSection;
+        filterEmpty.classList.toggle('show', !globalEmpty && ((!readView && visibleUnread === 0) || noReadToShow));
     }
 
-    document.getElementById('unreadSectionCount').textContent = visibleUnread;
+    const unreadSectionCount = document.getElementById('unreadSectionCount');
+    if (unreadSectionCount) unreadSectionCount.textContent = visibleUnread;
 
-    // --- Read ---
+    // --- Read section (filtered by source; shown/expanded in "read" view) ---
     const readFilterEmpty = document.getElementById('readFilterEmpty');
     if (allRead.length > 0) {
         let visibleRead = 0;
@@ -523,10 +614,10 @@ function applyFilter(filter) {
 
         if (readFilterEmpty) readFilterEmpty.classList.toggle('show', visibleRead === 0);
 
-        const readSectionCount  = document.getElementById('readSectionCount');
-        const readToggleCount   = document.getElementById('readToggleCount');
-        if (readSectionCount)  readSectionCount.textContent  = visibleRead;
-        if (readToggleCount)   readToggleCount.textContent   = visibleRead;
+        const readSectionCount = document.getElementById('readSectionCount');
+        const readToggleCount  = document.getElementById('readToggleCount');
+        if (readSectionCount) readSectionCount.textContent = visibleRead;
+        if (readToggleCount)  readToggleCount.textContent  = visibleRead;
     }
 }
 
@@ -589,7 +680,7 @@ function markAllRead() {
                 checkEmpty();
                 updateUnreadBadge(0, true);
                 // reset counts
-                ['count-all','count-employee','count-mol','count-vehicle'].forEach(id => {
+                ['count-all','count-employee','count-mol','count-vehicle','count-management'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.textContent = '0';
                 });

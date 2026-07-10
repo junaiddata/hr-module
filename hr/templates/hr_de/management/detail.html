@@ -1,0 +1,263 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{{ member.name }} — Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.md-wrap { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+.md-back { color: var(--text-secondary); text-decoration: none; font-size: .85rem; font-weight: 600; }
+.md-back:hover { color: var(--accent-primary); }
+
+.md-head { display: flex; gap: 1.1rem; align-items: center; margin: .9rem 0 1.5rem; flex-wrap: wrap; }
+.md-photo, .md-photo-fb { width: 78px; height: 78px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 3px solid var(--border-color); }
+.md-photo-fb { display: flex; align-items: center; justify-content: center; background: var(--gradient-primary); color: #fff; font-weight: 700; font-size: 1.8rem; }
+.md-name { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.md-role { color: var(--text-secondary); font-size: .92rem; margin-top: .15rem; }
+.md-contact { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .8rem; color: var(--text-tertiary); margin-top: .4rem; }
+.md-actions { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+.md-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; border-radius: 9px; font-size: .84rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
+.md-btn.primary { background: var(--gradient-primary); color: #fff; }
+.md-btn.secondary { background: #fff; color: var(--text-secondary); border: 1.5px solid var(--border-color); }
+.md-btn.danger { background: rgba(239,68,68,.1); color: #ef4444; }
+
+.md-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1.25rem 1.4rem; margin-bottom: 1.5rem; }
+.md-card-h { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; display: flex; align-items: center; gap: .5rem; }
+.md-card-h i { color: var(--accent-primary); }
+.md-card-h .spacer { margin-left: auto; }
+
+.md-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.md-doc { border: 1px solid var(--border-color); border-radius: 12px; padding: .9rem 1rem; }
+.md-doc-h { font-size: .82rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; }
+.md-doc-h i { color: var(--accent-primary); }
+.md-doc-row { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem; padding: .15rem 0; }
+.md-doc-row .k { color: var(--text-tertiary); }
+.md-doc-row .v { color: var(--text-primary); font-weight: 600; text-align: right; word-break: break-word; }
+.md-doc-link { color: var(--accent-primary); font-weight: 600; text-decoration: none; font-size: .82rem; }
+.md-exp-expired { color: #dc2626; font-weight: 700; }
+.md-muted { color: var(--text-tertiary); }
+
+.md-family { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .8rem; }
+.md-fcard { display: flex; align-items: center; gap: .7rem; border: 1px solid var(--border-color); border-radius: 12px; padding: .7rem .85rem; text-decoration: none; }
+.md-fcard:hover { border-color: var(--accent-primary); }
+.md-favatar, .md-favatar-fb { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.md-favatar-fb { display: flex; align-items: center; justify-content: center; background: var(--gradient-primary); color: #fff; font-weight: 700; }
+.md-fname { font-weight: 700; color: var(--text-primary); font-size: .88rem; }
+.md-frel { font-size: .74rem; color: var(--text-secondary); }
+
+table.md-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.md-table-wrap { overflow-x: auto; }
+.md-table th { text-align: left; padding: .6rem .8rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.md-table td { padding: .6rem .8rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+
+.md-tform { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; align-items: end; margin-top: .5rem; }
+.md-tform .full { grid-column: 1 / -1; }
+.md-tlabel { display: block; font-size: .74rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .3rem; }
+.md-tinput { width: 100%; border: 1.5px solid var(--border-color); border-radius: 8px; padding: .5rem .65rem; font-size: .85rem; font-family: inherit; }
+.md-tbtn { border: none; background: var(--gradient-primary); color: #fff; border-radius: 8px; padding: .55rem 1.1rem; font-weight: 700; font-size: .84rem; cursor: pointer; white-space: nowrap; }
+.md-empty { text-align: center; color: var(--text-tertiary); padding: 1.75rem; }
+@media (max-width: 700px) { .md-tform { grid-template-columns: 1fr 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="md-wrap">
+
+    {% if member.is_family %}
+    <a href="{% url 'management_detail' member.head.pk %}" class="md-back"><i class="fas fa-arrow-left"></i> Back to {{ member.head.name }}</a>
+    {% else %}
+    <a href="{% url 'management_list' %}" class="md-back"><i class="fas fa-arrow-left"></i> Back to Management</a>
+    {% endif %}
+
+    <div class="md-head">
+        {% if member.photo %}
+            <img src="{{ member.photo.url }}" alt="{{ member.name }}" class="md-photo">
+        {% else %}
+            <div class="md-photo-fb">{{ member.name|first|upper }}</div>
+        {% endif %}
+        <div>
+            <h1 class="md-name">{{ member.name }}</h1>
+            <div class="md-role">
+                {% if member.is_family %}{{ member.get_relation_display }} of {{ member.head.name }}{% else %}{{ member.designation|default:"Management" }}{% endif %}
+            </div>
+            <div class="md-contact">
+                {% if member.nationality %}<span><i class="fas fa-flag"></i> {{ member.nationality }}</span>{% endif %}
+                {% if member.dob %}<span><i class="fas fa-cake-candles"></i> {{ member.dob|date:"d M Y" }}</span>{% endif %}
+                {% if member.phone %}<span><i class="fas fa-phone"></i> {{ member.phone }}</span>{% endif %}
+                {% if member.email %}<span><i class="fas fa-envelope"></i> {{ member.email }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="md-actions">
+            <a href="{% url 'management_edit' member.pk %}" class="md-btn primary"><i class="fas fa-pen"></i> Edit</a>
+            <form method="post" action="{% url 'management_delete' member.pk %}" style="margin:0;"
+                  onsubmit="return confirm('Delete “{{ member.name }}”{% if not member.is_family %} and all their family members{% endif %}? This cannot be undone.')">
+                {% csrf_token %}
+                <button type="submit" class="md-btn danger"><i class="fas fa-trash"></i> Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="md-card">
+        <h2 class="md-card-h"><i class="fas fa-folder-open"></i> Documents</h2>
+        <div class="md-docs">
+
+            <!-- Emirates ID -->
+            <div class="md-doc">
+                <div class="md-doc-h"><i class="fas fa-id-card"></i> Emirates ID</div>
+                <div class="md-doc-row"><span class="k">Number</span><span class="v">{{ member.eid_number|default:"—" }}</span></div>
+                <div class="md-doc-row"><span class="k">Expiry</span><span class="v {% if member.eid_expiry and member.eid_expiry < today %}md-exp-expired{% endif %}">{% if member.eid_expiry %}{{ member.eid_expiry|date:"d M Y" }}{% if member.eid_expiry < today %} (expired){% endif %}{% else %}—{% endif %}</span></div>
+                <div class="md-doc-row"><span class="k">Document</span><span class="v">{% if member.eid_document %}<a href="{{ member.eid_document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</span></div>
+            </div>
+
+            <!-- Passport -->
+            <div class="md-doc">
+                <div class="md-doc-h"><i class="fas fa-passport"></i> Passport</div>
+                <div class="md-doc-row"><span class="k">Number</span><span class="v">{{ member.passport_number|default:"—" }}</span></div>
+                <div class="md-doc-row"><span class="k">Expiry</span><span class="v {% if member.passport_expiry and member.passport_expiry < today %}md-exp-expired{% endif %}">{% if member.passport_expiry %}{{ member.passport_expiry|date:"d M Y" }}{% if member.passport_expiry < today %} (expired){% endif %}{% else %}—{% endif %}</span></div>
+                <div class="md-doc-row"><span class="k">Document</span><span class="v">{% if member.passport_document %}<a href="{{ member.passport_document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</span></div>
+            </div>
+
+            <!-- Driving License -->
+            <div class="md-doc">
+                <div class="md-doc-h"><i class="fas fa-car"></i> Driving License</div>
+                <div class="md-doc-row"><span class="k">Number</span><span class="v">{{ member.dl_number|default:"—" }}</span></div>
+                <div class="md-doc-row"><span class="k">Expiry</span><span class="v {% if member.dl_expiry and member.dl_expiry < today %}md-exp-expired{% endif %}">{% if member.dl_expiry %}{{ member.dl_expiry|date:"d M Y" }}{% if member.dl_expiry < today %} (expired){% endif %}{% else %}—{% endif %}</span></div>
+                <div class="md-doc-row"><span class="k">Document</span><span class="v">{% if member.dl_document %}<a href="{{ member.dl_document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</span></div>
+            </div>
+
+            <!-- Visa -->
+            <div class="md-doc">
+                <div class="md-doc-h"><i class="fas fa-stamp"></i> Visa</div>
+                <div class="md-doc-row"><span class="k">Type</span><span class="v">{{ member.visa_type_label|default:"—" }}</span></div>
+                <div class="md-doc-row"><span class="k">Number</span><span class="v">{{ member.visa_number|default:"—" }}</span></div>
+                <div class="md-doc-row"><span class="k">Expiry</span><span class="v {% if member.visa_expiry and member.visa_expiry < today %}md-exp-expired{% endif %}">{% if member.visa_expiry %}{{ member.visa_expiry|date:"d M Y" }}{% if member.visa_expiry < today %} (expired){% endif %}{% else %}—{% endif %}</span></div>
+                <div class="md-doc-row"><span class="k">Document</span><span class="v">{% if member.visa_document %}<a href="{{ member.visa_document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</span></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Other country visas -->
+    <div class="md-card">
+        <h2 class="md-card-h"><i class="fas fa-earth-americas"></i> Other Country Visas</h2>
+
+        {% if member.country_visas.all %}
+        <div class="md-table-wrap">
+            <table class="md-table">
+                <thead><tr><th>Country</th><th>Type</th><th>Number</th><th>Issued</th><th>Expiry</th><th>Doc</th><th></th></tr></thead>
+                <tbody>
+                {% for cv in member.country_visas.all %}
+                <tr>
+                    <td><strong>{{ cv.country }}</strong></td>
+                    <td>{{ cv.visa_type_label|default:"—" }}</td>
+                    <td>{{ cv.number|default:"—" }}</td>
+                    <td>{% if cv.issue_date %}{{ cv.issue_date|date:"d M Y" }}{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td class="{% if cv.expiry and cv.expiry < today %}md-exp-expired{% endif %}">{% if cv.expiry %}{{ cv.expiry|date:"d M Y" }}{% if cv.expiry < today %} (expired){% endif %}{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td>{% if cv.document %}<a href="{{ cv.document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'country_visa_delete' cv.pk %}" style="margin:0;" onsubmit="return confirm('Delete this visa?')">
+                            {% csrf_token %}
+                            <button class="md-btn danger" style="padding:.3rem .6rem;"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="md-empty">No other-country visas recorded.</div>
+        {% endif %}
+
+        <!-- Add country visa -->
+        <form method="post" action="{% url 'country_visa_add' member.pk %}" enctype="multipart/form-data" class="md-tform" style="margin-top:1.25rem;border-top:1px dashed var(--border-color);padding-top:1rem;">
+            {% csrf_token %}
+            <div><label class="md-tlabel">Country *</label><input type="text" name="country" class="md-tinput" required placeholder="e.g. United Kingdom"></div>
+            <div>
+                <label class="md-tlabel">Visa Type</label>
+                <select name="visa_type" class="md-tinput">
+                    <option value="">— Select —</option>
+                    {% for value, label in country_visa_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div><label class="md-tlabel">Visa Number</label><input type="text" name="number" class="md-tinput"></div>
+            <div><label class="md-tlabel">Issue Date</label><input type="date" name="issue_date" class="md-tinput"></div>
+            <div class="full" style="display:grid;grid-template-columns:1fr 1fr auto;gap:.6rem;align-items:end;">
+                <div><label class="md-tlabel">Expiry</label><input type="date" name="expiry" class="md-tinput"></div>
+                <div><label class="md-tlabel">Document</label><input type="file" name="document" class="md-tinput"></div>
+                <button type="submit" class="md-tbtn"><i class="fas fa-plus"></i> Add Visa</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Family (only for a management person) -->
+    {% if not member.is_family %}
+    <div class="md-card">
+        <h2 class="md-card-h">
+            <i class="fas fa-users"></i> Family Members
+            <a href="{% url 'management_family_add' member.pk %}" class="md-btn secondary spacer"><i class="fas fa-plus"></i> Add Family Member</a>
+        </h2>
+        {% if member.family.all %}
+        <div class="md-family">
+            {% for f in member.family.all %}
+            <a href="{% url 'management_detail' f.pk %}" class="md-fcard">
+                {% if f.photo %}<img src="{{ f.photo.url }}" class="md-favatar" alt="{{ f.name }}">{% else %}<div class="md-favatar-fb">{{ f.name|first|upper }}</div>{% endif %}
+                <div><div class="md-fname">{{ f.name }}</div><div class="md-frel">{{ f.get_relation_display }}</div></div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="md-empty">No family members added yet.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Travel history -->
+    <div class="md-card">
+        <h2 class="md-card-h"><i class="fas fa-plane"></i> Travel History</h2>
+
+        {% if member.travels.all %}
+        <div class="md-table-wrap">
+            <table class="md-table">
+                <thead><tr><th>Destination</th><th>Purpose</th><th>Departure</th><th>Return</th><th>Doc</th><th></th></tr></thead>
+                <tbody>
+                {% for t in member.travels.all %}
+                <tr>
+                    <td><strong>{{ t.destination }}</strong>{% if t.notes %}<br><span class="md-muted" style="font-size:.78rem;">{{ t.notes }}</span>{% endif %}</td>
+                    <td>{{ t.purpose|default:"—" }}</td>
+                    <td>{% if t.departure_date %}{{ t.departure_date|date:"d M Y" }}{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td>{% if t.return_date %}{{ t.return_date|date:"d M Y" }}{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td>{% if t.document %}<a href="{{ t.document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'travel_delete' t.pk %}" style="margin:0;" onsubmit="return confirm('Delete this travel record?')">
+                            {% csrf_token %}
+                            <button class="md-btn danger" style="padding:.3rem .6rem;"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="md-empty">No travel records yet.</div>
+        {% endif %}
+
+        <!-- Add travel -->
+        <form method="post" action="{% url 'travel_add' member.pk %}" enctype="multipart/form-data" class="md-tform" style="margin-top:1.25rem;border-top:1px dashed var(--border-color);padding-top:1rem;">
+            {% csrf_token %}
+            <div><label class="md-tlabel">Destination *</label><input type="text" name="destination" class="md-tinput" required placeholder="e.g. London, UK"></div>
+            <div><label class="md-tlabel">Purpose</label><input type="text" name="purpose" class="md-tinput" placeholder="Business / Personal"></div>
+            <div><label class="md-tlabel">Departure</label><input type="date" name="departure_date" class="md-tinput"></div>
+            <div><label class="md-tlabel">Return</label><input type="date" name="return_date" class="md-tinput"></div>
+            <div class="full" style="display:grid;grid-template-columns:2fr 1fr auto;gap:.6rem;align-items:end;">
+                <div><label class="md-tlabel">Notes</label><input type="text" name="notes" class="md-tinput"></div>
+                <div><label class="md-tlabel">Document</label><input type="file" name="document" class="md-tinput"></div>
+                <button type="submit" class="md-tbtn"><i class="fas fa-plus"></i> Add Trip</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

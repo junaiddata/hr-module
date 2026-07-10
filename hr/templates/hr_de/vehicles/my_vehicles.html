@@ -1,0 +1,187 @@
+{% extends "hr_de/base.html" %}
+{% block title %}My Vehicles{% endblock %}
+
+{% block extra_css %}
+<style>
+.mv-wrap { max-width: 900px; margin: 0 auto; padding: 2rem; }
+.mv-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 .25rem; display: flex; align-items: center; gap: .6rem; }
+.mv-title i { color: var(--accent-primary); }
+.mv-sub { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1.5rem; }
+
+.mv-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1.25rem 1.4rem; margin-bottom: 1.5rem; }
+.mv-veh-head { display: flex; align-items: center; gap: .8rem; margin-bottom: 1rem; }
+.mv-veh-icon { width: 44px; height: 44px; border-radius: 11px; background: linear-gradient(135deg,#0ea5e9,#4f46e5); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+.mv-veh-name { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+.mv-veh-meta { font-size: .8rem; color: var(--text-secondary); }
+
+.mv-section-label { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); margin: 1rem 0 .5rem; }
+
+/* last serviced */
+.mv-dates { display: flex; flex-wrap: wrap; gap: .5rem; }
+.mv-date-chip { border: 1px solid var(--border-color); border-radius: 9px; padding: .4rem .7rem; font-size: .8rem; }
+.mv-date-chip b { color: var(--text-primary); }
+.mv-date-chip .none { color: var(--text-tertiary); }
+
+/* request form */
+.mv-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: .6rem; align-items: end; margin-top: .75rem; }
+.mv-label { display: block; font-size: .76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .3rem; }
+.mv-input, .mv-select { width: 100%; border: 1.5px solid var(--border-color); border-radius: 8px; padding: .5rem .7rem; font-size: .88rem; font-family: inherit; background: #fff; }
+.mv-btn { border: none; background: var(--gradient-primary); color: #fff; border-radius: 8px; padding: .55rem 1.1rem; font-weight: 700; font-size: .85rem; cursor: pointer; white-space: nowrap; }
+.mv-other { grid-column: 1 / -1; }
+
+/* status list */
+.mv-req-item { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .5rem .1rem; border-bottom: 1px solid var(--border-color); font-size: .85rem; }
+.mv-req-item:last-child { border-bottom: none; }
+.mv-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; }
+.b-Requested { background: rgba(245,158,11,.14); color: #b45309; }
+.b-Approved  { background: rgba(59,130,246,.14); color: #2563eb; }
+.b-Completed { background: rgba(16,185,129,.14); color: #059669; }
+.b-Rejected  { background: rgba(239,68,68,.12);  color: #dc2626; }
+.mv-complete-form { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .5rem; }
+.mv-complete-form .mv-input { width: auto; flex: 0 1 130px; padding: .4rem .6rem; }
+.mv-complete-form .mv-btn { padding: .4rem .85rem; font-size: .8rem; }
+.mv-empty { text-align: center; color: var(--text-tertiary); padding: 2.5rem; }
+.mv-empty i { font-size: 2rem; display: block; margin-bottom: .6rem; }
+.mv-muted { color: var(--text-tertiary); }
+@media (max-width: 600px) { .mv-form { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mv-wrap">
+
+    <h1 class="mv-title"><i class="fas fa-car"></i> My Vehicles</h1>
+    <p class="mv-sub">Vehicles assigned to you. Request a service and HR will action it.</p>
+
+    {% for v in vehicles %}
+    <div class="mv-card">
+        <div class="mv-veh-head">
+            <div class="mv-veh-icon"><i class="fas fa-car"></i></div>
+            <div>
+                <div class="mv-veh-name">{{ v.name }}</div>
+                <div class="mv-veh-meta">
+                    <i class="fas fa-hashtag"></i> {{ v.car_number }}
+                    {% if v.car_and_model %}&nbsp;·&nbsp;{{ v.car_and_model }}{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Last serviced -->
+        <div class="mv-section-label">Last Serviced</div>
+        {% with dates=v.last_service_dates %}
+        <div class="mv-dates">
+            {% if dates %}
+                {% for key, dt in dates.items %}
+                <div class="mv-date-chip"><b>{{ key|capfirst }}</b>: {{ dt|date:"d M Y" }}</div>
+                {% endfor %}
+            {% else %}
+                <div class="mv-date-chip"><span class="none">No service records yet.</span></div>
+            {% endif %}
+        </div>
+        {% endwith %}
+
+        <!-- Request service -->
+        <div class="mv-section-label">Request a Service</div>
+        <form method="post" action="{% url 'request_vehicle_service' v.pk %}" class="mv-form js-svc-form">
+            {% csrf_token %}
+            <div>
+                <label class="mv-label">Service Type</label>
+                <select name="service_type" class="mv-select js-svc-type" required>
+                    {% for value, label in requestable %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="mv-label">Notes <span class="mv-muted">(optional)</span></label>
+                <input type="text" name="notes" class="mv-input" placeholder="e.g. pulling to the left">
+            </div>
+            <button type="submit" class="mv-btn"><i class="fas fa-paper-plane"></i> Request</button>
+            <div class="mv-other js-svc-other" style="display:none;">
+                <label class="mv-label">Please specify</label>
+                <input type="text" name="other_detail" class="mv-input" placeholder="Describe the service needed">
+            </div>
+        </form>
+    </div>
+    {% empty %}
+    <div class="mv-card">
+        <div class="mv-empty">
+            <i class="fas fa-car-side"></i>
+            No vehicles are assigned to you yet. HR assigns vehicles from the fleet register.
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- My requests -->
+    {% if my_requests %}
+    <div class="mv-card">
+        <div class="mv-section-label" style="margin-top:0;">My Service Requests</div>
+        {% for s in my_requests %}
+        <div class="mv-req-item">
+            <div>
+                <strong>{{ s.type_label }}</strong> — {{ s.vehicle.name }}
+                <span class="mv-muted">· {{ s.created_at|date:"d M Y" }}</span>
+                {% if s.status == 'Completed' and s.service_date %}
+                    <span class="mv-muted">· serviced {{ s.service_date|date:"d M Y" }}</span>
+                {% endif %}
+                {% if s.status == 'Rejected' and s.rejection_reason %}
+                    <br><span class="mv-muted">Reason: {{ s.rejection_reason }}</span>
+                {% endif %}
+            </div>
+            <span class="mv-badge b-{{ s.status }}">{{ s.status }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Service history (all vehicles) -->
+    {% if vehicles %}
+    <div class="mv-card">
+        <div class="mv-section-label" style="margin-top:0;">Service History</div>
+        {% if service_history %}
+        {% for s in service_history %}
+        <div class="mv-req-item">
+            <div style="flex:1;">
+                <strong>{{ s.type_label }}</strong> — {{ s.vehicle.name }}
+                {% if s.service_date %}<span class="mv-muted">· {{ s.service_date|date:"d M Y" }}</span>
+                {% else %}<span class="mv-muted">· requested {{ s.created_at|date:"d M Y" }}</span>{% endif %}
+                {% if s.cost %}<span class="mv-muted">· AED {{ s.cost }}</span>{% endif %}
+                {% if s.status == 'Completed' %}
+                    {% if s.cost_approved %}<span class="mv-muted">· cost approved</span>
+                    {% elif s.cost %}<span class="mv-muted">· cost pending HR</span>{% endif %}
+                {% endif %}
+                {% if s.notes %}<br><span class="mv-muted">{{ s.notes }}</span>{% endif %}
+                {% if s.status == 'Rejected' and s.rejection_reason %}<br><span class="mv-muted">Reason: {{ s.rejection_reason }}</span>{% endif %}
+
+                {% if s.status == 'Approved' %}
+                <form method="post" action="{% url 'complete_vehicle_service' s.pk %}" class="mv-complete-form">
+                    {% csrf_token %}
+                    <input type="date" name="service_date" class="mv-input" value="{{ today|date:'Y-m-d' }}" title="Service date">
+                    <input type="number" step="0.01" name="cost" class="mv-input" placeholder="Cost (AED)" required>
+                    <button type="submit" class="mv-btn"><i class="fas fa-check"></i> Mark Completed</button>
+                </form>
+                {% endif %}
+            </div>
+            <span class="mv-badge b-{{ s.status }}">{{ s.status }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="mv-muted" style="font-size:.85rem;">No service history yet.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.js-svc-form').forEach(function (form) {
+    var type  = form.querySelector('.js-svc-type');
+    var other = form.querySelector('.js-svc-other');
+    if (!type || !other) return;
+    function sync() { other.style.display = type.value === 'other' ? '' : 'none'; }
+    type.addEventListener('change', sync); sync();
+});
+</script>
+{% endblock %}

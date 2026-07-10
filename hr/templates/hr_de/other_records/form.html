@@ -52,6 +52,22 @@
             </div>
 
             <div class="rf-group">
+                <label class="rf-label">Expense <span style="font-weight:400;color:var(--text-tertiary);">(optional)</span></label>
+                <select name="expense_category" id="expenseSelect" class="rf-input">
+                    <option value="">— None —</option>
+                    {% for value, label in expense_choices %}
+                    <option value="{{ value }}" {% if record.expense_category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="rf-group" id="expenseOtherWrap" style="display:none;">
+                <label class="rf-label">Specify Other Expense <span style="color:#ef4444;">*</span></label>
+                <input type="text" name="expense_other" class="rf-input"
+                       value="{{ record.expense_other|default:'' }}" placeholder="Describe the expense">
+            </div>
+
+            <div class="rf-group">
                 <label class="rf-label">Comment / Notes</label>
                 <textarea name="comment" class="rf-textarea" placeholder="Any details about this record…">{{ record.comment|default:'' }}</textarea>
             </div>
@@ -116,6 +132,20 @@
     boxes.forEach(b => b.addEventListener('change', updateCount));
     clear.addEventListener('click', function () { boxes.forEach(b => b.checked = false); updateCount(); });
     updateCount();
+})();
+
+(function () {
+    const sel  = document.getElementById('expenseSelect');
+    const wrap = document.getElementById('expenseOtherWrap');
+    const inp  = wrap.querySelector('input');
+    if (!sel || !wrap) return;
+    function sync() {
+        const isOther = sel.value === 'other';
+        wrap.style.display = isOther ? '' : 'none';
+        inp.required = isOther;
+    }
+    sel.addEventListener('change', sync);
+    sync();
 })();
 </script>
 {% endblock %}

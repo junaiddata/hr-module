@@ -1,0 +1,246 @@
+{% extends "hr_de/base.html" %}
+{% load hr_extras %}
+{% block title %}Services — {{ vehicle.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.vs-wrap { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+.vs-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.vs-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.vs-title i { color: var(--accent-primary); }
+.vs-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.vs-back { color: var(--text-secondary); text-decoration: none; font-size: .85rem; font-weight: 600; }
+.vs-back:hover { color: var(--accent-primary); }
+
+.vs-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1.25rem 1.4rem; margin-bottom: 1.5rem; }
+.vs-card-h { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; display: flex; align-items: center; gap: .5rem; }
+.vs-card-h i { color: var(--accent-primary); }
+
+/* last-serviced summary */
+.vs-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: .75rem; }
+.vs-chip { border: 1px solid var(--border-color); border-radius: 11px; padding: .7rem .85rem; }
+.vs-chip-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-tertiary); font-weight: 700; }
+.vs-chip-date { font-size: .95rem; font-weight: 700; color: var(--text-primary); margin-top: .2rem; }
+.vs-chip-date.none { color: var(--text-tertiary); font-weight: 500; }
+
+/* form */
+.vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.1rem; }
+.vs-group.full { grid-column: 1 / -1; }
+.vs-label { display: block; font-size: .8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .35rem; }
+.vs-input, .vs-select { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .75rem; font-size: .9rem; font-family: inherit; background: #fff; }
+.vs-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .6rem 1.3rem; font-weight: 700; cursor: pointer; margin-top: 1rem; }
+
+/* table */
+.vs-table-wrap { overflow-x: auto; }
+table.vs-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.vs-table th { text-align: left; padding: .6rem .8rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.vs-table td { padding: .6rem .8rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.vs-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; }
+.b-Requested { background: rgba(245,158,11,.14); color: #b45309; }
+.b-Approved  { background: rgba(59,130,246,.14); color: #2563eb; }
+.b-Completed { background: rgba(16,185,129,.14); color: #059669; }
+.b-Rejected  { background: rgba(239,68,68,.12);  color: #dc2626; }
+.vs-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .76rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: .3rem; }
+.vs-btn.approve  { background: rgba(59,130,246,.14); color: #2563eb; }
+.vs-btn.complete { background: rgba(16,185,129,.14); color: #059669; }
+.vs-btn.reject   { background: rgba(239,68,68,.1);  color: #dc2626; }
+.vs-btn.del      { background: rgba(239,68,68,.1);  color: #dc2626; }
+.vs-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; }
+.vs-actions-row { display: flex; gap: .35rem; flex-wrap: wrap; }
+.vs-muted { color: var(--text-tertiary); }
+@media (max-width: 640px) { .vs-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vs-wrap">
+
+    <a href="{% url 'vehicle_list' %}" class="vs-back"><i class="fas fa-arrow-left"></i> Back to Vehicles</a>
+
+    <div class="vs-top" style="margin-top:.75rem;">
+        <div>
+            <h1 class="vs-title"><i class="fas fa-screwdriver-wrench"></i> Services — {{ vehicle.name }}</h1>
+            <p class="vs-sub">
+                <i class="fas fa-hashtag"></i> {{ vehicle.car_number }}
+                {% if vehicle.employee %}&nbsp;·&nbsp;<i class="fas fa-user"></i> {{ vehicle.employee.emp_name }}{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'vehicle_service_requests' %}" class="vs-back"><i class="fas fa-list-check"></i> All Requests</a>
+    </div>
+
+    {% if vehicle.is_sold %}
+    <!-- Sold banner -->
+    <div class="vs-card" style="border-left:4px solid #dc2626;">
+        <h2 class="vs-card-h" style="color:#dc2626;"><i class="fas fa-tag"></i> Sold</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:1.25rem;font-size:.88rem;">
+            <div><div class="vs-chip-label">Sold On</div><div><strong>{% if vehicle.sold_on %}{{ vehicle.sold_on|date:"d M Y" }}{% else %}—{% endif %}</strong></div></div>
+            <div><div class="vs-chip-label">Amount</div><div><strong>{% if vehicle.sold_amount %}AED {{ vehicle.sold_amount }}{% else %}—{% endif %}</strong></div></div>
+            <div><div class="vs-chip-label">Sold To</div><div><strong>{{ vehicle.sold_to|default:"—" }}</strong></div></div>
+            {% if vehicle.sold_document %}
+            <div><div class="vs-chip-label">Document</div><a href="{{ vehicle.sold_document.url }}" target="_blank" class="vs-doc" style="color:var(--accent-primary);font-weight:600;"><i class="fas fa-file-lines"></i> View</a></div>
+            {% endif %}
+        </div>
+        <p style="margin:.75rem 0 0;font-size:.8rem;color:var(--text-tertiary);">Edit these details on the <a href="{% url 'vehicle_edit' vehicle.pk %}" style="color:var(--accent-primary);">vehicle edit</a> page.</p>
+    </div>
+    {% endif %}
+
+    <!-- Last serviced summary -->
+    <div class="vs-card">
+        <h2 class="vs-card-h"><i class="fas fa-clock-rotate-left"></i> Last Serviced</h2>
+        <div class="vs-summary">
+            {% for value, label in type_choices %}
+            <div class="vs-chip">
+                <div class="vs-chip-label">{{ label }}</div>
+                {% with dt=last_dates|get_item:value %}
+                <div class="vs-chip-date {% if not dt %}none{% endif %}">
+                    {% if dt %}{{ dt|date:"d M Y" }}{% else %}—{% endif %}
+                </div>
+                {% endwith %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pending requests -->
+    {% if pending %}
+    <div class="vs-card">
+        <h2 class="vs-card-h"><i class="fas fa-hourglass-half"></i> Pending Requests ({{ pending|length }})</h2>
+        <div class="vs-table-wrap">
+            <table class="vs-table">
+                <thead><tr>
+                    <th>Type</th><th>Requested By</th><th>Notes</th><th>When</th><th>Action</th>
+                </tr></thead>
+                <tbody>
+                {% for s in pending %}
+                <tr>
+                    <td><strong>{{ s.type_label }}</strong></td>
+                    <td>{{ s.requested_by.emp_name|default:"—" }}</td>
+                    <td>{{ s.notes|default:"—" }}</td>
+                    <td class="vs-muted">{{ s.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <div class="vs-actions-row">
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;">
+                                {% csrf_token %}
+                                <button name="action" value="approve" class="vs-btn approve"><i class="fas fa-check"></i> Approve</button>
+                            </form>
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;">
+                                {% csrf_token %}
+                                <button name="action" value="reject" class="vs-btn reject" onclick="return confirm('Reject this request?')"><i class="fas fa-xmark"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Log a service -->
+    <div class="vs-card">
+        <h2 class="vs-card-h"><i class="fas fa-plus"></i> Log a Service</h2>
+        <form method="post" action="{% url 'vehicle_service_add' vehicle.pk %}">
+            {% csrf_token %}
+            <div class="vs-grid">
+                <div class="vs-group">
+                    <label class="vs-label">Service Type</label>
+                    <select name="service_type" class="vs-select" id="svcType" required>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="vs-group" id="otherWrap" style="display:none;">
+                    <label class="vs-label">Other (specify)</label>
+                    <input type="text" name="other_detail" class="vs-input" placeholder="Describe the service">
+                </div>
+                <div class="vs-group">
+                    <label class="vs-label">Service Date</label>
+                    <input type="date" name="service_date" class="vs-input">
+                </div>
+                <div class="vs-group">
+                    <label class="vs-label">Status</label>
+                    <select name="status" class="vs-select">
+                        <option value="Completed" selected>Completed</option>
+                        <option value="Approved">Approved / Scheduled</option>
+                    </select>
+                </div>
+                <div class="vs-group">
+                    <label class="vs-label">Cost (AED)</label>
+                    <input type="number" step="0.01" name="cost" class="vs-input" placeholder="Optional">
+                </div>
+                <div class="vs-group full">
+                    <label class="vs-label">Notes</label>
+                    <input type="text" name="notes" class="vs-input" placeholder="Optional notes">
+                </div>
+            </div>
+            <button type="submit" class="vs-save"><i class="fas fa-save"></i> Save Service</button>
+        </form>
+    </div>
+
+    <!-- History -->
+    <div class="vs-card">
+        <h2 class="vs-card-h"><i class="fas fa-list"></i> Service History</h2>
+        {% if history %}
+        <div class="vs-table-wrap">
+            <table class="vs-table">
+                <thead><tr>
+                    <th>Type</th><th>Status</th><th>Service Date</th><th>Cost</th><th>Notes</th><th>Source</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for s in history %}
+                <tr>
+                    <td><strong>{{ s.type_label }}</strong></td>
+                    <td><span class="vs-badge b-{{ s.status }}">{{ s.status }}</span></td>
+                    <td>{% if s.service_date %}{{ s.service_date|date:"d M Y" }}{% else %}<span class="vs-muted">—</span>{% endif %}</td>
+                    <td>
+                        {% if s.cost %}
+                            {{ s.cost }}
+                            {% if s.status == 'Completed' %}
+                                {% if s.cost_approved %}<span class="vs-badge b-Completed" style="margin-left:.3rem;">Cost OK</span>
+                                {% else %}<span class="vs-badge b-Requested" style="margin-left:.3rem;">Cost Pending</span>{% endif %}
+                            {% endif %}
+                        {% else %}<span class="vs-muted">—</span>{% endif %}
+                    </td>
+                    <td>{{ s.notes|default:"—" }}{% if s.status == 'Rejected' and s.rejection_reason %}<br><span class="vs-muted">Reason: {{ s.rejection_reason }}</span>{% endif %}</td>
+                    <td class="vs-muted">{% if s.requested_by %}Requested by {{ s.requested_by.emp_name }}{% else %}Logged by HR{% endif %}</td>
+                    <td>
+                        <div class="vs-actions-row">
+                            {% if s.awaiting_cost_approval %}
+                            <form method="post" action="{% url 'vehicle_service_process' s.pk %}" style="margin:0;display:inline-flex;gap:.3rem;align-items:center;">
+                                {% csrf_token %}
+                                <input type="number" step="0.01" name="cost" class="vs-input" style="width:80px;padding:.3rem .5rem;" value="{{ s.cost|stringformat:'.2f' }}">
+                                <button name="action" value="approve_cost" class="vs-btn approve"><i class="fas fa-check-double"></i> Cost</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="{% url 'vehicle_service_delete' s.pk %}" style="margin:0;" onsubmit="return confirm('Delete this service record?')">
+                                {% csrf_token %}
+                                <button class="vs-btn del"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vs-empty"><i class="fas fa-screwdriver-wrench"></i> No service history yet.</div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var t = document.getElementById('svcType');
+    var w = document.getElementById('otherWrap');
+    if (!t || !w) return;
+    function sync() { w.style.display = t.value === 'other' ? '' : 'none'; }
+    t.addEventListener('change', sync); sync();
+})();
+</script>
+{% endblock %}

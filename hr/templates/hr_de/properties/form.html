@@ -1,0 +1,120 @@
+{% extends "hr_de/base.html" %}
+{% block title %}{% if property %}Edit Property{% else %}Add Property{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pf-wrap { max-width: 820px; margin: 0 auto; padding: 2rem; }
+.pf-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1.5rem; display: flex; align-items: center; gap: .6rem; }
+.pf-title i { color: var(--accent-primary); }
+.pf-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow-sm); }
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.25rem; }
+.pf-group.full { grid-column: 1 / -1; }
+.pf-label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: .4rem; }
+.pf-input, .pf-select, .pf-textarea { width: 100%; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .6rem .8rem; font-size: .92rem; font-family: inherit; background: #fff; }
+.pf-textarea { min-height: 80px; resize: vertical; }
+.pf-req { color: #ef4444; }
+.pf-file-current { font-size: .8rem; color: var(--text-secondary); margin-top: .4rem; }
+.pf-file-current a { color: var(--accent-primary); font-weight: 600; }
+.pf-assign { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color); }
+.pf-assign-h { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
+.pf-assign-h i { color: var(--accent-primary); }
+.pf-actions { display: flex; gap: .6rem; margin-top: 1.5rem; }
+.pf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .65rem 1.4rem; font-weight: 700; cursor: pointer; }
+.pf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .65rem 1.4rem; font-weight: 600; text-decoration: none; }
+@media (max-width: 640px) { .pf-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+    <h1 class="pf-title"><i class="fas fa-box-open"></i> {% if property %}Edit Property{% else %}Add Property{% endif %}</h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="pf-card">
+            <div class="pf-grid">
+                <div class="pf-group">
+                    <label class="pf-label">Property Name <span class="pf-req">*</span></label>
+                    <input type="text" name="name" class="pf-input" required value="{{ property.name|default:'' }}" placeholder="e.g. Dell Latitude 5540">
+                </div>
+                <div class="pf-group">
+                    <label class="pf-label">Category</label>
+                    <select name="category" class="pf-select">
+                        <option value="">— Select —</option>
+                        {% for value, label in category_choices %}
+                        <option value="{{ value }}" {% if property.category == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="pf-group">
+                    <label class="pf-label">Serial / Asset No.</label>
+                    <input type="text" name="serial_number" class="pf-input" value="{{ property.serial_number|default:'' }}">
+                </div>
+                <div class="pf-group">
+                    <label class="pf-label">Value (AED)</label>
+                    <input type="number" step="0.01" name="value" class="pf-input" value="{{ property.value|default:'' }}">
+                </div>
+                <div class="pf-group">
+                    <label class="pf-label">Purchase Date</label>
+                    <input type="date" name="purchase_date" class="pf-input" value="{{ property.purchase_date|date:'Y-m-d' }}">
+                </div>
+                <div class="pf-group">
+                    <label class="pf-label">Document</label>
+                    <input type="file" name="document" class="pf-input">
+                    {% if property.document %}<div class="pf-file-current">Current: <a href="{{ property.document.url }}" target="_blank">View</a> — uploading replaces it.</div>{% endif %}
+                </div>
+                <div class="pf-group full">
+                    <label class="pf-label">Description</label>
+                    <textarea name="description" class="pf-textarea" placeholder="Notes about this property…">{{ property.description|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <!-- Assignment -->
+            <div class="pf-assign">
+                <div class="pf-assign-h"><i class="fas fa-user-check"></i> Assignment</div>
+                <div class="pf-grid">
+                    <div class="pf-group">
+                        <label class="pf-label">Assign to Employee</label>
+                        <input type="text" class="pf-input" id="empSearch" placeholder="Type to filter…" autocomplete="off" style="margin-bottom:.5rem;">
+                        <select name="assigned_to" id="empSelect" class="pf-select">
+                            <option value="">— Not assigned —</option>
+                            {% for e in employees %}
+                            <option value="{{ e.pk }}" data-name="{{ e.emp_name|lower }} {{ e.emp_id|lower }}"
+                                    {% if property.assigned_to_id == e.pk %}selected{% endif %}>{{ e.emp_name }} ({{ e.emp_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="pf-group">
+                        <label class="pf-label">Assigned On</label>
+                        <input type="date" name="assigned_on" class="pf-input" value="{{ property.assigned_on|date:'Y-m-d' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="pf-actions">
+                <button type="submit" class="pf-save"><i class="fas fa-save"></i> Save Property</button>
+                <a href="{% url 'property_list' %}" class="pf-cancel">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var search = document.getElementById('empSearch');
+    var select = document.getElementById('empSelect');
+    if (!search || !select) return;
+    var opts = Array.from(select.options);
+    search.addEventListener('input', function () {
+        var q = search.value.trim().toLowerCase();
+        opts.forEach(function (o) {
+            if (!o.value) return;
+            var hay = o.getAttribute('data-name') || '';
+            o.hidden = q && hay.indexOf(q) === -1;
+        });
+    });
+})();
+</script>
+{% endblock %}

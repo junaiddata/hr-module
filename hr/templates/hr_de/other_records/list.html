@@ -12,7 +12,9 @@
 .or-add:hover { color: #fff; transform: translateY(-1px); }
 .or-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; }
 .or-search input { flex: 1; max-width: 340px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.or-search select { border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; background: #fff; color: var(--text-primary); cursor: pointer; }
 .or-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+.or-exp { font-size: .74rem; font-weight: 700; background: rgba(139,92,246,.12); color: #7c3aed; padding: .2rem .6rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: .3rem; }
 
 .or-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm); }
 .or-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -45,13 +47,22 @@
 
     <form method="get" class="or-search">
         <input type="text" name="q" value="{{ query }}" placeholder="Search heading, comment or employee…">
+        <select name="expense" onchange="this.form.submit()">
+            <option value="">All Expenses</option>
+            {% for value, label in expense_choices %}
+            <option value="{{ value }}" {% if expense == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
         <button type="submit"><i class="fas fa-search"></i> Search</button>
     </form>
 
     {% for rec in records %}
     <div class="or-card">
         <div class="or-head">
-            <div class="or-h"><i class="fas fa-file-lines"></i> {{ rec.title }}</div>
+            <div class="or-h">
+                <i class="fas fa-file-lines"></i> {{ rec.title }}
+                {% if rec.expense_label %}<span class="or-exp"><i class="fas fa-tag"></i> {{ rec.expense_label }}</span>{% endif %}
+            </div>
             <div class="or-actions">
                 {% if rec.document %}
                 <a href="{{ rec.document.url }}" target="_blank" class="or-btn view"><i class="fas fa-external-link-alt"></i> View File</a>

@@ -487,6 +487,11 @@ def employee_detail(request, pk):
             employee.other_records.select_related('uploaded_by').all()
             if _hr_or_md(request) else []
         ),
+        # Vehicles assigned to this employee (fleet register)
+        'related_vehicles': employee.vehicles.all().order_by('name'),
+        'can_manage_vehicles': _hr_or_md(request),
+        # Company properties assigned to this employee
+        'related_properties': employee.properties.all().order_by('name'),
     })
 
 
@@ -2777,7 +2782,7 @@ _URGENCY_RANK = {'critical': 0, 'warning': 1, 'info': 2}
 
 
 def _upsert_expiry_notification(*, category, doc_type, urgency, title, message,
-                                employee=None, mol=None, vehicle=None):
+                                employee=None, mol=None, vehicle=None, management_member=None):
     """Create/update ONE notification per document, dedup-safe across refreshes.
 
     Looks at the latest notification for this document regardless of read state:
@@ -2791,17 +2796,19 @@ def _upsert_expiry_notification(*, category, doc_type, urgency, title, message,
     qs = qs.filter(employee=employee) if employee is not None else qs.filter(employee__isnull=True)
     qs = qs.filter(mol=mol) if mol is not None else qs.filter(mol__isnull=True)
     qs = qs.filter(vehicle=vehicle) if vehicle is not None else qs.filter(vehicle__isnull=True)
+    qs = qs.filter(management_member=management_member) if management_member is not None else qs.filter(management_member__isnull=True)
     existing = qs.order_by('-created_at').first()
 
     if existing is None:
         Notification.objects.create(
-            employee=employee, mol=mol, vehicle=vehicle, title=title, message=message,
+            employee=employee, mol=mol, vehicle=vehicle, management_member=management_member,
+            title=title, message=message,
             category=category, urgency=urgency, doc_type=doc_type,
         )
         return
 
     if not existing.is_read:
-        if existing.urgency != urgency or existing.title != title:
+        if existing.urgency != urgency or existing.title != title or existing.message != message:
             existing.urgency = urgency
             existing.title   = title
             existing.message = message
@@ -2811,13 +2818,17 @@ def _upsert_expiry_notification(*, category, doc_type, urgency, title, message,
     # Already read — only re-surface if it got more severe than what was seen.
     if _URGENCY_RANK.get(urgency, 3) < _URGENCY_RANK.get(existing.urgency, 3):
         Notification.objects.create(
-            employee=employee, mol=mol, vehicle=vehicle, title=title, message=message,
+            employee=employee, mol=mol, vehicle=vehicle, management_member=management_member,
+            title=title, message=message,
             category=category, urgency=urgency, doc_type=doc_type,
         )
 
 
 def _generate_expiry_notifications():
     today = timezone.now().date()
+    # Keys of documents currently within the 60-day window; anything else that
+    # still has an UNREAD alert has been renewed/cleared and must be pruned.
+    active = set()
 
     # ── Employee document expiries ───────────────────────────────────────────
     for emp in Employee.objects.filter(is_active=True).select_related('department'):
@@ -2832,6 +2843,7 @@ def _generate_expiry_notifications():
                 category='document_expiry', doc_type=doc_key, employee=emp,
                 urgency=urgency, title=title, message=message,
             )
+            active.add(('document_expiry', doc_key, emp.id, None, None, None))
 
     # ── MOL document expiries ────────────────────────────────────────────────
     for mol in Mol.objects.all():
@@ -2846,6 +2858,7 @@ def _generate_expiry_notifications():
                 category='mol_document_expiry', doc_type=doc_key, mol=mol,
                 urgency=urgency, title=title, message=message,
             )
+            active.add(('mol_document_expiry', doc_key, None, mol.id, None, None))
 
     # ── Vehicle Mulkiya expiries ─────────────────────────────────────────────
     for vehicle in Vehicle.objects.select_related('employee').all():
@@ -2860,6 +2873,71 @@ def _generate_expiry_notifications():
             category='vehicle_document_expiry', doc_type='MULKIYA', vehicle=vehicle,
             urgency=urgency, title=title, message=message,
         )
+        active.add(('vehicle_document_expiry', 'MULKIYA', None, None, vehicle.id, None))
+
+    # ── Management member document expiries (EID / Passport / DL / Visa + country visas) ──
+    _MGMT_DOCS = [
+        ('MGMT_EID',      'eid_expiry',      'Emirates ID'),
+        ('MGMT_PASSPORT', 'passport_expiry', 'Passport'),
+        ('MGMT_DL',       'dl_expiry',       'Driving License'),
+        ('MGMT_VISA',     'visa_expiry',     'Visa'),
+    ]
+    for m in ManagementMember.objects.select_related('head').prefetch_related('country_visas').all():
+        subject = m.name if not m.is_family else f"{m.name} ({m.get_relation_display()} of {m.head.name})"
+        for doc_key, field, label in _MGMT_DOCS:
+            expiry = getattr(m, field, None)
+            if not expiry or (expiry - today).days > 60:
+                continue
+            _, urgency, title, message = _expiry_urgency_and_text(expiry, today, label, subject)
+            _upsert_expiry_notification(
+                category='management_document_expiry', doc_type=doc_key, management_member=m,
+                urgency=urgency, title=title, message=message,
+            )
+            active.add(('management_document_expiry', doc_key, None, None, None, m.id))
+        for cv in m.country_visas.all():
+            if not cv.expiry or (cv.expiry - today).days > 60:
+                continue
+            label = f"{cv.country} Visa"
+            _, urgency, title, message = _expiry_urgency_and_text(cv.expiry, today, label, subject)
+            doc_key = f'MGMT_COUNTRY_VISA_{cv.id}'
+            _upsert_expiry_notification(
+                category='management_document_expiry', doc_type=doc_key, management_member=m,
+                urgency=urgency, title=title, message=message,
+            )
+            active.add(('management_document_expiry', doc_key, None, None, None, m.id))
+
+    # ── Prune stale UNREAD alerts (document renewed, date cleared or removed) ──
+    for n in (Notification.objects
+              .filter(is_read=False,
+                      category__in=['document_expiry', 'mol_document_expiry', 'vehicle_document_expiry', 'management_document_expiry'])
+              .values('id', 'category', 'doc_type', 'employee_id', 'mol_id', 'vehicle_id', 'management_member_id')):
+        key = (n['category'], n['doc_type'], n['employee_id'], n['mol_id'], n['vehicle_id'], n['management_member_id'])
+        if key not in active:
+            Notification.objects.filter(id=n['id']).delete()
+
+
+def _refresh_vehicle_notifications(vehicle):
+    """Keep a single vehicle's Mulkiya alert in sync right after it is edited.
+
+    If the expiry was renewed (now >60 days away) or cleared, drop the stale
+    UNREAD alert; otherwise upsert so the text reflects the new date."""
+    # The caller's instance may hold raw POST strings; read canonical DB values.
+    vehicle.refresh_from_db()
+    today = timezone.now().date()
+    stale = Notification.objects.filter(
+        category='vehicle_document_expiry', doc_type='MULKIYA',
+        vehicle=vehicle, is_read=False,
+    )
+    expiry = vehicle.mulkiya_expiry
+    if not expiry or (expiry - today).days > 60:
+        stale.delete()
+        return
+    subject = f"{vehicle.name} ({vehicle.car_number})" if vehicle.car_number else vehicle.name
+    _, urgency, title, message = _expiry_urgency_and_text(expiry, today, 'Mulkiya', subject)
+    _upsert_expiry_notification(
+        category='vehicle_document_expiry', doc_type='MULKIYA', vehicle=vehicle,
+        urgency=urgency, title=title, message=message,
+    )
 
 
 def _dedupe_read_notifications():
@@ -2868,10 +2946,10 @@ def _dedupe_read_notifications():
     seen, dupes = set(), []
     for n in (Notification.objects
               .filter(is_read=True,
-                      category__in=['document_expiry', 'mol_document_expiry', 'vehicle_document_expiry'])
+                      category__in=['document_expiry', 'mol_document_expiry', 'vehicle_document_expiry', 'management_document_expiry'])
               .order_by('-created_at')
-              .values('id', 'category', 'doc_type', 'employee_id', 'mol_id', 'vehicle_id')):
-        key = (n['category'], n['doc_type'], n['employee_id'], n['mol_id'], n['vehicle_id'])
+              .values('id', 'category', 'doc_type', 'employee_id', 'mol_id', 'vehicle_id', 'management_member_id')):
+        key = (n['category'], n['doc_type'], n['employee_id'], n['mol_id'], n['vehicle_id'], n['management_member_id'])
         if key in seen:
             dupes.append(n['id'])
         else:
@@ -2898,12 +2976,12 @@ def notification_list(request):
     _urgency_rank = {'critical': 0, 'warning': 1, 'info': 2}
     unread = sorted(
         Notification.objects.filter(is_read=False)
-            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee'),
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head'),
         key=lambda n: _urgency_rank.get(n.urgency, 3),
     )
     read = list(
         Notification.objects.filter(is_read=True)
-            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee')
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head')
             .order_by('-created_at')[:50]
     )
 
@@ -3369,7 +3447,16 @@ def salary_revision_create(request, emp_id):
         new_others    = _f('others')
         new_salary    = round(new_basic + new_hra + new_transport + new_fuel + new_others, 2)
 
-        effective_date = request.POST.get('effective_date')
+        # Effective date is captured as a month (YYYY-MM); store the 1st of it.
+        effective_month = (request.POST.get('effective_date') or '').strip()
+        try:
+            effective_date = datetime.strptime(effective_month + '-01', '%Y-%m-%d').date()
+        except ValueError:
+            try:
+                # Fall back to a full date if one was somehow submitted.
+                effective_date = datetime.strptime(effective_month, '%Y-%m-%d').date()
+            except ValueError:
+                effective_date = timezone.now().date().replace(day=1)
         reason         = request.POST.get('reason', '').strip()
 
         old_salary    = employee.emp_salary or 0
@@ -3431,6 +3518,7 @@ def salary_revision_create(request, emp_id):
         'employee':  employee,
         'structure': structure,
         'today':     timezone.now().date().isoformat(),
+        'today_month': timezone.now().strftime('%Y-%m'),
     })
 
 
@@ -3970,12 +4058,19 @@ def other_records_list(request):
         records = records.filter(
             Q(title__icontains=query) |
             Q(comment__icontains=query) |
+            Q(expense_other__icontains=query) |
             Q(employees__emp_name__icontains=query)
         ).distinct()
+
+    expense = (request.GET.get('expense') or '').strip()
+    if expense in dict(OtherRecord.EXPENSE_CHOICES):
+        records = records.filter(expense_category=expense)
 
     return render(request, 'hr_de/other_records/list.html', {
         'records': records,
         'query':   query,
+        'expense': expense,
+        'expense_choices': OtherRecord.EXPENSE_CHOICES,
     })
 
 
@@ -3989,9 +4084,20 @@ def other_record_add(request):
         if not title:
             messages.error(request, 'A heading is required.')
             return redirect('other_record_add')
+
+        category = (request.POST.get('expense_category') or '').strip()
+        if category not in dict(OtherRecord.EXPENSE_CHOICES):
+            category = ''
+        expense_other = (request.POST.get('expense_other') or '').strip()
+        if category == 'other' and not expense_other:
+            messages.error(request, 'Please specify the "Other" expense.')
+            return redirect('other_record_add')
+
         rec = OtherRecord.objects.create(
             title=title,
             comment=(request.POST.get('comment') or '').strip(),
+            expense_category=category,
+            expense_other=expense_other if category == 'other' else '',
             document=request.FILES.get('document'),
             uploaded_by=request.user,
         )
@@ -4003,6 +4109,7 @@ def other_record_add(request):
 
     return render(request, 'hr_de/other_records/form.html', {
         'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+        'expense_choices': OtherRecord.EXPENSE_CHOICES,
     })
 
 
@@ -4017,8 +4124,19 @@ def other_record_edit(request, pk):
         if not title:
             messages.error(request, 'A heading is required.')
             return redirect('other_record_edit', pk=pk)
+
+        category = (request.POST.get('expense_category') or '').strip()
+        if category not in dict(OtherRecord.EXPENSE_CHOICES):
+            category = ''
+        expense_other = (request.POST.get('expense_other') or '').strip()
+        if category == 'other' and not expense_other:
+            messages.error(request, 'Please specify the "Other" expense.')
+            return redirect('other_record_edit', pk=pk)
+
         rec.title = title
         rec.comment = (request.POST.get('comment') or '').strip()
+        rec.expense_category = category
+        rec.expense_other = expense_other if category == 'other' else ''
         if request.FILES.get('document'):
             rec.document = request.FILES['document']
         rec.save()
@@ -4030,6 +4148,7 @@ def other_record_edit(request, pk):
         'record':    rec,
         'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
         'linked_ids': set(rec.employees.values_list('pk', flat=True)),
+        'expense_choices': OtherRecord.EXPENSE_CHOICES,
     })
 
 
@@ -4071,17 +4190,56 @@ def _apply_vehicle_post(vehicle, request):
     if request.FILES.get('mulkiya_document'):
         vehicle.mulkiya_document = request.FILES['mulkiya_document']
 
+    # Sale / disposal details — only kept when the vehicle is marked as sold.
+    vehicle.is_sold = request.POST.get('is_sold') in ('1', 'on', 'true', 'True')
+    if vehicle.is_sold:
+        vehicle.sold_on     = request.POST.get('sold_on') or None
+        vehicle.sold_amount = (request.POST.get('sold_amount') or '').strip() or None
+        vehicle.sold_to     = (request.POST.get('sold_to') or '').strip()
+        if request.FILES.get('sold_document'):
+            vehicle.sold_document = request.FILES['sold_document']
+    else:
+        vehicle.sold_on     = None
+        vehicle.sold_amount = None
+        vehicle.sold_to     = ''
+        # Note: the uploaded sale document is retained on file even if un-marked.
+
 
 @login_required
 def vehicle_list(request):
     if not _hr_or_md(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
 
-    vehicles = Vehicle.objects.select_related('created_by', 'employee').all()
+    from django.db.models import Count
+    vehicles = Vehicle.objects.select_related('created_by', 'employee').annotate(
+        pending_services=Count('services', filter=Q(services__status='Requested'))
+    ).all()
 
     ownership = (request.GET.get('ownership') or '').strip()
     if ownership in dict(Vehicle.OWNERSHIP_CHOICES):
         vehicles = vehicles.filter(ownership=ownership)
+
+    # Distinct, non-empty company names for the filter dropdown.
+    companies = list(
+        Vehicle.objects.exclude(company='')
+        .values_list('company', flat=True)
+        .order_by('company')
+        .distinct()
+    )
+    company = (request.GET.get('company') or '').strip()
+    if company:
+        vehicles = vehicles.filter(company=company)
+
+    # Distinct, non-empty states for the filter dropdown.
+    states = list(
+        Vehicle.objects.exclude(state='')
+        .values_list('state', flat=True)
+        .order_by('state')
+        .distinct()
+    )
+    state = (request.GET.get('state') or '').strip()
+    if state:
+        vehicles = vehicles.filter(state=state)
 
     query = (request.GET.get('q') or '').strip()
     if query:
@@ -4096,10 +4254,40 @@ def vehicle_list(request):
             Q(employee__emp_id__icontains=query)
         ).distinct()
 
+    # Sorting — map the sort key sent by the table headers to a real ORM field.
+    SORT_FIELDS = {
+        'name':              'name',
+        'ownership':         'ownership',
+        'employee':          'employee__emp_name',
+        'car_number':        'car_number',
+        'model':             'model',
+        'car_and_model':     'car_and_model',
+        'company':           'company',
+        'tracking':          'tracking',
+        'tracking_exp_date': 'tracking_exp_date',
+        'state':             'state',
+        'traffic_code':      'traffic_code',
+        'mortgage':          'mortgage',
+        'mulkiya_expiry':    'mulkiya_expiry',
+    }
+    sort = (request.GET.get('sort') or '').strip()
+    direction = 'desc' if (request.GET.get('dir') or '').strip() == 'desc' else 'asc'
+    if sort in SORT_FIELDS:
+        order_field = SORT_FIELDS[sort]
+        if direction == 'desc':
+            order_field = '-' + order_field
+        vehicles = vehicles.order_by(order_field)
+
     return render(request, 'hr_de/vehicles/list.html', {
         'vehicles':        vehicles,
         'query':           query,
         'ownership':       ownership,
+        'companies':       companies,
+        'company':         company,
+        'states':          states,
+        'state':           state,
+        'sort':            sort,
+        'dir':             direction,
         'company_count':   Vehicle.objects.filter(ownership='Company').count(),
         'personal_count':  Vehicle.objects.filter(ownership='Personal').count(),
     })
@@ -4134,21 +4322,47 @@ def vehicle_edit(request, pk):
         return render(request, 'hr_de/unauthorized.html', status=403)
     vehicle = get_object_or_404(Vehicle, pk=pk)
 
+    # Where to return after saving/cancelling — e.g. opened from Notifications.
+    next_target = request.POST.get('next') or request.GET.get('next') or ''
+    back_url = 'notification_list' if next_target == 'notifications' else 'vehicle_list'
+
     if request.method == 'POST':
         name = (request.POST.get('name') or '').strip()
         car_number = (request.POST.get('car_number') or '').strip()
         if not name or not car_number:
             messages.error(request, 'Name and Car Number are required.')
-            return redirect('vehicle_edit', pk=pk)
+            return redirect(request.get_full_path())
         _apply_vehicle_post(vehicle, request)
         vehicle.save()
+        # An expiry change may make the old alert stale — refresh notifications.
+        _refresh_vehicle_notifications(vehicle)
         messages.success(request, f"Vehicle '{vehicle.name}' updated.")
-        return redirect('vehicle_list')
+        return redirect(back_url)
 
     return render(request, 'hr_de/vehicles/form.html', {
         'vehicle':           vehicle,
         'ownership_choices': Vehicle.OWNERSHIP_CHOICES,
         'employees': Employee.objects.filter(is_active=True).order_by('emp_name'),
+        'next':              next_target,
+        'back_url':          back_url,
+    })
+
+
+@login_required
+def vehicle_detail(request, pk):
+    """Read-only detail view for a single vehicle (HR/MD only)."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(
+        Vehicle.objects.select_related('employee', 'created_by'), pk=pk
+    )
+    services = vehicle.services.select_related('requested_by', 'approved_by')
+    return render(request, 'hr_de/vehicles/detail.html', {
+        'vehicle':      vehicle,
+        'services':     services,
+        'last_dates':   vehicle.last_service_dates(),
+        'type_choices': VehicleService.SERVICE_TYPE_CHOICES,
+        'today':        timezone.localdate(),
     })
 
 
@@ -4162,6 +4376,291 @@ def vehicle_delete(request, pk):
     vehicle.delete()
     messages.success(request, f"Vehicle '{name}' deleted.")
     return redirect('vehicle_list')
+
+
+# ── Vehicle Services (maintenance history + employee requests) ───────────────
+
+def _valid_service_type(value):
+    return value in dict(VehicleService.SERVICE_TYPE_CHOICES)
+
+
+@login_required
+def vehicle_services(request, pk):
+    """HR/MD: full service history for one vehicle + pending requests + log form."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(Vehicle.objects.select_related('employee'), pk=pk)
+
+    services = vehicle.services.select_related('requested_by', 'created_by', 'approved_by')
+    pending  = services.filter(status='Requested')
+    history  = services.exclude(status='Requested')
+
+    return render(request, 'hr_de/vehicles/services.html', {
+        'vehicle':       vehicle,
+        'pending':       pending,
+        'history':       history,
+        'type_choices':  VehicleService.SERVICE_TYPE_CHOICES,
+        'status_choices': VehicleService.STATUS_CHOICES,
+        'last_dates':    vehicle.last_service_dates(),
+        'today':         timezone.localdate(),
+    })
+
+
+@require_POST
+@login_required
+def vehicle_service_add(request, pk):
+    """HR/MD: log a service record directly against a vehicle."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+
+    service_type = (request.POST.get('service_type') or '').strip()
+    if not _valid_service_type(service_type):
+        messages.error(request, 'Please choose a valid service type.')
+        return redirect('vehicle_services', pk=pk)
+
+    other_detail = (request.POST.get('other_detail') or '').strip()
+    if service_type == 'other' and not other_detail:
+        messages.error(request, 'Please specify the service in the "Other" field.')
+        return redirect('vehicle_services', pk=pk)
+
+    status = request.POST.get('status') or 'Completed'
+    if status not in dict(VehicleService.STATUS_CHOICES):
+        status = 'Completed'
+
+    cost = (request.POST.get('cost') or '').strip()
+    svc = VehicleService(
+        vehicle=vehicle,
+        service_type=service_type,
+        other_detail=other_detail,
+        status=status,
+        service_date=request.POST.get('service_date') or None,
+        notes=(request.POST.get('notes') or '').strip(),
+        cost=cost or None,
+        created_by=request.user,
+    )
+    if status in ('Approved', 'Completed'):
+        svc.approved_by = request.user
+        svc.approved_at = timezone.now()
+    # HR logged this directly, so any cost entered is approved on the spot.
+    if svc.cost is not None:
+        svc.cost_approved = True
+        svc.cost_approved_by = request.user
+        svc.cost_approved_at = timezone.now()
+    svc.save()
+    messages.success(request, f"Service record added for '{vehicle.name}'.")
+    return redirect('vehicle_services', pk=pk)
+
+
+@require_POST
+@login_required
+def vehicle_service_process(request, pk):
+    """HR/MD actions on a service request.
+
+    Workflow: employee requests -> HR approves -> employee completes & records
+    cost -> HR approves the cost.
+      * approve       — Requested  -> Approved
+      * reject        — Requested  -> Rejected
+      * complete      — Approved   -> Completed (HR completing on the employee's
+                        behalf; cost entered here is auto-approved)
+      * approve_cost  — Completed  -> cost_approved = True (optionally editing cost)
+    """
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    svc = get_object_or_404(VehicleService.objects.select_related('vehicle'), pk=pk)
+    action = request.POST.get('action')
+
+    if action == 'approve':
+        svc.status = 'Approved'
+        svc.approved_by = request.user
+        svc.approved_at = timezone.now()
+        svc.save()
+        messages.success(request, 'Service request approved. The employee can now complete it and record the cost.')
+    elif action == 'complete':
+        svc.status = 'Completed'
+        svc.service_date = request.POST.get('service_date') or svc.service_date or timezone.localdate()
+        notes = (request.POST.get('notes') or '').strip()
+        if notes:
+            svc.notes = notes
+        cost = (request.POST.get('cost') or '').strip()
+        if cost:
+            svc.cost = cost
+            # HR entered the cost themselves, so it's approved on the spot.
+            svc.cost_approved = True
+            svc.cost_approved_by = request.user
+            svc.cost_approved_at = timezone.now()
+        if not svc.approved_by:
+            svc.approved_by = request.user
+            svc.approved_at = timezone.now()
+        svc.save()
+        messages.success(request, 'Service marked as completed and added to history.')
+    elif action == 'approve_cost':
+        if svc.status != 'Completed':
+            messages.error(request, 'Only a completed service can have its cost approved.')
+        else:
+            cost = (request.POST.get('cost') or '').strip()
+            if cost:
+                svc.cost = cost
+            if svc.cost is None:
+                messages.error(request, 'Enter a cost before approving it.')
+            else:
+                svc.cost_approved = True
+                svc.cost_approved_by = request.user
+                svc.cost_approved_at = timezone.now()
+                svc.save()
+                messages.success(request, 'Cost approved.')
+    elif action == 'reject':
+        svc.status = 'Rejected'
+        svc.approved_by = request.user
+        svc.approved_at = timezone.now()
+        svc.rejection_reason = (request.POST.get('rejection_reason') or '').strip()
+        svc.save()
+        messages.success(request, 'Service request rejected.')
+    else:
+        messages.error(request, 'Unknown action.')
+
+    next_url = request.POST.get('next')
+    if next_url == 'requests':
+        return redirect('vehicle_service_requests')
+    return redirect('vehicle_services', pk=svc.vehicle_id)
+
+
+@require_POST
+@login_required
+def vehicle_service_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    svc = get_object_or_404(VehicleService, pk=pk)
+    vehicle_id = svc.vehicle_id
+    svc.delete()
+    messages.success(request, 'Service record deleted.')
+    return redirect('vehicle_services', pk=vehicle_id)
+
+
+@login_required
+def vehicle_service_requests(request):
+    """HR/MD: queue of pending service requests across all vehicles."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    pending = VehicleService.objects.filter(status='Requested').select_related(
+        'vehicle', 'requested_by'
+    )
+    # Completed services with a cost the employee entered, still awaiting HR sign-off.
+    cost_pending = VehicleService.objects.filter(
+        status='Completed', cost_approved=False, cost__isnull=False
+    ).select_related('vehicle', 'requested_by')
+    recent = VehicleService.objects.exclude(status='Requested').select_related(
+        'vehicle', 'requested_by', 'approved_by'
+    )[:30]
+    return render(request, 'hr_de/vehicles/service_requests.html', {
+        'pending':      pending,
+        'cost_pending': cost_pending,
+        'recent':       recent,
+    })
+
+
+@login_required
+def my_vehicles(request):
+    """Employee self-service: vehicles assigned to me + their service history."""
+    employee = _employee_for_user(request.user)
+    if employee is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    vehicles = Vehicle.objects.filter(employee=employee).prefetch_related('services')
+    my_requests = VehicleService.objects.filter(
+        requested_by=employee
+    ).select_related('vehicle')
+
+    # Consolidated service history across all of the employee's vehicles.
+    service_history = VehicleService.objects.filter(
+        vehicle__employee=employee
+    ).select_related('vehicle').order_by('-service_date', '-created_at')
+
+    # Only these types are offered to employees.
+    requestable = [
+        (v, l) for v, l in VehicleService.SERVICE_TYPE_CHOICES
+        if v in VehicleService.EMPLOYEE_REQUESTABLE
+    ]
+    return render(request, 'hr_de/vehicles/my_vehicles.html', {
+        'employee':        employee,
+        'vehicles':        vehicles,
+        'my_requests':     my_requests,
+        'service_history': service_history,
+        'requestable':     requestable,
+        'today':           timezone.localdate(),
+    })
+
+
+@require_POST
+@login_required
+def request_vehicle_service(request, pk):
+    """Employee submits a service request for one of their assigned vehicles."""
+    employee = _employee_for_user(request.user)
+    if employee is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+    if vehicle.employee_id != employee.id:
+        messages.error(request, 'You can only request service for a vehicle assigned to you.')
+        return redirect('my_vehicles')
+
+    service_type = (request.POST.get('service_type') or '').strip()
+    if service_type not in VehicleService.EMPLOYEE_REQUESTABLE:
+        messages.error(request, 'Please choose a valid service type.')
+        return redirect('my_vehicles')
+
+    other_detail = (request.POST.get('other_detail') or '').strip()
+    if service_type == 'other' and not other_detail:
+        messages.error(request, 'Please specify the service in the "Other" field.')
+        return redirect('my_vehicles')
+
+    VehicleService.objects.create(
+        vehicle=vehicle,
+        service_type=service_type,
+        other_detail=other_detail,
+        status='Requested',
+        notes=(request.POST.get('notes') or '').strip(),
+        requested_by=employee,
+    )
+    messages.success(request, 'Your service request has been submitted to HR.')
+    return redirect('my_vehicles')
+
+
+@require_POST
+@login_required
+def complete_vehicle_service(request, pk):
+    """Employee marks an HR-approved service as completed and records the cost.
+    HR then approves the cost separately."""
+    employee = _employee_for_user(request.user)
+    if employee is None:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    svc = get_object_or_404(VehicleService.objects.select_related('vehicle'), pk=pk)
+    # Must be the employee's own request or their assigned vehicle.
+    if svc.requested_by_id != employee.id and svc.vehicle.employee_id != employee.id:
+        messages.error(request, 'You can only update a service for your own vehicle.')
+        return redirect('my_vehicles')
+
+    if svc.status != 'Approved':
+        messages.error(request, 'Only an HR-approved service can be marked completed.')
+        return redirect('my_vehicles')
+
+    cost = (request.POST.get('cost') or '').strip()
+    if not cost:
+        messages.error(request, 'Please enter the service cost.')
+        return redirect('my_vehicles')
+
+    svc.status       = 'Completed'
+    svc.service_date = request.POST.get('service_date') or timezone.localdate()
+    svc.cost         = cost
+    extra_notes = (request.POST.get('notes') or '').strip()
+    if extra_notes:
+        svc.notes = extra_notes
+    # Employee-entered cost still needs HR sign-off.
+    svc.cost_approved = False
+    svc.save()
+    messages.success(request, 'Service marked completed. The cost is now pending HR approval.')
+    return redirect('my_vehicles')
 
 
 # ── Vehicle Bulk Upload (Excel) ──────────────────────────────────────────────
@@ -4558,3 +5057,587 @@ def review_overview(request):
         'flagged_count': flagged_count,
         'total':         len(reviews),
     })
+
+
+# ── Management Details (owners/directors + families — HR & MD only) ──────────
+
+_MGMT_TEXT_FIELDS = [
+    'name', 'designation', 'nationality', 'phone', 'email',
+    'eid_number', 'passport_number', 'dl_number', 'visa_number',
+]
+_MGMT_DATE_FIELDS = [
+    'dob', 'eid_expiry', 'passport_expiry', 'dl_expiry', 'visa_expiry',
+]
+_MGMT_FILE_FIELDS = [
+    'photo', 'eid_document', 'passport_document', 'dl_document', 'visa_document',
+]
+
+
+def _apply_management_post(member, request):
+    """Copy submitted fields onto a ManagementMember (shared by add & edit)."""
+    for f in _MGMT_TEXT_FIELDS:
+        setattr(member, f, (request.POST.get(f) or '').strip())
+    for f in _MGMT_DATE_FIELDS:
+        setattr(member, f, request.POST.get(f) or None)
+
+    visa_type = (request.POST.get('visa_type') or '').strip()
+    member.visa_type = visa_type if visa_type in dict(ManagementMember.VISA_TYPE_CHOICES) else ''
+
+    for f in _MGMT_FILE_FIELDS:
+        if request.FILES.get(f):
+            setattr(member, f, request.FILES[f])
+
+
+@login_required
+def management_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    members = ManagementMember.objects.filter(head__isnull=True).prefetch_related('family')
+
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        members = members.filter(
+            Q(name__icontains=query) |
+            Q(designation__icontains=query) |
+            Q(nationality__icontains=query) |
+            Q(family__name__icontains=query)
+        ).distinct()
+
+    return render(request, 'hr_de/management/list.html', {
+        'members': members,
+        'query':   query,
+    })
+
+
+@login_required
+def management_detail(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    member = get_object_or_404(
+        ManagementMember.objects.select_related('head').prefetch_related('family', 'travels', 'country_visas'), pk=pk
+    )
+    return render(request, 'hr_de/management/detail.html', {
+        'member':             member,
+        'today':              timezone.localdate(),
+        'country_visa_types': CountryVisa.VISA_TYPE_CHOICES,
+    })
+
+
+@login_required
+def management_add(request):
+    """Add a new management person (head)."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Full name is required.')
+            return redirect('management_add')
+        member = ManagementMember(relation='self', created_by=request.user)
+        _apply_management_post(member, request)
+        member.relation = 'self'
+        member.save()
+        messages.success(request, f"Management person '{member.name}' added.")
+        return redirect('management_detail', pk=member.pk)
+
+    return render(request, 'hr_de/management/form.html', {
+        'visa_choices':     ManagementMember.VISA_TYPE_CHOICES,
+        'relation_choices': ManagementMember.RELATION_CHOICES,
+        'is_family':        False,
+    })
+
+
+@login_required
+def management_family_add(request, head_pk):
+    """Add a family member under a management person."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    head = get_object_or_404(ManagementMember, pk=head_pk, head__isnull=True)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Full name is required.')
+            return redirect('management_family_add', head_pk=head.pk)
+        member = ManagementMember(head=head, created_by=request.user)
+        _apply_management_post(member, request)
+        relation = (request.POST.get('relation') or '').strip()
+        member.relation = relation if relation in dict(ManagementMember.RELATION_CHOICES) and relation != 'self' else 'other'
+        member.save()
+        messages.success(request, f"Family member '{member.name}' added under {head.name}.")
+        return redirect('management_detail', pk=head.pk)
+
+    return render(request, 'hr_de/management/form.html', {
+        'visa_choices':     ManagementMember.VISA_TYPE_CHOICES,
+        'relation_choices': [c for c in ManagementMember.RELATION_CHOICES if c[0] != 'self'],
+        'is_family':        True,
+        'head':             head,
+    })
+
+
+@login_required
+def management_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    member = get_object_or_404(ManagementMember, pk=pk)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Full name is required.')
+            return redirect('management_edit', pk=pk)
+        _apply_management_post(member, request)
+        if member.is_family:
+            relation = (request.POST.get('relation') or '').strip()
+            member.relation = relation if relation in dict(ManagementMember.RELATION_CHOICES) and relation != 'self' else 'other'
+        else:
+            member.relation = 'self'
+        member.save()
+        messages.success(request, f"'{member.name}' updated.")
+        return redirect('management_detail', pk=member.pk)
+
+    relation_choices = ManagementMember.RELATION_CHOICES
+    if member.is_family:
+        relation_choices = [c for c in ManagementMember.RELATION_CHOICES if c[0] != 'self']
+    return render(request, 'hr_de/management/form.html', {
+        'member':           member,
+        'visa_choices':     ManagementMember.VISA_TYPE_CHOICES,
+        'relation_choices': relation_choices,
+        'is_family':        member.is_family,
+        'head':             member.head,
+    })
+
+
+@require_POST
+@login_required
+def management_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    member = get_object_or_404(ManagementMember, pk=pk)
+    name = member.name
+    head_pk = member.head_id
+    member.delete()
+    messages.success(request, f"'{name}' deleted.")
+    if head_pk:
+        return redirect('management_detail', pk=head_pk)
+    return redirect('management_list')
+
+
+@require_POST
+@login_required
+def travel_add(request, member_pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    member = get_object_or_404(ManagementMember, pk=member_pk)
+    destination = (request.POST.get('destination') or '').strip()
+    if not destination:
+        messages.error(request, 'Destination is required for a travel record.')
+        return redirect('management_detail', pk=member.pk)
+    TravelRecord.objects.create(
+        member=member,
+        destination=destination,
+        purpose=(request.POST.get('purpose') or '').strip(),
+        departure_date=request.POST.get('departure_date') or None,
+        return_date=request.POST.get('return_date') or None,
+        notes=(request.POST.get('notes') or '').strip(),
+        document=request.FILES.get('document'),
+        created_by=request.user,
+    )
+    messages.success(request, 'Travel record added.')
+    return redirect('management_detail', pk=member.pk)
+
+
+@require_POST
+@login_required
+def travel_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    travel = get_object_or_404(TravelRecord, pk=pk)
+    member_pk = travel.member_id
+    travel.delete()
+    messages.success(request, 'Travel record deleted.')
+    return redirect('management_detail', pk=member_pk)
+
+
+@require_POST
+@login_required
+def country_visa_add(request, member_pk):
+    """Add a visa the member holds for another country."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    member = get_object_or_404(ManagementMember, pk=member_pk)
+    country = (request.POST.get('country') or '').strip()
+    if not country:
+        messages.error(request, 'Country is required for a country visa.')
+        return redirect('management_detail', pk=member.pk)
+    visa_type = (request.POST.get('visa_type') or '').strip()
+    if visa_type not in dict(CountryVisa.VISA_TYPE_CHOICES):
+        visa_type = ''
+    CountryVisa.objects.create(
+        member=member,
+        country=country,
+        visa_type=visa_type,
+        number=(request.POST.get('number') or '').strip(),
+        issue_date=request.POST.get('issue_date') or None,
+        expiry=request.POST.get('expiry') or None,
+        document=request.FILES.get('document'),
+        created_by=request.user,
+    )
+    messages.success(request, f'{country} visa added.')
+    return redirect('management_detail', pk=member.pk)
+
+
+@require_POST
+@login_required
+def country_visa_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    visa = get_object_or_404(CountryVisa, pk=pk)
+    member_pk = visa.member_id
+    visa.delete()
+    messages.success(request, 'Country visa deleted.')
+    return redirect('management_detail', pk=member_pk)
+
+
+# ── Company Properties (assets assignable to employees — HR & MD only) ────────
+
+def _apply_property_post(prop, request):
+    """Copy submitted fields onto a CompanyProperty (shared by add & edit)."""
+    prop.name          = (request.POST.get('name') or '').strip()
+    category           = (request.POST.get('category') or '').strip()
+    prop.category      = category if category in dict(CompanyProperty.CATEGORY_CHOICES) else ''
+    prop.serial_number = (request.POST.get('serial_number') or '').strip()
+    prop.description   = (request.POST.get('description') or '').strip()
+    prop.purchase_date = request.POST.get('purchase_date') or None
+    prop.value         = (request.POST.get('value') or '').strip() or None
+
+    emp_id = request.POST.get('assigned_to')
+    prop.assigned_to = Employee.objects.filter(pk=emp_id).first() if emp_id else None
+    # Assignment date only applies when assigned to someone.
+    if prop.assigned_to:
+        prop.assigned_on = request.POST.get('assigned_on') or prop.assigned_on or timezone.localdate()
+    else:
+        prop.assigned_on = None
+
+    if request.FILES.get('document'):
+        prop.document = request.FILES['document']
+
+
+@login_required
+def property_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    properties = CompanyProperty.objects.select_related('assigned_to').all()
+
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        properties = properties.filter(
+            Q(name__icontains=query) |
+            Q(serial_number__icontains=query) |
+            Q(description__icontains=query) |
+            Q(assigned_to__emp_name__icontains=query)
+        ).distinct()
+
+    category = (request.GET.get('category') or '').strip()
+    if category in dict(CompanyProperty.CATEGORY_CHOICES):
+        properties = properties.filter(category=category)
+
+    assigned = (request.GET.get('assigned') or '').strip()
+    if assigned == 'assigned':
+        properties = properties.filter(assigned_to__isnull=False)
+    elif assigned == 'available':
+        properties = properties.filter(assigned_to__isnull=True)
+
+    return render(request, 'hr_de/properties/list.html', {
+        'properties':        properties,
+        'query':             query,
+        'category':          category,
+        'assigned':          assigned,
+        'category_choices':  CompanyProperty.CATEGORY_CHOICES,
+        'assigned_count':    CompanyProperty.objects.filter(assigned_to__isnull=False).count(),
+        'available_count':   CompanyProperty.objects.filter(assigned_to__isnull=True).count(),
+    })
+
+
+@login_required
+def property_add(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Property name is required.')
+            return redirect('property_add')
+        prop = CompanyProperty(created_by=request.user)
+        _apply_property_post(prop, request)
+        prop.save()
+        messages.success(request, f"Property '{prop.name}' added.")
+        return redirect('property_list')
+
+    return render(request, 'hr_de/properties/form.html', {
+        'category_choices': CompanyProperty.CATEGORY_CHOICES,
+        'employees':        Employee.objects.filter(is_active=True).order_by('emp_name'),
+    })
+
+
+@login_required
+def property_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    prop = get_object_or_404(CompanyProperty, pk=pk)
+
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Property name is required.')
+            return redirect('property_edit', pk=pk)
+        _apply_property_post(prop, request)
+        prop.save()
+        messages.success(request, f"Property '{prop.name}' updated.")
+        return redirect('property_list')
+
+    return render(request, 'hr_de/properties/form.html', {
+        'property':         prop,
+        'category_choices': CompanyProperty.CATEGORY_CHOICES,
+        'employees':        Employee.objects.filter(is_active=True).order_by('emp_name'),
+    })
+
+
+@require_POST
+@login_required
+def property_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    prop = get_object_or_404(CompanyProperty, pk=pk)
+    name = prop.name
+    prop.delete()
+    messages.success(request, f"Property '{name}' deleted.")
+    return redirect('property_list')
+
+
+# ── Memos (official memorandums on company letterhead — HR & MD only) ─────────
+
+def _next_memo_ref():
+    """Generate the next reference like JN/ADMIN/202603 (year + running number)."""
+    year = timezone.now().year
+    seq = Memo.objects.filter(memo_date__year=year).count() + 1
+    return f"JN/ADMIN/{year}{seq:02d}"
+
+
+def _resolve_memo_recipient(request):
+    """Determine to_text / employee / department from the submitted memo type."""
+    memo_type  = request.POST.get('memo_type') or 'general'
+    employee   = None
+    department = None
+    if memo_type == 'warning_employee':
+        employee = Employee.objects.filter(pk=request.POST.get('employee')).first()
+        to_text  = employee.emp_name if employee else (request.POST.get('to_text') or '')
+    elif memo_type == 'warning_department':
+        department = Department.objects.filter(pk=request.POST.get('department')).first()
+        to_text    = department.name if department else (request.POST.get('to_text') or '')
+    else:
+        to_text = (request.POST.get('to_text') or 'All Staff').strip() or 'All Staff'
+    return memo_type, to_text, employee, department
+
+
+@login_required
+def memo_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    memos = Memo.objects.select_related('employee', 'department', 'created_by').all()
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        memos = memos.filter(
+            Q(ref_no__icontains=query) | Q(subject__icontains=query) |
+            Q(to_text__icontains=query) | Q(body__icontains=query)
+        )
+    mtype = (request.GET.get('memo_type') or '').strip()
+    if mtype in dict(Memo.MEMO_TYPE_CHOICES):
+        memos = memos.filter(memo_type=mtype)
+    return render(request, 'hr_de/memos/list.html', {
+        'memos': memos,
+        'query': query,
+        'memo_type': mtype,
+        'type_choices': Memo.MEMO_TYPE_CHOICES,
+    })
+
+
+@login_required
+def memo_add(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        subject = (request.POST.get('subject') or '').strip()
+        body    = (request.POST.get('body') or '').strip()
+        if not subject or not body:
+            messages.error(request, 'Subject and body are required.')
+            return redirect('memo_add')
+        memo_type, to_text, employee, department = _resolve_memo_recipient(request)
+        memo = Memo(
+            memo_type=memo_type,
+            ref_no=(request.POST.get('ref_no') or '').strip() or _next_memo_ref(),
+            to_text=to_text,
+            employee=employee,
+            department=department,
+            memo_date=request.POST.get('memo_date') or timezone.localdate(),
+            subject=subject,
+            body=body,
+            signatory=(request.POST.get('signatory') or 'HR/ADMIN DIVISION').strip(),
+            signature=request.FILES.get('signature'),
+            created_by=request.user,
+        )
+        memo.save()
+        messages.success(request, f"Memo '{memo.ref_no}' created.")
+        return redirect('memo_list')
+
+    return render(request, 'hr_de/memos/form.html', {
+        'type_choices': Memo.MEMO_TYPE_CHOICES,
+        'employees':    Employee.objects.filter(is_active=True).order_by('emp_name'),
+        'departments':  Department.objects.all().order_by('name'),
+        'suggested_ref': _next_memo_ref(),
+        'today':        timezone.localdate().isoformat(),
+    })
+
+
+@login_required
+def memo_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    memo = get_object_or_404(Memo, pk=pk)
+
+    if request.method == 'POST':
+        subject = (request.POST.get('subject') or '').strip()
+        body    = (request.POST.get('body') or '').strip()
+        if not subject or not body:
+            messages.error(request, 'Subject and body are required.')
+            return redirect('memo_edit', pk=pk)
+        memo_type, to_text, employee, department = _resolve_memo_recipient(request)
+        memo.memo_type  = memo_type
+        memo.ref_no     = (request.POST.get('ref_no') or '').strip() or memo.ref_no
+        memo.to_text    = to_text
+        memo.employee   = employee
+        memo.department = department
+        memo.memo_date  = request.POST.get('memo_date') or memo.memo_date
+        memo.subject    = subject
+        memo.body       = body
+        memo.signatory  = (request.POST.get('signatory') or 'HR/ADMIN DIVISION').strip()
+        if request.FILES.get('signature'):
+            memo.signature = request.FILES['signature']
+        memo.save()
+        messages.success(request, f"Memo '{memo.ref_no}' updated.")
+        return redirect('memo_list')
+
+    return render(request, 'hr_de/memos/form.html', {
+        'memo':         memo,
+        'type_choices': Memo.MEMO_TYPE_CHOICES,
+        'employees':    Employee.objects.filter(is_active=True).order_by('emp_name'),
+        'departments':  Department.objects.all().order_by('name'),
+        'today':        timezone.localdate().isoformat(),
+    })
+
+
+@require_POST
+@login_required
+def memo_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    memo = get_object_or_404(Memo, pk=pk)
+    ref = memo.ref_no
+    memo.delete()
+    messages.success(request, f"Memo '{ref}' deleted.")
+    return redirect('memo_list')
+
+
+@login_required
+def memo_pdf(request, pk):
+    """Render the memo as a PDF on the company letterhead (exact template design)."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    memo = get_object_or_404(Memo, pk=pk)
+
+    import os, html as _html
+    from io import BytesIO
+    from django.conf import settings
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, Spacer, Image as RLImage, Frame
+
+    PW, PH = A4                       # 595.276 x 841.89
+    IMG_W, IMG_H = 1241, 1755         # letterhead template pixel size
+    sx, sy = PW / IMG_W, PH / IMG_H
+
+    def X(px):  # pixel-x → points
+        return px * sx
+
+    def Y(py):  # pixel-y (from top) → points (baseline from bottom)
+        return PH - py * sy
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    # Letterhead background (logo + labels + footer already printed on it).
+    letterhead = os.path.join(settings.MEDIA_ROOT, 'HR MEMO SAMPLE.JPG')
+    if os.path.exists(letterhead):
+        c.drawImage(letterhead, 0, 0, width=PW, height=PH,
+                    preserveAspectRatio=False, mask='auto')
+
+    # Header values, aligned to the pre-printed Ref/To/Date/Re labels.
+    c.setFont('Helvetica', 13)
+    val_x = X(300)
+    c.drawString(val_x, Y(328), memo.ref_no or '')
+    c.drawString(val_x, Y(400), memo.to_text or '')
+    c.drawString(val_x, Y(470), memo.memo_date.strftime('%d %B %Y') if memo.memo_date else '')
+
+    # 'Re' subject may be long — wrap it inside a frame beside the Re label.
+    # Frame content anchors at the TOP, so top edge is set just above the label.
+    re_style = ParagraphStyle('re', fontName='Helvetica', fontSize=13, leading=17)
+    re_para  = Paragraph(_html.escape(memo.subject or ''), re_style)
+    re_top_px, re_bot_px = 515, 625
+    re_frame = Frame(val_x, Y(re_bot_px), PW - val_x - X(90), Y(re_top_px) - Y(re_bot_px),
+                     leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
+    re_frame.addFromList([re_para], c)
+
+    # Body + closing, flowed in a frame beneath the header block.
+    body_style = ParagraphStyle('body', fontName='Helvetica', fontSize=12.5, leading=21)
+    close_style = ParagraphStyle('close', fontName='Helvetica', fontSize=12.5, leading=18)
+    sign_style = ParagraphStyle('sign', fontName='Helvetica-Oblique', fontSize=12.5, leading=16)
+
+    body_html = _html.escape(memo.body or '').replace('\n', '<br/>')
+    story = [
+        Paragraph(body_html, body_style),
+        Spacer(1, 34),
+        Paragraph('Thanks and regards,', close_style),
+    ]
+    if memo.signature:
+        try:
+            sig_path = memo.signature.path
+            if os.path.exists(sig_path):
+                img = RLImage(sig_path)
+                # scale to max ~130pt wide / 60pt tall, keep aspect
+                iw, ih = img.imageWidth, img.imageHeight
+                scale = min(130.0 / iw, 60.0 / ih)
+                img.drawWidth, img.drawHeight = iw * scale, ih * scale
+                img.hAlign = 'LEFT'   # default is CENTER
+                story += [Spacer(1, 4), img]
+        except Exception:
+            pass
+    story += [Spacer(1, 6), Paragraph(memo.signatory or 'HR/ADMIN DIVISION', sign_style)]
+
+    body_top = Y(640)
+    frame = Frame(X(150), Y(1560), PW - X(150) - X(90), body_top - Y(1560),
+                  leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
+    frame.addFromList(story, c)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    resp = HttpResponse(buf, content_type='application/pdf')
+    fname = (memo.ref_no or 'memo').replace('/', '-')
+    resp['Content-Disposition'] = f'inline; filename="{fname}.pdf"'
+    return resp

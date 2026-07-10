@@ -154,7 +154,7 @@
                             <span class="emp-id-chip">{{ r.employee.emp_id }}</span>
                         </td>
                         <td>{{ r.employee.department.name|default:"—" }}</td>
-                        <td>{{ r.effective_date|date:"d M Y" }}</td>
+                        <td>{{ r.effective_date|date:"M Y" }}</td>
                         <td>
                             {% if r.change_type == 'Increment' %}
                                 <span class="badge b-inc"><i class="fas fa-arrow-up"></i> Increment</span>

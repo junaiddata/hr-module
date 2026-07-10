@@ -461,6 +461,24 @@
                             <span class="nav-text">Vehicle Management</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{% url 'management_list' %}" class="nav-link-item" data-path="/management/">
+                            <span class="nav-icon"><i class="fas fa-user-tie"></i></span>
+                            <span class="nav-text">Management Details</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'property_list' %}" class="nav-link-item" data-path="/properties/">
+                            <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                            <span class="nav-text">Company Properties</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'memo_list' %}" class="nav-link-item" data-path="/memos/">
+                            <span class="nav-icon"><i class="fas fa-file-signature"></i></span>
+                            <span class="nav-text">Memos</span>
+                        </a>
+                    </li>
                 </ul>
 
                 <div class="nav-section-label">Performance</div>
@@ -604,6 +622,24 @@
                         <a href="{% url 'vehicle_list' %}" class="nav-link-item" data-path="/vehicles/">
                             <span class="nav-icon"><i class="fas fa-car"></i></span>
                             <span class="nav-text">Vehicle Management</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'management_list' %}" class="nav-link-item" data-path="/management/">
+                            <span class="nav-icon"><i class="fas fa-user-tie"></i></span>
+                            <span class="nav-text">Management Details</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'property_list' %}" class="nav-link-item" data-path="/properties/">
+                            <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                            <span class="nav-text">Company Properties</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'memo_list' %}" class="nav-link-item" data-path="/memos/">
+                            <span class="nav-icon"><i class="fas fa-file-signature"></i></span>
+                            <span class="nav-text">Memos</span>
                         </a>
                     </li>
                 </ul>
@@ -834,6 +870,16 @@
                     </li>
                 </ul>
 
+                <div class="nav-section-label">Vehicles</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'my_vehicles' %}" class="nav-link-item" data-path="/my-vehicles/">
+                            <span class="nav-icon"><i class="fas fa-car"></i></span>
+                            <span class="nav-text">My Vehicles</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="nav-section-label">Account</div>
                 <ul class="nav-list">
                     <li class="nav-item">
@@ -873,6 +919,108 @@
         </main>
 
     </div><!-- /.app-layout -->
+
+    <!-- ═══════════════ Reusable confirmation modal ═══════════════ -->
+    <div class="confirm-overlay" id="confirmOverlay" aria-hidden="true">
+        <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+            <div class="confirm-icon" id="confirmIcon"><i class="fas fa-triangle-exclamation"></i></div>
+            <h3 class="confirm-title" id="confirmTitle">Are you sure?</h3>
+            <p class="confirm-msg" id="confirmMsg"></p>
+            <div class="confirm-actions">
+                <button type="button" class="confirm-btn cancel" id="confirmCancel">Cancel</button>
+                <button type="button" class="confirm-btn ok" id="confirmOk">Delete</button>
+            </div>
+        </div>
+    </div>
+    <style>
+        .confirm-overlay {
+            position: fixed; inset: 0; z-index: 4000;
+            background: rgba(15, 23, 42, .55);
+            display: none; align-items: center; justify-content: center;
+            padding: 1rem; opacity: 0; transition: opacity .16s ease;
+        }
+        .confirm-overlay.show { display: flex; opacity: 1; }
+        .confirm-box {
+            background: #fff; border-radius: 16px; width: 100%; max-width: 400px;
+            padding: 1.75rem 1.6rem 1.4rem; text-align: center;
+            box-shadow: 0 24px 60px rgba(0,0,0,.28);
+            transform: translateY(8px) scale(.98); transition: transform .18s ease;
+        }
+        .confirm-overlay.show .confirm-box { transform: none; }
+        .confirm-icon {
+            width: 56px; height: 56px; margin: 0 auto 1rem; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(239,68,68,.12); color: #ef4444; font-size: 1.5rem;
+        }
+        .confirm-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary, #1f2937); margin: 0 0 .4rem; }
+        .confirm-msg { font-size: .9rem; color: var(--text-secondary, #64748b); line-height: 1.5; margin: 0 0 1.4rem; }
+        .confirm-actions { display: flex; gap: .6rem; justify-content: center; }
+        .confirm-btn {
+            border: none; border-radius: 10px; padding: .6rem 1.4rem;
+            font-size: .9rem; font-weight: 700; cursor: pointer; transition: filter .15s, background .15s;
+        }
+        .confirm-btn.cancel { background: var(--bg-tertiary, #eef2f7); color: var(--text-secondary, #475569); }
+        .confirm-btn.cancel:hover { filter: brightness(.96); }
+        .confirm-btn.ok { background: #ef4444; color: #fff; }
+        .confirm-btn.ok:hover { background: #dc2626; }
+        .confirm-btn.ok.neutral { background: var(--accent-primary, #4f46e5); }
+        .confirm-icon.neutral { background: rgba(79,70,229,.12); color: var(--accent-primary, #4f46e5); }
+    </style>
+    <script>
+    (function () {
+        var overlay = document.getElementById('confirmOverlay');
+        var box     = overlay.querySelector('.confirm-box');
+        var titleEl = document.getElementById('confirmTitle');
+        var msgEl   = document.getElementById('confirmMsg');
+        var iconEl  = document.getElementById('confirmIcon');
+        var okBtn   = document.getElementById('confirmOk');
+        var cancelBtn = document.getElementById('confirmCancel');
+        var pendingForm = null;
+
+        function open(form) {
+            pendingForm = form;
+            var msg   = form.getAttribute('data-confirm') || 'Are you sure?';
+            var title = form.getAttribute('data-confirm-title') || 'Are you sure?';
+            var okTxt = form.getAttribute('data-confirm-ok') || 'Delete';
+            var kind  = form.getAttribute('data-confirm-kind') || 'danger';  // danger | neutral
+            msgEl.textContent = msg;
+            titleEl.textContent = title;
+            okBtn.textContent = okTxt;
+            okBtn.classList.toggle('neutral', kind === 'neutral');
+            iconEl.classList.toggle('neutral', kind === 'neutral');
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            okBtn.focus();
+        }
+        function close() {
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+            pendingForm = null;
+        }
+
+        // Intercept submits on any form carrying data-confirm.
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (form.hasAttribute && form.hasAttribute('data-confirm') && !form.dataset.confirmed) {
+                e.preventDefault();
+                open(form);
+            }
+        }, true);
+
+        okBtn.addEventListener('click', function () {
+            if (!pendingForm) return;
+            var f = pendingForm;
+            f.dataset.confirmed = '1';     // allow the next submit through
+            close();
+            if (f.requestSubmit) f.requestSubmit(); else f.submit();
+        });
+        cancelBtn.addEventListener('click', close);
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && overlay.classList.contains('show')) close();
+        });
+    })();
+    </script>
 
 {% endwith %}
 
