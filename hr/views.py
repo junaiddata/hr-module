@@ -2691,6 +2691,61 @@ def logout_view(request):
     logout(request)
     return redirect('home')
 
+
+@login_required
+def impersonate_employee(request, pk):
+    """HR 'logs in as' an employee to see the module exactly as that employee
+    does. The HR user's id is saved in the session so they can switch back via
+    stop_impersonating(). login() flushes the session when the user changes, so
+    the impersonation markers are set AFTER the switch."""
+    # Only HR may impersonate, and never stack a second impersonation.
+    if not _hr_only(request) or request.session.get('impersonator_id'):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    employee = get_object_or_404(Employee, pk=pk)
+    target = employee.user
+    if not target:
+        messages.error(
+            request,
+            f"{employee.emp_name} has no login account to view as. "
+            "Add a username on the Edit screen first."
+        )
+        return redirect('employee_detail', pk=employee.pk)
+    if target.pk == request.user.pk:
+        return redirect('employee_detail', pk=employee.pk)
+
+    original_id = request.user.id
+    original_name = request.user.get_full_name() or request.user.username
+
+    login(request, target, backend='django.contrib.auth.backends.ModelBackend')
+    request.session['impersonator_id'] = original_id
+    request.session['impersonator_name'] = original_name
+
+    # Land on the same page this user would reach when logging in normally.
+    target_role = getattr(target, 'role', None)
+    if target_role:
+        if target_role.role == 'Head':
+            return redirect('employee_home')
+        return redirect('home')
+    return redirect('employee_dashboard')
+
+
+@login_required
+def stop_impersonating(request):
+    """Return an impersonating HR user to their own account."""
+    original_id = request.session.get('impersonator_id')
+    if not original_id:
+        return redirect('home')
+
+    original = User.objects.filter(pk=original_id).first()
+    if not original:
+        logout(request)
+        return redirect('login')
+
+    # login() flushes the session, clearing the impersonation markers too.
+    login(request, original, backend='django.contrib.auth.backends.ModelBackend')
+    return redirect('home')
+
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect

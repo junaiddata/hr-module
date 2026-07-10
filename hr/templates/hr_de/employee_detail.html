@@ -233,6 +233,18 @@
                 <i class="fas fa-calendar-alt"></i> Leave Details
             </a>
             {% if request.user.role.role == 'HR' %}
+            {% if employee.user and not is_own and not request.session.impersonator_id %}
+            <form method="get" action="{% url 'impersonate_employee' employee.id %}"
+                  data-confirm="You will be signed in as {{ employee.emp_name }} and see the module exactly as they do. Use the banner at the top to switch back to your account."
+                  data-confirm-title="View as {{ employee.emp_name }}?"
+                  data-confirm-ok="View as Employee"
+                  data-confirm-kind="neutral"
+                  style="display:inline;">
+                <button type="submit" class="ed-btn" title="View the module exactly as this employee sees it">
+                    <i class="fas fa-user-secret"></i> View as Employee
+                </button>
+            </form>
+            {% endif %}
             <a href="{% url 'employee_edit' employee.id %}" class="ed-btn ed-btn-primary">
                 <i class="fas fa-pen"></i> Edit Details
             </a>

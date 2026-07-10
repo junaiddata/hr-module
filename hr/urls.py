@@ -46,6 +46,10 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
+    # HR: view the module as a specific employee ("login as employee")
+    path('employee/<int:pk>/impersonate/', views.impersonate_employee, name='impersonate_employee'),
+    path('stop-impersonating/', views.stop_impersonating, name='stop_impersonating'),
+
     path('forgot-password/', views.forgot_password, name='forgot_password'),
 
     path('mols/', views.mol_list, name='mol_list'),

@@ -282,6 +282,34 @@
         }
         .sidebar.collapsed ~ .main-content { margin-left: var(--sidebar-w-c); }
 
+        /* ── HR "view as employee" banner ─────────────── */
+        .impersonate-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: .6rem;
+            padding: .7rem 1.2rem;
+            background: linear-gradient(90deg, #b45309, #d97706);
+            color: #fff;
+            font-size: .88rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15);
+        }
+        .impersonate-banner-text { display: inline-flex; align-items: center; gap: .5rem; }
+        .impersonate-banner-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .35rem .8rem;
+            background: rgba(255,255,255,.2);
+            color: #fff;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background .15s;
+        }
+        .impersonate-banner-btn:hover { background: rgba(255,255,255,.35); color: #fff; }
+
         /* ── Mobile hamburger ─────────────────────── */
         .mobile-toggle {
             display: none;
@@ -915,6 +943,18 @@
 
         <!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
         <main class="main-content" id="mainContent">
+            {% if request.session.impersonator_id %}
+            <div class="impersonate-banner">
+                <span class="impersonate-banner-text">
+                    <i class="fas fa-user-secret"></i>
+                    Viewing as <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>.
+                    You are signed in as this employee.
+                </span>
+                <a href="{% url 'stop_impersonating' %}" class="impersonate-banner-btn">
+                    <i class="fas fa-arrow-left"></i> Back to {{ request.session.impersonator_name|default:'HR' }}
+                </a>
+            </div>
+            {% endif %}
             {% block content %}{% endblock %}
         </main>
 
