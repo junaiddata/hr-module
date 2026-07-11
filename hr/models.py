@@ -202,6 +202,15 @@ class Leave(models.Model):
 
     leave_application = models.FileField(upload_to='leave_applications/', null=True, blank=True)
 
+    # Set when a Head/HR corrects the employee-requested dates during approval,
+    # so the employee can see who changed their dates and what was requested originally.
+    original_expected_from = models.DateField(null=True, blank=True)
+    original_expected_to = models.DateField(null=True, blank=True)
+    dates_changed_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='date_changed_leaves'
+    )
+    dates_changed_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['-expected_from']
 
@@ -1063,17 +1072,22 @@ class CompanyProperty(models.Model):
         return self.get_category_display() if self.category else ''
 
 
+class MemoType(models.Model):
+    """A memo type/category, created by HR/MD, offered as a dropdown when issuing a Memo."""
+    memo_type = models.CharField('Memo Type', max_length=60, unique=True)
+
+    class Meta:
+        ordering = ['memo_type']
+
+    def __str__(self):
+        return self.memo_type
+
+
 class Memo(models.Model):
     """An official memorandum issued on the company letterhead and rendered to a
     PDF. HR/MD only."""
-    MEMO_TYPE_CHOICES = [
-        ('holiday',            'National Holiday Declaration'),
-        ('warning_employee',   'Warning to Employee'),
-        ('warning_department', 'Warning to Department'),
-        ('general',            'General Memo to All Staff'),
-    ]
 
-    memo_type   = models.CharField(max_length=25, choices=MEMO_TYPE_CHOICES, default='general')
+    memo_type   = models.ForeignKey(MemoType, on_delete=models.PROTECT, related_name='memos')
     ref_no      = models.CharField('Reference No.', max_length=60, blank=True, default='')
     to_text     = models.CharField('To', max_length=200, default='All Staff')
     employee    = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='memos')

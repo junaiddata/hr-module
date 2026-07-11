@@ -645,10 +645,10 @@
                                     Employee <span class="required">*</span>
                                 </label>
                                 <div class="select-wrapper">
-                                    <select name="employee" class="form-select" required>
+                                    <select name="employee" id="employeeSelect" class="form-select" required>
                                         <option value="" disabled {% if not leave %}selected{% endif %}>Select Employee</option>
                                         {% for emp in employees %}
-                                            <option value="{{ emp.id }}" {% if leave and emp.id == leave.employee.id %}selected{% endif %}>
+                                            <option value="{{ emp.id }}" data-department="{{ emp.department_id|default_if_none:'' }}" {% if leave and emp.id == leave.employee.id %}selected{% endif %}>
                                                 {{ emp.emp_name }} ({{ emp.emp_id }})
                                             </option>
                                         {% endfor %}
@@ -688,12 +688,12 @@
                                 <label class="form-label">
                                     Reported To <span class="required">*</span>
                                 </label>
-                                <input type="text" name="reported_to" class="form-control" required
-                                       value="{% if leave %}{{ leave.reported_to }}{% endif %}" 
+                                <input type="text" name="reported_to" id="reportedToInput" class="form-control" required autocomplete="off"
+                                       value="{% if leave %}{{ leave.reported_to }}{% endif %}"
                                        placeholder="Enter HR/Manager name">
                                 <div class="form-helper">
                                     <i class="fas fa-circle-info"></i>
-                                    Name of the person this leave will be reported to
+                                    Auto-filled with the employee's department Head — edit if needed
                                 </div>
                             </div>
                         </div>
@@ -953,7 +953,19 @@
         const expectedDatePreview = document.getElementById('expectedDatePreview');
         const expectedDuration = document.getElementById('expectedDuration');
         const submitBtn = document.getElementById('submitBtn');
-        
+
+        // Auto-fill "Reported To" with the selected employee's department Head
+        const departmentHeads = {{ department_heads_json|safe }};
+        const employeeSelect = document.getElementById('employeeSelect');
+        const reportedToInput = document.getElementById('reportedToInput');
+        if (employeeSelect && reportedToInput) {
+            employeeSelect.addEventListener('change', function () {
+                const opt = this.options[this.selectedIndex];
+                const deptId = opt ? opt.getAttribute('data-department') : '';
+                reportedToInput.value = (deptId && departmentHeads[deptId]) ? departmentHeads[deptId] : '';
+            });
+        }
+
         // File upload elements
         const fileUploadBtn = document.getElementById('fileUploadBtn');
         const fileUploadInput = document.getElementById('fileUploadInput');

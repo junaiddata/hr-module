@@ -543,6 +543,14 @@
                             <span class="nav-text">Attendance Sheet</span>
                         </a>
                     </li>
+                    {% if request.user.role.department %}
+                    <li class="nav-item">
+                        <a href="{% url 'attendance_team' %}" class="nav-link-item" data-path="/attendance/team/">
+                            <span class="nav-icon"><i class="fas fa-user-check"></i></span>
+                            <span class="nav-text">Team Attendance</span>
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
 
                 <div class="nav-section-label">Payroll</div>

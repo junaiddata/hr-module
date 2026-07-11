@@ -3,7 +3,7 @@ from .models import *
 from .forms import EmployeeForm
 from django.http import HttpResponse
 from django.views.decorators.http import require_POST
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.contrib.auth.decorators import login_required
 from django_countries import countries
 from django.http import JsonResponse
@@ -38,12 +38,15 @@ def _head_role_for(dept):
 
 
 def _head_department(request):
-    """Department this user is head of (role='Head'), or None."""
+    """Department this user leads day-to-day (team attendance, reviews), or None.
+    Regular department heads have role='Head'. The HR department's own head is
+    modeled specially with role='HR' scoped to that department (see _head_role_for),
+    so they count as its head here too."""
     try:
         role = request.user.role
     except Exception:
         return None
-    if role and role.role == 'Head' and role.department:
+    if role and role.department and role.role in ('Head', 'HR'):
         return role.department
     return None
 
@@ -960,6 +963,16 @@ def leave_type_delete(request, pk):
     leave_type.delete()
     return redirect('leave_type_list')
 
+def _department_heads_json():
+    """department_id -> display name of that department's Head, for auto-filling
+    the 'Reported To' field on the leave form."""
+    import json
+    heads = {}
+    for role in Role.objects.filter(role='Head', department__isnull=False, user__isnull=False).select_related('user'):
+        heads[role.department_id] = role.user.get_full_name() or role.user.username
+    return json.dumps(heads)
+
+
 @login_required
 def add_leave(request):
     employees = Employee.objects.filter(is_active=True)
@@ -1000,8 +1013,33 @@ def add_leave(request):
 
     return render(request, template_name, {
         'employees': employees,
-        'leave_types': leave_types
+        'leave_types': leave_types,
+        'department_heads_json': _department_heads_json(),
     })
+
+
+def _apply_leave_date_update(request, leave):
+    """Let the approver (Head/HR) correct the employee-requested dates before acting.
+    Recomputes `days` and records who changed the dates (and the original values)
+    so the employee can see this on their My Leaves page."""
+    from django.utils.dateparse import parse_date
+    new_from = parse_date(request.POST.get('expected_from') or '')
+    new_to = parse_date(request.POST.get('expected_to') or '')
+    if not new_from or not new_to:
+        return
+    if new_from > new_to:
+        messages.error(request, "Expected From date cannot be after Expected To date — dates were not changed.")
+        return
+    if new_from == leave.expected_from and new_to == leave.expected_to:
+        return
+    if leave.original_expected_from is None:
+        leave.original_expected_from = leave.expected_from
+        leave.original_expected_to = leave.expected_to
+    leave.expected_from = new_from
+    leave.expected_to = new_to
+    leave.days = (new_to - new_from).days + 1
+    leave.dates_changed_by = request.user
+    leave.dates_changed_at = timezone.now()
 
 
 @login_required
@@ -1009,8 +1047,27 @@ def approve_leave(request, leave_id):
     leave = get_object_or_404(Leave, id=leave_id)
     user_role = getattr(request.user, 'role', None)
 
+    can_edit_dates = bool(
+        user_role and (
+            user_role.role == 'HR' or
+            (user_role.role == 'Head' and leave.employee.department == user_role.department)
+        )
+    )
+
     if request.method == "POST":
         action = request.POST.get("action")
+
+        # Editing the requested dates is independent of whose turn it is to
+        # approve/reject — HR (any leave) and Head (their own department)
+        # can correct dates at any pipeline stage.
+        if action == 'update_dates':
+            if not can_edit_dates:
+                return render(request, 'hr_de/unauthorized.html', status=403)
+            _apply_leave_date_update(request, leave)
+            leave.save()
+            messages.success(request, "Leave dates updated.")
+            return redirect('approve_leave', leave_id=leave.pk)
+
         rejection_reason = request.POST.get("rejection_reason", "").strip()
 
         if user_role and user_role.role == 'Head':
@@ -1062,6 +1119,7 @@ def approve_leave(request, leave_id):
     return render(request, 'hr_de/approve_leave.html', {
         'leave': leave,
         'approver_role': user_role,
+        'can_edit_dates': can_edit_dates,
     })
 
 
@@ -1174,7 +1232,8 @@ def leave_edit(request, pk):
     return render(request, template_name, {
         'leave': leave,
         'employees': employees,
-        'leave_types': leave_types
+        'leave_types': leave_types,
+        'department_heads_json': _department_heads_json(),
     })
 
 
@@ -1434,6 +1493,21 @@ def my_leaves(request):
     })
 
 
+def _default_reported_to(user, employee):
+    """Who the 'Reported To' field should default to for a self-service leave request.
+    Heads report to HR directly; everyone else reports to their department's Head."""
+    role = getattr(user, 'role', None)
+    if role and role.role == 'Head':
+        return 'HR'
+    if employee.department_id:
+        head_role = Role.objects.filter(
+            role='Head', department_id=employee.department_id, user__isnull=False
+        ).select_related('user').first()
+        if head_role:
+            return head_role.user.get_full_name() or head_role.user.username
+    return ''
+
+
 @login_required
 def submit_my_leave(request):
     """Employee submits their own leave request."""
@@ -1472,6 +1546,7 @@ def submit_my_leave(request):
     return render(request, 'hr_de/submit_leave.html', {
         'employee': employee,
         'leave_types': leave_types,
+        'default_reported_to': _default_reported_to(request.user, employee),
     })
 
 
@@ -1529,7 +1604,7 @@ def apply_leave_behalf(request, emp_pk):
             leave_type_id=request.POST.get('leave_type'),
             expected_from=expected_from,
             expected_to=expected_to,
-            reported_to=request.POST.get('reported_to', f"{request.user.get_full_name() or request.user.username} (Head)"),
+            reported_to=(request.POST.get('reported_to') or '').strip() or 'HR',
             reason=request.POST.get('reason', ''),
             days=days,
             actual_days=actual_days,
@@ -1546,6 +1621,7 @@ def apply_leave_behalf(request, emp_pk):
         'employee': employee,
         'leave_types': leave_types,
         'dept': dept,
+        'default_reported_to': 'HR',
     })
 
 
@@ -4078,11 +4154,15 @@ def attendance_day_update(request):
             return JsonResponse({'status': 'error', 'message': 'Unknown leave type.'}, status=400)
 
     applied = 0
+    skipped = 0
     for emp in Employee.objects.filter(id__in=emp_ids):
         if not status:
+            # Explicit "Clear" always applies, even over existing marks.
             Attendance.objects.filter(employee=emp, date=date).delete()
+            applied += 1
         else:
-            Attendance.objects.update_or_create(
+            # Bulk "apply to all" must not clobber cells an HR user already filled in.
+            _, created = Attendance.objects.get_or_create(
                 employee=emp, date=date,
                 defaults={
                     'status':     status,
@@ -4091,9 +4171,12 @@ def attendance_day_update(request):
                     'marked_by':  request.user,
                 },
             )
-        applied += 1
+            if created:
+                applied += 1
+            else:
+                skipped += 1
 
-    return JsonResponse({'status': 'success', 'applied': applied})
+    return JsonResponse({'status': 'success', 'applied': applied, 'skipped': skipped})
 
 
 # ── Other Records (document store — HR & MD only) ────────────────────────────
@@ -5484,26 +5567,23 @@ def _next_memo_ref():
 
 
 def _resolve_memo_recipient(request):
-    """Determine to_text / employee / department from the submitted memo type."""
-    memo_type  = request.POST.get('memo_type') or 'general'
-    employee   = None
-    department = None
-    if memo_type == 'warning_employee':
-        employee = Employee.objects.filter(pk=request.POST.get('employee')).first()
-        to_text  = employee.emp_name if employee else (request.POST.get('to_text') or '')
-    elif memo_type == 'warning_department':
-        department = Department.objects.filter(pk=request.POST.get('department')).first()
-        to_text    = department.name if department else (request.POST.get('to_text') or '')
+    """Determine to_text / employee / department from the submitted recipient fields."""
+    employee   = Employee.objects.filter(pk=request.POST.get('employee')).first() if request.POST.get('employee') else None
+    department = Department.objects.filter(pk=request.POST.get('department')).first() if request.POST.get('department') else None
+    if employee:
+        to_text = employee.emp_name
+    elif department:
+        to_text = department.name
     else:
         to_text = (request.POST.get('to_text') or 'All Staff').strip() or 'All Staff'
-    return memo_type, to_text, employee, department
+    return to_text, employee, department
 
 
 @login_required
 def memo_list(request):
     if not _hr_or_md(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
-    memos = Memo.objects.select_related('employee', 'department', 'created_by').all()
+    memos = Memo.objects.select_related('employee', 'department', 'created_by', 'memo_type').all()
     query = (request.GET.get('q') or '').strip()
     if query:
         memos = memos.filter(
@@ -5511,13 +5591,13 @@ def memo_list(request):
             Q(to_text__icontains=query) | Q(body__icontains=query)
         )
     mtype = (request.GET.get('memo_type') or '').strip()
-    if mtype in dict(Memo.MEMO_TYPE_CHOICES):
-        memos = memos.filter(memo_type=mtype)
+    if mtype.isdigit():
+        memos = memos.filter(memo_type_id=mtype)
     return render(request, 'hr_de/memos/list.html', {
         'memos': memos,
         'query': query,
         'memo_type': mtype,
-        'type_choices': Memo.MEMO_TYPE_CHOICES,
+        'type_choices': MemoType.objects.all(),
     })
 
 
@@ -5529,10 +5609,11 @@ def memo_add(request):
     if request.method == 'POST':
         subject = (request.POST.get('subject') or '').strip()
         body    = (request.POST.get('body') or '').strip()
-        if not subject or not body:
-            messages.error(request, 'Subject and body are required.')
+        memo_type = MemoType.objects.filter(pk=request.POST.get('memo_type')).first()
+        if not subject or not body or not memo_type:
+            messages.error(request, 'Memo type, subject and body are required.')
             return redirect('memo_add')
-        memo_type, to_text, employee, department = _resolve_memo_recipient(request)
+        to_text, employee, department = _resolve_memo_recipient(request)
         memo = Memo(
             memo_type=memo_type,
             ref_no=(request.POST.get('ref_no') or '').strip() or _next_memo_ref(),
@@ -5551,7 +5632,7 @@ def memo_add(request):
         return redirect('memo_list')
 
     return render(request, 'hr_de/memos/form.html', {
-        'type_choices': Memo.MEMO_TYPE_CHOICES,
+        'type_choices': MemoType.objects.all(),
         'employees':    Employee.objects.filter(is_active=True).order_by('emp_name'),
         'departments':  Department.objects.all().order_by('name'),
         'suggested_ref': _next_memo_ref(),
@@ -5568,10 +5649,11 @@ def memo_edit(request, pk):
     if request.method == 'POST':
         subject = (request.POST.get('subject') or '').strip()
         body    = (request.POST.get('body') or '').strip()
-        if not subject or not body:
-            messages.error(request, 'Subject and body are required.')
+        memo_type = MemoType.objects.filter(pk=request.POST.get('memo_type')).first()
+        if not subject or not body or not memo_type:
+            messages.error(request, 'Memo type, subject and body are required.')
             return redirect('memo_edit', pk=pk)
-        memo_type, to_text, employee, department = _resolve_memo_recipient(request)
+        to_text, employee, department = _resolve_memo_recipient(request)
         memo.memo_type  = memo_type
         memo.ref_no     = (request.POST.get('ref_no') or '').strip() or memo.ref_no
         memo.to_text    = to_text
@@ -5589,7 +5671,7 @@ def memo_edit(request, pk):
 
     return render(request, 'hr_de/memos/form.html', {
         'memo':         memo,
-        'type_choices': Memo.MEMO_TYPE_CHOICES,
+        'type_choices': MemoType.objects.all(),
         'employees':    Employee.objects.filter(is_active=True).order_by('emp_name'),
         'departments':  Department.objects.all().order_by('name'),
         'today':        timezone.localdate().isoformat(),
@@ -5606,6 +5688,42 @@ def memo_delete(request, pk):
     memo.delete()
     messages.success(request, f"Memo '{ref}' deleted.")
     return redirect('memo_list')
+
+
+@login_required
+def memo_type_list(request):
+    """HR/MD manage the memo types offered in the memo form dropdown."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    if request.method == 'POST':
+        name = (request.POST.get('memo_type') or '').strip()
+        if not name:
+            messages.error(request, 'Memo type name is required.')
+        elif MemoType.objects.filter(memo_type__iexact=name).exists():
+            messages.error(request, f"Memo type '{name}' already exists.")
+        else:
+            MemoType.objects.create(memo_type=name)
+            messages.success(request, f"Memo type '{name}' added.")
+        return redirect('memo_type_list')
+
+    return render(request, 'hr_de/memos/type_list.html', {
+        'memo_types': MemoType.objects.annotate(memo_count=Count('memos')).order_by('memo_type'),
+    })
+
+
+@require_POST
+@login_required
+def memo_type_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    memo_type = get_object_or_404(MemoType, pk=pk)
+    if memo_type.memos.exists():
+        messages.error(request, f"Cannot delete '{memo_type.memo_type}' — it is used by existing memos.")
+    else:
+        name = memo_type.memo_type
+        memo_type.delete()
+        messages.success(request, f"Memo type '{name}' deleted.")
+    return redirect('memo_type_list')
 
 
 @login_required

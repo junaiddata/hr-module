@@ -119,6 +119,22 @@
         outline: none; border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
     }
 
+    .date-edit-section {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+    }
+    .date-edit-title { font-weight: 700; color: #0f172a; font-size: 0.85rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem; }
+    .date-edit-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 1rem; }
+    .date-edit-grid label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.3rem; }
+    .date-edit-grid input[type="date"] {
+        width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 0.55rem 0.75rem; font-size: 0.88rem;
+    }
+    .date-edit-grid input[type="date"]:focus {
+        outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .date-edit-hint { font-size: 0.76rem; color: #64748b; margin-top: 0.6rem; }
+
     .btn {
         padding: 0.6rem 1.4rem; border-radius: 8px; font-weight: 600;
         display: inline-flex; align-items: center; gap: 0.5rem;
@@ -321,6 +337,32 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Adjust Dates — HR (any leave) and Head (their own department) can correct the
+         employee-requested dates at any pipeline stage, independent of approve/reject. -->
+    {% if can_edit_dates %}
+    <div class="action-card">
+        <div class="action-title"><i class="fas fa-calendar-edit" style="color:#6366f1;margin-right:6px;"></i>Adjust Leave Dates</div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_dates">
+            <div class="date-edit-grid">
+                <div>
+                    <label>Expected From</label>
+                    <input type="date" name="expected_from" value="{{ leave.expected_from|date:'Y-m-d' }}">
+                </div>
+                <div>
+                    <label>Expected To</label>
+                    <input type="date" name="expected_to" value="{{ leave.expected_to|date:'Y-m-d' }}">
+                </div>
+            </div>
+            <div class="date-edit-hint">Correct the dates the employee requested, then save. This does not change the approval status.</div>
+            <div class="d-flex gap-3 flex-wrap" style="margin-top:1rem;">
+                <button type="submit" class="btn btn-approve"><i class="fas fa-save"></i> Save Dates</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 
     <!-- Action Section — only shown if this leave is in the current user's queue -->
     {% if approver_role and approver_role.role == 'Head' and leave.status == 'Pending' %}

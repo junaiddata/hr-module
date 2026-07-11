@@ -180,6 +180,8 @@
     }
     .data-table tbody tr:last-child td { border-bottom: none; }
     .data-table tbody tr:hover { background: #f8fafc; }
+    .data-table tbody tr.row-clickable { cursor: pointer; }
+    .data-table tbody tr.row-clickable:hover { background: rgba(99,102,241,.06); }
 
     .status-badge {
         display: inline-block;
@@ -333,7 +335,7 @@
                 </thead>
                 <tbody>
                     {% for leave in recent_leaves %}
-                    <tr>
+                    <tr class="row-clickable" onclick="window.location='{% url 'approve_leave' leave.pk %}'" title="Review this leave request">
                         <td>
                             <div class="emp-name">{{ leave.employee.emp_name }}</div>
                             <div class="emp-id">{{ leave.employee.emp_id }}</div>

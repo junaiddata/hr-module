@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, Memo
+from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, Memo, MemoType
 
 admin.site.register(Employee)
 admin.site.register(ChangeLog)
@@ -58,6 +58,12 @@ class MemoAdmin(admin.ModelAdmin):
     list_display = ['ref_no', 'memo_type', 'to_text', 'subject', 'memo_date']
     list_filter = ['memo_type', 'memo_date']
     search_fields = ['ref_no', 'subject', 'to_text', 'body']
+
+
+@admin.register(MemoType)
+class MemoTypeAdmin(admin.ModelAdmin):
+    list_display = ['memo_type']
+    search_fields = ['memo_type']
 
 
 @admin.register(Leave)

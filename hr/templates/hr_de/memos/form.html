@@ -33,11 +33,13 @@
             <div class="mmf-grid">
                 <div class="mmf-group">
                     <label class="mmf-label">Memo Type <span class="mmf-req">*</span></label>
-                    <select name="memo_type" id="memoType" class="mmf-select">
-                        {% for value, label in type_choices %}
-                        <option value="{{ value }}" {% if memo.memo_type == value %}selected{% endif %}>{{ label }}</option>
+                    <select name="memo_type" id="memoType" class="mmf-select" required>
+                        <option value="">— Select type —</option>
+                        {% for t in type_choices %}
+                        <option value="{{ t.pk }}" {% if memo.memo_type_id == t.pk %}selected{% endif %}>{{ t.memo_type }}</option>
                         {% endfor %}
                     </select>
+                    <div class="mmf-hint"><a href="{% url 'memo_type_list' %}">+ Manage memo types</a></div>
                 </div>
                 <div class="mmf-group">
                     <label class="mmf-label">Reference No.</label>
@@ -45,32 +47,34 @@
                     <div class="mmf-hint">Auto-generated if left blank.</div>
                 </div>
 
-                <!-- Employee (warning to employee) -->
-                <div class="mmf-group" id="empWrap" style="display:none;">
+                <!-- Recipient: pick an employee OR a department, or leave both blank and set "To" manually -->
+                <div class="mmf-group">
                     <label class="mmf-label">Employee</label>
-                    <select name="employee" class="mmf-select">
-                        <option value="">— Select employee —</option>
+                    <select name="employee" id="empSelect" class="mmf-select">
+                        <option value="">— None —</option>
                         {% for e in employees %}
                         <option value="{{ e.pk }}" {% if memo.employee_id == e.pk %}selected{% endif %}>{{ e.emp_name }} ({{ e.emp_id }})</option>
                         {% endfor %}
                     </select>
+                    <div class="mmf-hint">Select if this memo is addressed to a specific employee.</div>
                 </div>
 
-                <!-- Department (warning to department) -->
-                <div class="mmf-group" id="deptWrap" style="display:none;">
+                <div class="mmf-group">
                     <label class="mmf-label">Department</label>
-                    <select name="department" class="mmf-select">
-                        <option value="">— Select department —</option>
+                    <select name="department" id="deptSelect" class="mmf-select">
+                        <option value="">— None —</option>
                         {% for d in departments %}
                         <option value="{{ d.pk }}" {% if memo.department_id == d.pk %}selected{% endif %}>{{ d.name }}</option>
                         {% endfor %}
                     </select>
+                    <div class="mmf-hint">Select if this memo is addressed to a whole department.</div>
                 </div>
 
-                <!-- To (manual, for holiday/general) -->
-                <div class="mmf-group" id="toWrap">
+                <!-- To (manual — used when neither employee nor department is selected) -->
+                <div class="mmf-group full">
                     <label class="mmf-label">To</label>
                     <input type="text" name="to_text" id="toText" class="mmf-input" value="{{ memo.to_text|default:'All Staff' }}">
+                    <div class="mmf-hint">Used when no employee/department is selected above (e.g. "All Staff").</div>
                 </div>
 
                 <div class="mmf-group">
@@ -112,22 +116,12 @@
 {% block extra_js %}
 <script>
 (function () {
-    var type = document.getElementById('memoType');
-    var emp  = document.getElementById('empWrap');
-    var dept = document.getElementById('deptWrap');
-    var toW  = document.getElementById('toWrap');
-    var toText = document.getElementById('toText');
-    function sync() {
-        var v = type.value;
-        emp.style.display  = v === 'warning_employee' ? '' : 'none';
-        dept.style.display = v === 'warning_department' ? '' : 'none';
-        // manual "To" only relevant for holiday/general
-        toW.style.display  = (v === 'warning_employee' || v === 'warning_department') ? 'none' : '';
-        if (v === 'general' || v === 'holiday') {
-            if (!toText.value || toText.value === '') toText.value = 'All Staff';
-        }
-    }
-    type.addEventListener('change', sync); sync();
+    // Selecting an employee or department clears the other, since "To" is
+    // resolved from whichever one is set (falls back to the manual To field).
+    var emp  = document.getElementById('empSelect');
+    var dept = document.getElementById('deptSelect');
+    emp.addEventListener('change', function () { if (emp.value) dept.value = ''; });
+    dept.addEventListener('change', function () { if (dept.value) emp.value = ''; });
 })();
 </script>
 {% endblock %}

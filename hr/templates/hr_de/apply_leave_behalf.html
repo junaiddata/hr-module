@@ -148,6 +148,15 @@
                 </select>
             </div>
 
+            <div class="form-group">
+                <label class="form-label">Reported To</label>
+                <input type="text" name="reported_to" class="form-control" autocomplete="off" value="{{ default_reported_to }}">
+                <div class="rejoining-hint">
+                    <i class="fas fa-circle-info"></i>
+                    Your Head approval is applied automatically, so this goes to {{ default_reported_to }} next.
+                </div>
+            </div>
+
             <div class="row">
                 <div class="col-half">
                     <div class="form-group">

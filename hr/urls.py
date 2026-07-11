@@ -167,6 +167,8 @@ urlpatterns = [
     path('memos/<int:pk>/edit/', views.memo_edit,   name='memo_edit'),
     path('memos/<int:pk>/pdf/',  views.memo_pdf,    name='memo_pdf'),
     path('memos/<int:pk>/delete/', views.memo_delete, name='memo_delete'),
+    path('memos/types/',             views.memo_type_list,   name='memo_type_list'),
+    path('memos/types/<int:pk>/delete/', views.memo_type_delete, name='memo_type_delete'),
 
     # Company Properties (assets assignable to employees — HR & MD only)
     path('properties/',              views.property_list,   name='property_list'),

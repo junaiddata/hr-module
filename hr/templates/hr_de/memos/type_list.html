@@ -1,0 +1,59 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Memo Types{% endblock %}
+
+{% block extra_css %}
+<style>
+.mtl-wrap { max-width: 680px; margin: 0 auto; padding: 2rem; }
+.mtl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.mtl-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.mtl-title i { color: var(--accent-primary); }
+.mtl-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.mtl-back { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-secondary); font-weight: 600; font-size: .85rem; text-decoration: none; }
+.mtl-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 1.25rem; }
+.mtl-form { display: flex; gap: .6rem; }
+.mtl-form input { flex: 1; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .6rem .8rem; font-size: .92rem; }
+.mtl-form button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .6rem 1.2rem; font-weight: 700; cursor: pointer; }
+.mtl-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--border-color); }
+.mtl-row:last-child { border-bottom: none; }
+.mtl-name { font-weight: 600; color: var(--text-primary); }
+.mtl-count { font-size: .78rem; color: var(--text-tertiary); margin-left: .5rem; }
+.mtl-del { border: none; background: rgba(239,68,68,.1); color: #ef4444; border-radius: 7px; padding: .4rem .7rem; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.mtl-del:disabled { opacity: .4; cursor: not-allowed; }
+.mtl-empty { text-align: center; color: var(--text-tertiary); padding: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mtl-wrap">
+    <div class="mtl-top">
+        <div>
+            <h1 class="mtl-title"><i class="fas fa-tags"></i> Memo Types</h1>
+            <p class="mtl-sub">Types created here appear in the Memo Type dropdown when issuing a memo.</p>
+        </div>
+        <a href="{% url 'memo_list' %}" class="mtl-back"><i class="fas fa-arrow-left"></i> Back to Memos</a>
+    </div>
+
+    <div class="mtl-card">
+        <form method="post" class="mtl-form">
+            {% csrf_token %}
+            <input type="text" name="memo_type" placeholder="e.g. Warning to Employee" maxlength="60" required>
+            <button type="submit"><i class="fas fa-plus"></i> Add Type</button>
+        </form>
+    </div>
+
+    <div class="mtl-card">
+        {% for t in memo_types %}
+        <div class="mtl-row">
+            <div><span class="mtl-name">{{ t.memo_type }}</span><span class="mtl-count">{{ t.memo_count }} memo{{ t.memo_count|pluralize }}</span></div>
+            <form method="post" action="{% url 'memo_type_delete' t.pk %}"
+                  data-confirm="Delete memo type “{{ t.memo_type }}”?" data-confirm-title="Delete memo type?">
+                {% csrf_token %}
+                <button type="submit" class="mtl-del" {% if t.memo_count %}disabled title="In use — cannot delete"{% endif %}><i class="fas fa-trash"></i></button>
+            </form>
+        </div>
+        {% empty %}
+        <div class="mtl-empty">No memo types yet. Add one above.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

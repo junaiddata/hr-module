@@ -707,10 +707,10 @@
                                         Employee <span class="required">*</span>
                                     </label>
                                     <div class="select-wrapper">
-                                        <select name="employee" class="form-select" required>
+                                        <select name="employee" id="employeeSelect" class="form-select" required>
                                             <option value="" disabled selected>Select Employee</option>
                                             {% for emp in employees %}
-                                                <option value="{{ emp.id }}">
+                                                <option value="{{ emp.id }}" data-department="{{ emp.department_id|default_if_none:'' }}">
                                                     {{ emp.emp_name }} ({{ emp.emp_id }})
                                                 </option>
                                             {% endfor %}
@@ -750,11 +750,11 @@
                                     <label class="form-label">
                                         Reported To <span class="required">*</span>
                                     </label>
-                                    <input type="text" name="reported_to" class="form-control" required
+                                    <input type="text" name="reported_to" id="reportedToInput" class="form-control" required autocomplete="off"
                                            placeholder="Enter HR/Manager name">
                                     <div class="form-helper">
                                         <i class="fas fa-circle-info"></i>
-                                        Name of the person this leave will be reported to
+                                        Auto-filled with the employee's department Head — edit if needed
                                     </div>
                                 </div>
                             </div>
@@ -911,7 +911,19 @@
             const expectedDatePreview = document.getElementById('expectedDatePreview');
             const expectedDuration = document.getElementById('expectedDuration');
             const submitBtn = document.getElementById('submitBtn');
-            
+
+            // Auto-fill "Reported To" with the selected employee's department Head
+            const departmentHeads = {{ department_heads_json|safe }};
+            const employeeSelect = document.getElementById('employeeSelect');
+            const reportedToInput = document.getElementById('reportedToInput');
+            if (employeeSelect && reportedToInput) {
+                employeeSelect.addEventListener('change', function () {
+                    const opt = this.options[this.selectedIndex];
+                    const deptId = opt ? opt.getAttribute('data-department') : '';
+                    reportedToInput.value = (deptId && departmentHeads[deptId]) ? departmentHeads[deptId] : '';
+                });
+            }
+
             // File upload elements
             const fileUploadBtn = document.getElementById('fileUploadBtn');
             const fileUploadInput = document.getElementById('fileUploadInput');

@@ -81,8 +81,18 @@
             {% for leave in leaves %}
             <tr>
                 <td>{{ leave.leave_type.name }}</td>
-                <td>{{ leave.expected_from|date:"d M Y" }}</td>
-                <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                <td>
+                    {{ leave.expected_from|date:"d M Y" }}
+                    {% if leave.dates_changed_by %}
+                    <div style="font-size:0.68rem; color:#94a3b8; text-decoration:line-through;" title="Originally requested">{{ leave.original_expected_from|date:"d M Y" }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ leave.expected_to|date:"d M Y" }}
+                    {% if leave.dates_changed_by %}
+                    <div style="font-size:0.68rem; color:#94a3b8; text-decoration:line-through;" title="Originally requested">{{ leave.original_expected_to|date:"d M Y" }}</div>
+                    {% endif %}
+                </td>
                 <td>{{ leave.days }}</td>
                 <td>{{ leave.reason|truncatechars:40 }}</td>
                 <td>
@@ -97,6 +107,12 @@
                         {% endif %}
                     {% else %}
                         <span class="badge-progress">{{ leave.get_status_display }}</span>
+                    {% endif %}
+                    {% if leave.dates_changed_by %}
+                        <div style="font-size:0.72rem; color:#7c3aed; margin-top:0.35rem; display:flex; align-items:center; gap:4px;">
+                            <i class="fas fa-pen"></i>
+                            Dates changed by {{ leave.dates_changed_by.get_full_name|default:leave.dates_changed_by.username }}{% if leave.dates_changed_by.role %} ({{ leave.dates_changed_by.role.role }}){% endif %}{% if leave.dates_changed_at %} · {{ leave.dates_changed_at|date:"d M Y" }}{% endif %}
+                        </div>
                     {% endif %}
                 </td>
                 <td style="font-size:0.8rem; color: var(--text-secondary);">

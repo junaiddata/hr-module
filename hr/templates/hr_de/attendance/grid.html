@@ -475,11 +475,18 @@ if (GRID) {
 document.addEventListener('click', e => { if (!menu.contains(e.target)) closeMenu(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); cancelFill(); } });
 
-/* Apply one status to every employee for a given day (Week Offs untouched) */
+/* Apply one status to every employee for a given day.
+   Filling a status only touches empty cells — it never overwrites a cell that's
+   already filled in. Clearing is explicit and still applies to everything (week-offs excluded). */
 function applyDay(day, status, leave) {
-    const cells   = Array.from(document.querySelectorAll('td.cell[data-day="' + day + '"]'));
-    const targets = cells.filter(td => td.dataset.status !== 'week_off');   // protect week offs
-    if (!targets.length) { toast('Only week-offs on this day — skipped'); return; }
+    const cells = Array.from(document.querySelectorAll('td.cell[data-day="' + day + '"]'));
+    const targets = status
+        ? cells.filter(td => !td.dataset.status)                    // fill: empty cells only
+        : cells.filter(td => td.dataset.status !== 'week_off');     // clear: protect week offs
+    if (!targets.length) {
+        toast(status ? 'All cells already filled — skipped' : 'Only week-offs on this day — skipped');
+        return;
+    }
 
     const prev   = targets.map(td => ({ td, status: td.dataset.status, leave: td.dataset.leave }));
     const empIds = [];
@@ -507,7 +514,9 @@ function applyDay(day, status, leave) {
     .then(r => r.json())
     .then(data => {
         if (data.status === 'success') {
-            toast((status ? 'Marked ' : 'Cleared ') + empIds.length + ' employee' + (empIds.length !== 1 ? 's' : ''));
+            let msg = (status ? 'Marked ' : 'Cleared ') + empIds.length + ' employee' + (empIds.length !== 1 ? 's' : '');
+            if (data.skipped) msg += ' (' + data.skipped + ' already filled — skipped)';
+            toast(msg);
         } else { revert(); toast(data.message || 'Could not apply', true); }
     })
     .catch(() => { revert(); toast('Network error', true); });
@@ -549,9 +558,13 @@ function previewFill(idx) {
     if (idx !== fill.sourceIdx) fill.moved = true;
     fill.lastIdx = idx;
     const lo = Math.min(fill.sourceIdx, idx), hi = Math.max(fill.sourceIdx, idx);
-    // Week-offs are protected — never previewed for overwrite
-    fill.cells.forEach((c, i) => c.classList.toggle('fill-preview',
-        i >= lo && i <= hi && i !== fill.sourceIdx && c.dataset.status !== 'week_off'));
+    fill.cells.forEach((c, i) => {
+        const inRange = i >= lo && i <= hi && i !== fill.sourceIdx;
+        // Week-offs are always protected. Filling down a column (one day, many
+        // employees) must not preview overwriting cells that are already filled.
+        const blocked = c.dataset.status === 'week_off' || (fill.axis === 'v' && c.dataset.status);
+        c.classList.toggle('fill-preview', inRange && !blocked);
+    });
 }
 
 function clearFillMarks() {
@@ -570,12 +583,16 @@ function endFill() {
     const axis = fill.axis;
     const lo = Math.min(fill.sourceIdx, fill.lastIdx);
     const hi = Math.max(fill.sourceIdx, fill.lastIdx);
-    const targets = fill.cells.slice(lo, hi + 1).filter(td => td.dataset.status !== 'week_off');
+    let targets = fill.cells.slice(lo, hi + 1).filter(td => td.dataset.status !== 'week_off');
+    if (axis === 'v') {
+        // One day, many employees — never overwrite a cell that's already filled.
+        targets = targets.filter(td => !td.dataset.status);
+    }
     const status = fill.status, leave = fill.leave;
     clearFillMarks();
     fill = null;
 
-    if (!targets.length) { toast('Week-offs skipped'); return; }
+    if (!targets.length) { toast(axis === 'v' ? 'Already filled — skipped' : 'Week-offs skipped'); return; }
 
     const prev = targets.map(td => ({ td, status: td.dataset.status, leave: td.dataset.leave }));
     targets.forEach(td => applyCellVisual(td, status, leave));
