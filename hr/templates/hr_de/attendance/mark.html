@@ -83,7 +83,16 @@
         <div class="att-clock" id="liveClock">{{ now|date:"h:i:s A" }}</div>
 
         {% if employee %}
-            {% if todays %}
+            {% if on_leave %}
+                <div class="att-greeting">Enjoy your day off, {{ employee.emp_name.split.0 }} 🌴</div>
+                <div class="done-badge">
+                    <i class="fas fa-plane"></i>
+                    <div>
+                        On {{ on_leave.leave_type.name|default:"Leave" }}
+                        <div class="done-sub">Attendance can't be marked while on approved leave</div>
+                    </div>
+                </div>
+            {% elif todays %}
                 <div class="att-greeting">You're all set for today, {{ employee.emp_name.split.0 }} 👋</div>
                 <div class="done-badge">
                     <i class="fas fa-circle-check"></i>

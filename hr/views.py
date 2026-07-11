@@ -3701,15 +3701,30 @@ def _employee_for_user(user):
         return None
 
 
+def _approved_leave_today(employee, today):
+    """Return the employee's approved leave covering `today`, or None."""
+    for lv in Leave.objects.filter(employee=employee, status='Approved').select_related('leave_type'):
+        f = lv.actual_from or lv.expected_from
+        t = lv.actual_to or lv.expected_to
+        if f and t and f <= today <= t:
+            return lv
+    return None
+
+
 @login_required
 def attendance_mark(request):
     """Employee self-service: one-tap check-in stamping the current time — TODAY only."""
     employee = _employee_for_user(request.user)
     today    = timezone.localdate()
+    on_leave = _approved_leave_today(employee, today) if employee is not None else None
 
     if request.method == 'POST':
         if employee is None:
             messages.error(request, "Your login is not linked to an employee profile.")
+            return redirect('attendance_mark')
+        if on_leave is not None:
+            leave_name = on_leave.leave_type.name if on_leave.leave_type else 'Leave'
+            messages.error(request, f"You're on approved {leave_name} today — attendance can't be marked.")
             return redirect('attendance_mark')
         existing = Attendance.objects.filter(employee=employee, date=today).first()
         if existing:
@@ -3739,6 +3754,7 @@ def attendance_mark(request):
         'todays':   todays,
         'recent':   recent,
         'now':      timezone.localtime(),
+        'on_leave': on_leave,
     })
 
 
