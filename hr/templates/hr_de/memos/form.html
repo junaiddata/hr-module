@@ -79,7 +79,7 @@
 
                 <div class="mmf-group">
                     <label class="mmf-label">Date <span class="mmf-req">*</span></label>
-                    <input type="date" name="memo_date" class="mmf-input" value="{{ memo.memo_date|date:'Y-m-d'|default:today }}" required>
+                    <input type="date" name="memo_date" id="memoDateInput" class="mmf-input" value="{{ memo.memo_date|date:'Y-m-d'|default:today }}" required min="{% now 'Y-m-d' %}">
                 </div>
 
                 <div class="mmf-group full">
@@ -122,6 +122,24 @@
     var dept = document.getElementById('deptSelect');
     emp.addEventListener('change', function () { if (emp.value) dept.value = ''; });
     dept.addEventListener('change', function () { if (dept.value) emp.value = ''; });
+})();
+
+(function () {
+    // The date picker disables past dates going forward, but an existing memo
+    // may already have a past date — don't block saving it unless that date
+    // is actually being changed to a new (also past) one.
+    var dateInput = document.getElementById('memoDateInput');
+    var submitBtn = document.querySelector('.mmf-save');
+    if (!dateInput || !submitBtn) return;
+    var originalValue = dateInput.value;
+    var minValue = dateInput.getAttribute('min');
+    submitBtn.addEventListener('click', function () {
+        if (dateInput.value === originalValue) {
+            dateInput.removeAttribute('min');
+        } else {
+            dateInput.setAttribute('min', minValue);
+        }
+    });
 })();
 </script>
 {% endblock %}

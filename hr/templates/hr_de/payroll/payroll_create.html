@@ -39,29 +39,106 @@
     border-radius: 8px; font-weight: 500; border: 1px solid var(--border-color);
     text-decoration: none; display: inline-flex; align-items: center; gap: .5rem;
 }
+
+.pw-wide { max-width: 980px; }
+.ded-card {
+    background: #fff; border: 1px solid var(--border-color);
+    border-radius: 14px; padding: 0; box-shadow: var(--shadow-sm);
+    margin-bottom: 1.75rem; overflow: hidden;
+}
+.ded-head { padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.ded-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; }
+.ded-link { font-size: .8rem; font-weight: 600; color: var(--accent-primary); text-decoration: none; }
+.ded-table-wrap { overflow-x: auto; }
+.ded-table { width: 100%; border-collapse: collapse; }
+.ded-table th {
+    text-align: left; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--text-tertiary); padding: .7rem 1rem; background: var(--bg-secondary); white-space: nowrap;
+}
+.ded-table td { padding: .65rem 1rem; font-size: .86rem; border-top: 1px solid var(--border-color); vertical-align: middle; }
+.ded-emp { font-weight: 600; color: var(--text-primary); }
+.ded-sub { font-size: .74rem; color: var(--text-tertiary); }
+.ded-pending { font-weight: 700; color: #dc2626; white-space: nowrap; }
+.ded-input {
+    border: 1.5px solid var(--border-color); border-radius: 7px;
+    padding: .4rem .6rem; font-size: .84rem; width: 110px;
+    color: var(--text-primary); background: var(--bg-primary);
+}
+.ded-input:focus { border-color: var(--accent-primary); outline: none; }
+.ded-empty { padding: 2rem 1.5rem; text-align: center; color: var(--text-tertiary); font-size: .86rem; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="pw">
+<div class="pw pw-wide">
     <h1 class="page-title"><i class="fas fa-plus-circle" style="color:var(--accent-primary);margin-right:.5rem;"></i>New Payroll Run</h1>
     <p class="page-sub">Select the month and year. The system will auto-populate one entry per active employee from their salary structure.</p>
 
     <div class="info-box">
         <i class="fas fa-circle-info" style="margin-top:2px;flex-shrink:0;"></i>
-        <div>Only active employees with a salary structure will be included. You can adjust bonuses and deductions after the run is created.</div>
+        <div>Only active employees with a salary structure will be included. You can adjust bonuses and other deductions after the run is created.</div>
     </div>
 
-    <div class="form-card">
-        <form method="post">
-            {% csrf_token %}
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="ded-card">
+            <div class="ded-head">
+                <div class="ded-title"><i class="fas fa-hand-holding-usd" style="color:#dc2626;"></i> Active Deductions</div>
+                <a href="{% url 'pending_dues' %}" class="ded-link">View all pending dues <i class="fas fa-arrow-right"></i></a>
+            </div>
+            {% if deduction_rows %}
+            <div class="ded-table-wrap">
+                <table class="ded-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Advance Balance (Pending)</th>
+                            <th>Deduct This Run</th>
+                            <th>Loan Deduction</th>
+                            <th>Other Deduction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for adv in deduction_rows %}
+                        <tr>
+                            <td>
+                                <div class="ded-emp">{{ adv.employee.emp_name }}</div>
+                                <div class="ded-sub">{{ adv.employee.emp_id }} &middot; {{ adv.employee.department|default:"—" }}</div>
+                            </td>
+                            <td><span class="ded-pending">AED {{ adv.remaining_amount|floatformat:2 }}</span></td>
+                            <td>
+                                <input type="number" class="ded-input" name="adv_deduction_{{ adv.pk }}"
+                                       min="0" max="{{ adv.remaining_amount|floatformat:2 }}" step="0.01"
+                                       value="{{ adv.effective_monthly_deduction|floatformat:2 }}">
+                            </td>
+                            <td>
+                                <input type="number" class="ded-input" name="loan_ded_{{ adv.employee.pk }}"
+                                       min="0" step="0.01" value="0.00" placeholder="0.00">
+                            </td>
+                            <td>
+                                <input type="number" class="ded-input" name="other_ded_{{ adv.employee.pk }}"
+                                       min="0" step="0.01" value="0.00" placeholder="0.00">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="ded-empty">No employees currently have an active deduction.</div>
+            {% endif %}
+        </div>
+
+        <div class="form-card">
             <div class="row">
                 <div class="col">
                     <div class="form-group">
                         <label class="form-label">Month <span style="color:#ef4444;">*</span></label>
-                        <select name="month" class="form-control" required>
+                        <select name="month" id="monthSelect" class="form-control" required>
                             {% for val, label in month_choices %}
-                            <option value="{{ val }}" {% if val == current_month %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ val }}" {% if val == current_month %}selected{% endif %}
+                                {% if current_year < min_year or current_year == min_year and val < min_month %}disabled{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -69,7 +146,11 @@
                 <div class="col">
                     <div class="form-group">
                         <label class="form-label">Year <span style="color:#ef4444;">*</span></label>
-                        <input type="number" name="year" class="form-control" value="{{ current_year }}" min="2020" max="2099" required>
+                        <select name="year" id="yearSelect" class="form-control" required>
+                            {% for y in year_choices %}
+                            <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -81,7 +162,38 @@
                 <a href="{% url 'payroll_list' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Cancel</a>
                 <button type="submit" class="btn-save"><i class="fas fa-bolt"></i> Create &amp; Populate</button>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // Payroll is generated in arrears — the earliest selectable month is the
+    // previous one; anything older is disabled. Keeps the Month dropdown in
+    // sync when the Year selection changes.
+    var MIN_YEAR  = {{ min_year }};
+    var MIN_MONTH = {{ min_month }};
+    var yearSelect  = document.getElementById('yearSelect');
+    var monthSelect = document.getElementById('monthSelect');
+    if (!yearSelect || !monthSelect) return;
+
+    function refreshMonthOptions() {
+        var y = parseInt(yearSelect.value);
+        var selectedDisabled = false;
+        Array.prototype.forEach.call(monthSelect.options, function (opt) {
+            var m = parseInt(opt.value);
+            var disable = (y < MIN_YEAR) || (y === MIN_YEAR && m < MIN_MONTH);
+            opt.disabled = disable;
+            if (disable && opt.selected) selectedDisabled = true;
+        });
+        if (selectedDisabled) {
+            var firstAllowed = Array.prototype.find.call(monthSelect.options, function (o) { return !o.disabled; });
+            if (firstAllowed) monthSelect.value = firstAllowed.value;
+        }
+    }
+    yearSelect.addEventListener('change', refreshMonthOptions);
+})();
+</script>
 {% endblock %}

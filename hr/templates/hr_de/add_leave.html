@@ -719,13 +719,13 @@
                                 </label>
                                 <div class="date-input-group">
                                     <i class="fas fa-calendar date-icon"></i>
-                                    <input type="date" name="expected_from" id="expected_from" 
-                                           class="form-control" required
+                                    <input type="date" name="expected_from" id="expected_from"
+                                           class="form-control" required {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}
                                            value="{% if leave %}{{ leave.expected_from|date:'Y-m-d' }}{% endif %}">
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">
@@ -733,8 +733,8 @@
                                 </label>
                                 <div class="date-input-group">
                                     <i class="fas fa-calendar date-icon"></i>
-                                    <input type="date" name="expected_to" id="expected_to" 
-                                           class="form-control" required
+                                    <input type="date" name="expected_to" id="expected_to"
+                                           class="form-control" required {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}
                                            value="{% if leave %}{{ leave.expected_to|date:'Y-m-d' }}{% endif %}">
                                 </div>
                             </div>
@@ -771,20 +771,20 @@
                                 <label class="form-label">Actual From Date</label>
                                 <div class="date-input-group">
                                     <i class="fas fa-calendar date-icon"></i>
-                                    <input type="date" name="actual_from" id="actual_from" 
-                                           class="form-control"
+                                    <input type="date" name="actual_from" id="actual_from"
+                                           class="form-control" {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}
                                            value="{% if leave and leave.actual_from %}{{ leave.actual_from|date:'Y-m-d' }}{% endif %}">
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Actual To Date</label>
                                 <div class="date-input-group">
                                     <i class="fas fa-calendar date-icon"></i>
-                                    <input type="date" name="actual_to" id="actual_to" 
-                                           class="form-control"
+                                    <input type="date" name="actual_to" id="actual_to"
+                                           class="form-control" {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}
                                            value="{% if leave and leave.actual_to %}{{ leave.actual_to|date:'Y-m-d' }}{% endif %}">
                                 </div>
                             </div>
@@ -795,7 +795,7 @@
                                 <label class="form-label">Rejoined On</label>
                                 <div class="date-input-group">
                                     <i class="fas fa-calendar-check date-icon"></i>
-                                    <input type="date" name="rejoined_on" class="form-control"
+                                    <input type="date" name="rejoined_on" class="form-control" {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}
                                            value="{% if leave and leave.rejoined_on %}{{ leave.rejoined_on|date:'Y-m-d' }}{% endif %}">
                                 </div>
                                 <div class="form-helper">

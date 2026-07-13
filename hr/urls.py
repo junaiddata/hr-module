@@ -31,6 +31,9 @@ urlpatterns = [
     path('advance-salary/<int:pk>/deduction/',  views.advance_edit_deduction, name='advance_edit_deduction'),
     path('my-advances/',                        views.my_advances,     name='my_advances'),
 
+    # Accounts
+    path('accounts/pending-dues/',              views.pending_dues,    name='pending_dues'),
+
     # Passport Requests
     path('passport-requests/',                  views.passport_list,          name='passport_list'),
     path('passport-requests/apply/',            views.passport_apply,         name='passport_apply'),

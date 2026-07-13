@@ -44,11 +44,11 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Needed From</label>
-                                <input type="date" name="needed_from" class="form-control">
+                                <input type="date" name="needed_from" id="neededFromInput" class="form-control" min="{% now 'Y-m-d' %}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Expected Return</label>
-                                <input type="date" name="expected_return" class="form-control">
+                                <input type="date" name="expected_return" id="expectedReturnInput" class="form-control" min="{% now 'Y-m-d' %}">
                             </div>
                         </div>
 
@@ -76,4 +76,17 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var neededFrom = document.getElementById('neededFromInput');
+    var expectedReturn = document.getElementById('expectedReturnInput');
+    if (!neededFrom || !expectedReturn) return;
+    neededFrom.addEventListener('change', function () {
+        expectedReturn.min = this.value || "{% now 'Y-m-d' %}";
+    });
+})();
+</script>
 {% endblock %}

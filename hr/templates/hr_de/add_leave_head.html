@@ -780,12 +780,12 @@
                                     </label>
                                     <div class="date-input-group">
                                         <i class="fas fa-calendar date-icon"></i>
-                                        <input type="date" name="expected_from" id="expected_from" 
-                                               class="form-control" required>
+                                        <input type="date" name="expected_from" id="expected_from"
+                                               class="form-control" required {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label class="form-label">
@@ -793,8 +793,8 @@
                                     </label>
                                     <div class="date-input-group">
                                         <i class="fas fa-calendar date-icon"></i>
-                                        <input type="date" name="expected_to" id="expected_to" 
-                                               class="form-control" required>
+                                        <input type="date" name="expected_to" id="expected_to"
+                                               class="form-control" required {% if not leave %}min="{% now 'Y-m-d' %}"{% endif %}>
                                     </div>
                                 </div>
                             </div>

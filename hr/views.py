@@ -1773,6 +1773,32 @@ def payroll_create(request):
             )
             return redirect('payroll_create')
 
+        # Apply any HR edits to advance monthly deductions before the run picks them up —
+        # whatever isn't deducted this month stays on the advance's remaining_amount (pending).
+        for adv in _pending_advance_queryset():
+            raw = request.POST.get(f'adv_deduction_{adv.pk}')
+            if raw is None:
+                continue
+            try:
+                new_amt = round(float(raw), 2)
+            except (ValueError, TypeError):
+                continue
+            new_amt = max(0.0, min(new_amt, adv.remaining_amount))
+            if new_amt > 0 and round(adv.effective_monthly_deduction, 2) != new_amt:
+                adv.set_monthly_deduction(new_amt, request.user, 'HR', note='Adjusted at payroll creation')
+
+        # Ad-hoc loan / other deduction amounts entered per employee at creation time.
+        # These have no running balance of their own — they only apply to this run.
+        loan_by_emp, other_by_emp = {}, {}
+        for key, val in request.POST.items():
+            try:
+                if key.startswith('loan_ded_'):
+                    loan_by_emp[int(key[len('loan_ded_'):])] = max(0.0, round(float(val or 0), 2))
+                elif key.startswith('other_ded_'):
+                    other_by_emp[int(key[len('other_ded_'):])] = max(0.0, round(float(val or 0), 2))
+            except (ValueError, TypeError):
+                continue
+
         run = PayrollRun.objects.create(
             month=month, year=year, notes=notes, created_by=request.user
         )
@@ -1801,6 +1827,8 @@ def payroll_create(request):
                 others=s.others if s else 0,
                 advance_deduction=advance_ded,
                 advance_salary=advance_obj,
+                loan_deduction=loan_by_emp.get(emp.id, 0.0),
+                other_deductions=other_by_emp.get(emp.id, 0.0),
                 absent_days=absent,
                 half_days=half,
                 attendance_deduction=att_ded,
@@ -1813,11 +1841,31 @@ def payroll_create(request):
 
     from datetime import date
     today = date.today()
+    deduction_rows = _pending_advance_queryset()
+
+    # Payroll is generated in arrears — the current month is spent running last
+    # month's payroll — so the earliest selectable month is the previous one.
+    prev_month = 12 if today.month == 1 else today.month - 1
+    prev_year  = today.year - 1 if today.month == 1 else today.year
+    year_choices = sorted({prev_year, today.year, today.year + 1, today.year + 2})
+
     return render(request, 'hr_de/payroll/payroll_create.html', {
         'current_month': today.month,
         'current_year':  today.year,
         'month_choices': PayrollRun.MONTH_CHOICES,
+        'year_choices':  year_choices,
+        'min_month':     prev_month,
+        'min_year':      prev_year,
+        'deduction_rows': deduction_rows,
     })
+
+
+def _pending_advance_queryset():
+    """Approved advances (active employees) with a remaining balance still owed."""
+    advances = AdvanceSalary.objects.filter(
+        status='Approved', employee__is_active=True
+    ).select_related('employee', 'employee__department').order_by('employee__emp_name')
+    return [a for a in advances if a.remaining_amount > 0]
 
 
 def _attendance_deduction_for(employee, year, month, gross):
@@ -2464,6 +2512,26 @@ def advance_list(request):
         'selected_status': status_filter,
         'query':           query,
         'user_role':       user_role,
+    })
+
+
+@login_required
+def pending_dues(request):
+    """Accounts view — every employee's outstanding advance salary balance."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    pending = _pending_advance_queryset()
+    pending.sort(key=lambda a: a.remaining_amount, reverse=True)
+
+    total_pending  = round(sum(a.remaining_amount for a in pending), 2)
+    total_original = round(sum(a.amount for a in pending), 2)
+
+    return render(request, 'hr_de/payroll/pending_dues.html', {
+        'pending_advances': pending,
+        'total_pending':    total_pending,
+        'total_original':   total_original,
+        'employee_count':   len({a.employee_id for a in pending}),
     })
 
 
@@ -3901,6 +3969,11 @@ def attendance_grid(request):
     if not (1 <= month <= 12):
         month = today.month
 
+    # Only the current and future months/years are offered — clamp any past
+    # month/year (typed into the URL or otherwise) back to the current one.
+    if dt.date(year, month, 1) < dt.date(today.year, today.month, 1):
+        month, year = today.month, today.year
+
     num_days  = calendar.monthrange(year, month)[1]
     first_day = dt.date(year, month, 1)
     last_day  = dt.date(year, month, num_days)
@@ -4000,7 +4073,7 @@ def attendance_grid(request):
     dept_groups = [{'name': name, 'rows': rows} for name, rows in grouped.items()]
 
     months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
-    years  = list(range(today.year - 3, today.year + 2))
+    years  = list(range(today.year, today.year + 4))
 
     return render(request, 'hr_de/attendance/grid.html', {
         'dept_groups':   dept_groups,

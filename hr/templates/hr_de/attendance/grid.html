@@ -175,15 +175,15 @@ td.cell.fill-source  { outline: 2px solid var(--accent-primary); outline-offset:
     <form method="get" class="filter-bar">
         <div class="fb-field">
             <label class="fb-label">Month</label>
-            <select name="month" class="fb-select">
+            <select name="month" class="fb-select" id="monthSelect">
                 {% for m in months %}
-                <option value="{{ m.num }}" {% if m.num == month %}selected{% endif %}>{{ m.name }}</option>
+                <option value="{{ m.num }}" {% if m.num == month %}selected{% endif %} {% if year == today.year and m.num < today.month %}disabled{% endif %}>{{ m.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="fb-field">
             <label class="fb-label">Year</label>
-            <select name="year" class="fb-select">
+            <select name="year" class="fb-select" id="yearSelect">
                 {% for y in years %}
                 <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
                 {% endfor %}
@@ -295,6 +295,27 @@ td.cell.fill-source  { outline: 2px solid var(--accent-primary); outline-offset:
 const GRID = document.querySelector('.att-grid');
 const YEAR  = GRID ? parseInt(GRID.dataset.year)  : null;
 const MONTH = GRID ? parseInt(GRID.dataset.month) : null;
+
+/* Keep the Month dropdown from offering a past month once the current year is picked */
+(function () {
+    const TODAY_YEAR  = {{ today.year }};
+    const TODAY_MONTH = {{ today.month }};
+    const yearSelect  = document.getElementById('yearSelect');
+    const monthSelect = document.getElementById('monthSelect');
+    if (!yearSelect || !monthSelect) return;
+
+    function refreshMonthOptions() {
+        const y = parseInt(yearSelect.value);
+        let selectedDisabled = false;
+        Array.from(monthSelect.options).forEach(opt => {
+            const disable = (y === TODAY_YEAR && parseInt(opt.value) < TODAY_MONTH);
+            opt.disabled = disable;
+            if (disable && opt.selected) selectedDisabled = true;
+        });
+        if (selectedDisabled) monthSelect.value = String(TODAY_MONTH);
+    }
+    yearSelect.addEventListener('change', refreshMonthOptions);
+})();
 
 const STATUS_META = {
     present:  { label: 'Present',  cls: 'present',  mk: 'P',  color: 'rgba(16,185,129,.5)' },
