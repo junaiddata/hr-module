@@ -93,6 +93,12 @@ table.vd-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
             <div><div class="vd-field-label">Tracking Exp</div><div class="vd-field-val {% if not vehicle.tracking_exp_date %}muted{% endif %}">{% if vehicle.tracking_exp_date %}{{ vehicle.tracking_exp_date|date:"d M Y" }}{% else %}—{% endif %}</div></div>
             <div><div class="vd-field-label">Mulkiya Expiry</div><div class="vd-field-val {% if not vehicle.mulkiya_expiry %}muted{% endif %}">{% if vehicle.mulkiya_expiry %}{{ vehicle.mulkiya_expiry|date:"d M Y" }}{% else %}—{% endif %}</div></div>
             <div>
+                <div class="vd-field-label">Latest Odometer</div>
+                <div class="vd-field-val {% if not vehicle.latest_odometer %}muted{% endif %}">
+                    {% if vehicle.latest_odometer %}{{ vehicle.latest_odometer.reading_km }} km <span style="font-weight:400;color:var(--text-tertiary);">(as of {{ vehicle.latest_odometer.reading_date|date:"d M Y" }})</span>{% else %}—{% endif %}
+                </div>
+            </div>
+            <div>
                 <div class="vd-field-label">Associated Employee</div>
                 <div class="vd-field-val {% if not vehicle.employee %}muted{% endif %}">
                     {% if vehicle.employee %}<a href="{% url 'employee_detail' vehicle.employee.pk %}" class="vd-doc"><i class="fas fa-user"></i> {{ vehicle.employee.emp_name }}</a>{% else %}—{% endif %}

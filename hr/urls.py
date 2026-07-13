@@ -152,6 +152,10 @@ urlpatterns = [
     path('vehicle-services/<int:pk>/process/', views.vehicle_service_process, name='vehicle_service_process'),
     path('vehicle-services/<int:pk>/delete/',  views.vehicle_service_delete,  name='vehicle_service_delete'),
 
+    # Vehicle Odometer Readings
+    path('vehicles/<int:pk>/odometer/add/',   views.vehicle_odometer_add,    name='vehicle_odometer_add'),
+    path('vehicle-odometer/<int:pk>/delete/', views.vehicle_odometer_delete, name='vehicle_odometer_delete'),
+
     # Management Details (owners/directors + families — HR & MD only)
     path('management/',                          views.management_list,       name='management_list'),
     path('management/add/',                      views.management_add,        name='management_add'),

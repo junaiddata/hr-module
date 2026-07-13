@@ -819,6 +819,10 @@ class Vehicle(models.Model):
     def pending_service_count(self):
         return self.services.filter(status='Requested').count()
 
+    @property
+    def latest_odometer(self):
+        return self.odometer_readings.first()
+
 
 class VehicleService(models.Model):
     """A service / maintenance record for a Vehicle.
@@ -890,6 +894,24 @@ class VehicleService(models.Model):
     def awaiting_cost_approval(self):
         """Completed with a cost recorded but HR hasn't approved the cost yet."""
         return self.status == 'Completed' and self.cost is not None and not self.cost_approved
+
+
+class VehicleOdometerReading(models.Model):
+    """A logged odometer (mileage) reading for a Vehicle, building up a history
+    of distance travelled over time."""
+    vehicle      = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='odometer_readings')
+    reading_km   = models.PositiveIntegerField('Odometer Reading (km)')
+    reading_date = models.DateField('Reading Date')
+    notes        = models.CharField(max_length=200, blank=True, default='')
+
+    recorded_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='logged_odometer_readings')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-reading_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.vehicle.name} — {self.reading_km} km ({self.reading_date})"
 
 
 class ManagementMember(models.Model):

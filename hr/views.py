@@ -4622,10 +4622,19 @@ def vehicle_services(request, pk):
     pending  = services.filter(status='Requested')
     history  = services.exclude(status='Requested')
 
+    # Odometer history, newest first, with the distance covered since the
+    # previous (older) reading attached for display.
+    odometer_readings = list(vehicle.odometer_readings.select_related('recorded_by'))
+    for i, r in enumerate(odometer_readings):
+        prev = odometer_readings[i + 1] if i + 1 < len(odometer_readings) else None
+        r.delta_km = (r.reading_km - prev.reading_km) if prev else None
+
     return render(request, 'hr_de/vehicles/services.html', {
-        'vehicle':       vehicle,
-        'pending':       pending,
-        'history':       history,
+        'vehicle':            vehicle,
+        'pending':            pending,
+        'history':            history,
+        'odometer_readings':  odometer_readings,
+        'latest_odometer':    odometer_readings[0] if odometer_readings else None,
         'type_choices':  VehicleService.SERVICE_TYPE_CHOICES,
         'status_choices': VehicleService.STATUS_CHOICES,
         'last_dates':    vehicle.last_service_dates(),
@@ -4761,6 +4770,46 @@ def vehicle_service_delete(request, pk):
     vehicle_id = svc.vehicle_id
     svc.delete()
     messages.success(request, 'Service record deleted.')
+    return redirect('vehicle_services', pk=vehicle_id)
+
+
+@require_POST
+@login_required
+def vehicle_odometer_add(request, pk):
+    """HR/MD: log an odometer reading for a vehicle."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    vehicle = get_object_or_404(Vehicle, pk=pk)
+
+    try:
+        reading_km = int(request.POST.get('reading_km', ''))
+        if reading_km < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        messages.error(request, 'Enter a valid odometer reading.')
+        return redirect('vehicle_services', pk=pk)
+
+    VehicleOdometerReading.objects.create(
+        vehicle=vehicle,
+        reading_km=reading_km,
+        reading_date=request.POST.get('reading_date') or timezone.localdate(),
+        notes=(request.POST.get('notes') or '').strip(),
+        recorded_by=request.user,
+    )
+    messages.success(request, f'Odometer reading of {reading_km} km logged for {vehicle.name}.')
+    return redirect('vehicle_services', pk=pk)
+
+
+@require_POST
+@login_required
+def vehicle_odometer_delete(request, pk):
+    """HR/MD: delete an odometer reading record."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    reading = get_object_or_404(VehicleOdometerReading, pk=pk)
+    vehicle_id = reading.vehicle_id
+    reading.delete()
+    messages.success(request, 'Odometer reading deleted.')
     return redirect('vehicle_services', pk=vehicle_id)
 
 

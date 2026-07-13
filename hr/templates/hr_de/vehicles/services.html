@@ -101,6 +101,74 @@ table.vs-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
         </div>
     </div>
 
+    <!-- Odometer -->
+    <div class="vs-card">
+        <h2 class="vs-card-h"><i class="fas fa-gauge-high"></i> Odometer Reading</h2>
+
+        <div class="vs-summary" style="margin-bottom:1.25rem;">
+            <div class="vs-chip">
+                <div class="vs-chip-label">Latest Reading</div>
+                <div class="vs-chip-date {% if not latest_odometer %}none{% endif %}">
+                    {% if latest_odometer %}{{ latest_odometer.reading_km }} km{% else %}—{% endif %}
+                </div>
+            </div>
+            <div class="vs-chip">
+                <div class="vs-chip-label">As Of</div>
+                <div class="vs-chip-date {% if not latest_odometer %}none{% endif %}">
+                    {% if latest_odometer %}{{ latest_odometer.reading_date|date:"d M Y" }}{% else %}—{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'vehicle_odometer_add' vehicle.pk %}">
+            {% csrf_token %}
+            <div class="vs-grid">
+                <div class="vs-group">
+                    <label class="vs-label">Odometer Reading (km)</label>
+                    <input type="number" name="reading_km" class="vs-input" min="0" step="1" required>
+                </div>
+                <div class="vs-group">
+                    <label class="vs-label">Reading Date</label>
+                    <input type="date" name="reading_date" class="vs-input" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required>
+                </div>
+                <div class="vs-group full">
+                    <label class="vs-label">Notes</label>
+                    <input type="text" name="notes" class="vs-input" placeholder="Optional notes">
+                </div>
+            </div>
+            <button type="submit" class="vs-save"><i class="fas fa-save"></i> Log Reading</button>
+        </form>
+
+        {% if odometer_readings %}
+        <div class="vs-table-wrap" style="margin-top:1.25rem;">
+            <table class="vs-table">
+                <thead><tr>
+                    <th>Date</th><th>Reading</th><th>Since Last</th><th>Notes</th><th>Logged By</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for r in odometer_readings %}
+                <tr>
+                    <td>{{ r.reading_date|date:"d M Y" }}</td>
+                    <td><strong>{{ r.reading_km }} km</strong></td>
+                    <td class="vs-muted">{% if r.delta_km is not None %}+{{ r.delta_km }} km{% else %}—{% endif %}</td>
+                    <td>{{ r.notes|default:"—" }}</td>
+                    <td class="vs-muted">{{ r.recorded_by.get_full_name|default:r.recorded_by.username|default:"—" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'vehicle_odometer_delete' r.pk %}" style="margin:0;" onsubmit="return confirm('Delete this odometer reading?')">
+                            {% csrf_token %}
+                            <button class="vs-btn del"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="vs-empty" style="margin-top:1rem;"><i class="fas fa-gauge-high"></i> No odometer readings logged yet.</div>
+        {% endif %}
+    </div>
+
     <!-- Pending requests -->
     {% if pending %}
     <div class="vs-card">
