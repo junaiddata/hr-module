@@ -612,6 +612,7 @@
                     <th>Actual Period</th>
                     <th>Days</th>
                     <th>Reported To</th>
+                    <th>Assignee</th>
                     <th>Approval Stage</th>
                     <th>Actions</th>
                 </tr>
@@ -667,6 +668,7 @@
                         </div>
                     </td>
                     <td>{{ leave.reported_to }}</td>
+                    <td>{{ leave.assigned_to.emp_name|default:"—" }}</td>
                     <td>
                         <div class="d-flex flex-column gap-1">
                             <span class="status-badge {{ leave.status|lower|cut:'_' }}">

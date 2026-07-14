@@ -147,6 +147,7 @@ tbody tr:hover { background: #f8fafc; }
                         <th>From</th>
                         <th>To</th>
                         <th>Applied Days</th>
+                        <th>Assignee</th>
                         <th>Status</th>
                         <th>Rejoining / Actual Days</th>
                         <th>Action</th>
@@ -164,6 +165,7 @@ tbody tr:hover { background: #f8fafc; }
                         <td>{{ leave.expected_from|date:"d M Y" }}</td>
                         <td>{{ leave.expected_to|date:"d M Y" }}</td>
                         <td style="font-weight:600;text-align:center;">{{ leave.days }}</td>
+                        <td>{{ leave.assigned_to.emp_name|default:"—" }}</td>
                         <td>
                             {% if leave.status == 'Pending' %}
                                 <span class="status-badge s-pending">Pending</span>
@@ -203,7 +205,7 @@ tbody tr:hover { background: #f8fafc; }
                     </tr>
                     {% empty %}
                     <tr class="empty-row">
-                        <td colspan="9">
+                        <td colspan="10">
                             <i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:.5rem;"></i>
                             No leave records found.
                         </td>

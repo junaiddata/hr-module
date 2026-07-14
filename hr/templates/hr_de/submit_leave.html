@@ -53,21 +53,35 @@
                 <div class="col-half">
                     <div class="form-group">
                         <label class="form-label">From Date <span style="color:#ef4444;">*</span></label>
-                        <input type="date" name="expected_from" class="form-control" required>
+                        <input type="date" name="expected_from" class="form-control" min="{% now 'Y-m-d' %}" required>
                     </div>
                 </div>
                 <div class="col-half">
                     <div class="form-group">
                         <label class="form-label">To Date <span style="color:#ef4444;">*</span></label>
-                        <input type="date" name="expected_to" class="form-control" required>
+                        <input type="date" name="expected_to" class="form-control" min="{% now 'Y-m-d' %}" required>
                     </div>
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Reported To</label>
-                <input type="text" name="reported_to" class="form-control" autocomplete="off"
-                       value="{{ default_reported_to }}" placeholder="Supervisor / Head name">
+                <select name="reported_to" class="form-control">
+                    <option value="">-- Select --</option>
+                    {% for opt in reported_to_options %}
+                    <option value="{{ opt }}" {% if opt == default_reported_to %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign Work To</label>
+                <select name="assigned_to" class="form-control">
+                    <option value="">-- Select Colleague --</option>
+                    {% for colleague in colleagues %}
+                    <option value="{{ colleague.pk }}">{{ colleague.emp_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div class="form-group">

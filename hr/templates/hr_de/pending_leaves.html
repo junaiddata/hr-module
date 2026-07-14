@@ -239,6 +239,7 @@
                     <th>Leave Type</th>
                     <th>Period</th>
                     <th>Days</th>
+                    <th>Assignee</th>
                     <th>Reason</th>
                     {% if user_role and user_role.role != 'Head' %}
                     <th>Prior Approvals</th>
@@ -278,6 +279,7 @@
                         {{ leave.expected_from|date:"M d" }} — {{ leave.expected_to|date:"M d, Y" }}
                     </td>
                     <td><span class="days-badge">{{ leave.days }}d</span></td>
+                    <td>{{ leave.assigned_to.emp_name|default:"—" }}</td>
                     <td>{{ leave.reason|default:"—"|truncatechars:50 }}</td>
                     {% if user_role and user_role.role != 'Head' %}
                     <td>

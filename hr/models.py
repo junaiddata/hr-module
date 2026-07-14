@@ -165,6 +165,18 @@ class Leave(models.Model):
     expected_from = models.DateField()
     expected_to = models.DateField()
     reported_to = models.CharField(max_length=100)
+    # Colleague (same department) who covers this employee's work while on leave
+    ASSIGNMENT_STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Accepted', 'Accepted'),
+        ('Rejected', 'Rejected'),
+    ]
+    assigned_to = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_leaves'
+    )
+    assignment_status = models.CharField(max_length=20, choices=ASSIGNMENT_STATUS_CHOICES, default='Pending')
+    assignment_responded_at = models.DateTimeField(null=True, blank=True)
+    assignment_reject_reason = models.CharField(max_length=255, blank=True, default='')
     days = models.IntegerField(default=0)
     actual_from = models.DateField(null=True, blank=True)
     actual_to = models.DateField(null=True, blank=True)

@@ -37,6 +37,16 @@ def _head_role_for(dept):
     return 'HR' if _is_hr_department(dept) else 'Head'
 
 
+def _dept_head_role(dept):
+    """The Role object acting as Head of `dept` — regular departments store this
+    as role='Head'; the HR department's own head is stored as role='HR' instead."""
+    if not dept:
+        return None
+    return Role.objects.filter(
+        role=_head_role_for(dept), department=dept, user__isnull=False
+    ).select_related('user').first()
+
+
 def _head_department(request):
     """Department this user leads day-to-day (team attendance, reviews), or None.
     Regular department heads have role='Head'. The HR department's own head is
@@ -1046,12 +1056,20 @@ def _apply_leave_date_update(request, leave):
 def approve_leave(request, leave_id):
     leave = get_object_or_404(Leave, id=leave_id)
     user_role = getattr(request.user, 'role', None)
+    head_dept = _head_department(request)
 
     can_edit_dates = bool(
         user_role and (
             user_role.role == 'HR' or
             (user_role.role == 'Head' and leave.employee.department == user_role.department)
         )
+    )
+
+    # The HR department's own head holds role='HR' (not 'Head' — see
+    # _head_role_for), so for HR-department employees the HR user also has to
+    # stand in as the Head-stage approver.
+    hr_as_head = bool(
+        user_role and user_role.role == 'HR' and head_dept and leave.employee.department_id == head_dept.id
     )
 
     if request.method == "POST":
@@ -1098,6 +1116,20 @@ def approve_leave(request, leave_id):
                 leave.md_approved_by = request.user
                 leave.rejection_reason = rejection_reason
 
+        elif user_role and user_role.role == 'HR' and hr_as_head:
+            # HR department's own employees — this HR user is standing in as their Head.
+            if leave.status != 'Pending':
+                messages.error(request, "This leave is no longer pending for Head approval.")
+                return redirect('pending_leaves')
+            if action == 'approve':
+                leave.status = 'Head_Approved'
+                leave.head_approved_by = request.user
+                leave.head_approved_at = timezone.now()
+            elif action == 'reject':
+                leave.status = 'Rejected'
+                leave.head_approved_by = request.user
+                leave.rejection_reason = rejection_reason
+
         elif user_role and user_role.role == 'HR':
             if leave.status != 'MD_Approved':
                 messages.error(request, "This leave must be approved by the MD first.")
@@ -1120,12 +1152,14 @@ def approve_leave(request, leave_id):
         'leave': leave,
         'approver_role': user_role,
         'can_edit_dates': can_edit_dates,
+        'hr_as_head': hr_as_head,
     })
 
 
 @login_required
 def pending_leaves(request):
     user_role = getattr(request.user, 'role', None)
+    head_dept = _head_department(request)
 
     if user_role and user_role.role == 'Head':
         dept = user_role.department
@@ -1138,9 +1172,14 @@ def pending_leaves(request):
             status='Head_Approved'
         ).select_related('employee', 'leave_type', 'head_approved_by')
     elif user_role and user_role.role == 'HR':
-        leaves = Leave.objects.filter(
-            status='MD_Approved'
-        ).select_related('employee', 'leave_type', 'head_approved_by', 'md_approved_by')
+        # HR is the final approver for everyone (MD_Approved), and also stands in
+        # as the Head-stage approver for the HR department's own employees.
+        hr_queue = Q(status='MD_Approved')
+        if head_dept:
+            hr_queue |= Q(status='Pending', employee__department=head_dept)
+        leaves = Leave.objects.filter(hr_queue).select_related(
+            'employee', 'leave_type', 'head_approved_by', 'md_approved_by'
+        )
     else:
         leaves = Leave.objects.none()
 
@@ -1474,7 +1513,7 @@ def my_leaves(request):
     except Exception:
         return render(request, 'hr_de/unauthorized.html', status=403)
 
-    leaves = Leave.objects.filter(employee=employee).select_related('leave_type').order_by('-created_at')
+    leaves = Leave.objects.filter(employee=employee).select_related('leave_type', 'assigned_to').order_by('-created_at')
     leave_types = LeaveType.objects.all()
 
     total  = leaves.count()
@@ -1493,19 +1532,164 @@ def my_leaves(request):
     })
 
 
+@login_required
+def delete_my_leave(request, pk):
+    """Employee withdraws their own leave request. Once HR has given final
+    approval the record is locked — it must stand as the official leave."""
+    try:
+        employee = request.user.employee
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    leave = get_object_or_404(Leave, pk=pk, employee=employee)
+
+    if leave.status == 'Approved':
+        messages.error(request, "Approved leaves can't be deleted.")
+        return redirect('my_leaves')
+
+    if request.method == 'POST':
+        leave.delete()
+        messages.success(request, "Leave request deleted.")
+        return redirect('my_leaves')
+
+    return redirect('my_leaves')
+
+
+@login_required
+def my_leave_detail(request, pk):
+    """Employee's detail view of their own leave request. Lets them reassign
+    the coverage colleague if the current assignee declined the work."""
+    try:
+        employee = request.user.employee
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    leave = get_object_or_404(Leave.objects.select_related('leave_type', 'assigned_to'), pk=pk, employee=employee)
+    colleagues = Employee.objects.filter(
+        department=employee.department, is_active=True
+    ).exclude(pk=employee.pk).order_by('emp_name')
+
+    if request.method == 'POST' and leave.assignment_status == 'Rejected':
+        new_assignee_id = request.POST.get('assigned_to') or None
+        leave.assigned_to_id = new_assignee_id
+        leave.assignment_status = 'Pending'
+        leave.assignment_responded_at = None
+        leave.assignment_reject_reason = ''
+        leave.save(update_fields=[
+            'assigned_to', 'assignment_status', 'assignment_responded_at', 'assignment_reject_reason'
+        ])
+        messages.success(request, "Assignee updated. Awaiting their response.")
+        return redirect('my_leave_detail', pk=leave.pk)
+
+    return render(request, 'hr_de/my_leave_detail.html', {
+        'employee': employee,
+        'leave': leave,
+        'colleagues': colleagues,
+    })
+
+
+@login_required
+def assigned_work(request):
+    """Leave-coverage requests assigned to the current employee — accept or reject."""
+    try:
+        employee = request.user.employee
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    assignments = Leave.objects.filter(assigned_to=employee).exclude(
+        status='Rejected'
+    ).select_related('employee', 'leave_type').order_by('-created_at')
+
+    pending_count = assignments.filter(assignment_status='Pending').count()
+
+    return render(request, 'hr_de/assigned_work.html', {
+        'employee': employee,
+        'assignments': assignments,
+        'pending_count': pending_count,
+    })
+
+
+@login_required
+def respond_assigned_work(request, leave_pk):
+    """Accept or reject a leave-coverage assignment made to the current employee."""
+    try:
+        employee = request.user.employee
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    leave = get_object_or_404(Leave, pk=leave_pk, assigned_to=employee)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'accept':
+            leave.assignment_status = 'Accepted'
+            leave.assignment_responded_at = timezone.now()
+            leave.assignment_reject_reason = ''
+            leave.save(update_fields=['assignment_status', 'assignment_responded_at', 'assignment_reject_reason'])
+            messages.success(request, f"You accepted covering for {leave.employee.emp_name}.")
+        elif action == 'reject':
+            leave.assignment_status = 'Rejected'
+            leave.assignment_responded_at = timezone.now()
+            leave.assignment_reject_reason = request.POST.get('reject_reason', '').strip()
+            leave.save(update_fields=['assignment_status', 'assignment_responded_at', 'assignment_reject_reason'])
+            messages.warning(request, f"You declined covering for {leave.employee.emp_name}.")
+
+    return redirect('assigned_work')
+
+
 def _default_reported_to(user, employee):
     """Who the 'Reported To' field should default to for a self-service leave request.
-    Heads report to HR directly; everyone else reports to their department's Head."""
+    Heads report to HR directly; everyone else reports to their department's Head
+    (the HR department's own employees report to its HR-role head)."""
     role = getattr(user, 'role', None)
-    if role and role.role == 'Head':
+    if role and role.role in ('Head', 'HR') and employee.department_id == role.department_id:
+        # Already the head of their own department (incl. the HR-dept head) — reports to HR/top.
+        hr_role = Role.objects.filter(
+            role='HR', department__isnull=False, user__isnull=False
+        ).exclude(user=user).select_related('user').first()
+        if hr_role:
+            return hr_role.user.get_full_name() or hr_role.user.username
+        md_role = Role.objects.filter(role='MD', user__isnull=False).exclude(user=user).select_related('user').first()
+        if md_role:
+            return md_role.user.get_full_name() or md_role.user.username
         return 'HR'
     if employee.department_id:
-        head_role = Role.objects.filter(
-            role='Head', department_id=employee.department_id, user__isnull=False
-        ).select_related('user').first()
+        head_role = _dept_head_role(employee.department)
         if head_role:
             return head_role.user.get_full_name() or head_role.user.username
     return ''
+
+
+def _reported_to_options(user, employee):
+    """Selectable names for the 'Reported To' dropdown: the employee's department
+    Head (unless they are that head themselves) plus HR."""
+    options = []
+    role = getattr(user, 'role', None)
+    is_own_dept_head = bool(
+        role and role.role in ('Head', 'HR') and employee.department_id == role.department_id
+    )
+    if not is_own_dept_head and employee.department_id:
+        head_role = _dept_head_role(employee.department)
+        if head_role:
+            options.append(head_role.user.get_full_name() or head_role.user.username)
+
+    hr_roles = Role.objects.filter(
+        role='HR', department__isnull=False, user__isnull=False
+    ).exclude(user=user).select_related('user')
+    for hr_role in hr_roles:
+        name = hr_role.user.get_full_name() or hr_role.user.username
+        if name not in options:
+            options.append(name)
+
+    if not options:
+        # The HR department's own head has no one else in HR to report to — fall back to MD.
+        md_roles = Role.objects.filter(role='MD', user__isnull=False).exclude(user=user).select_related('user')
+        for md_role in md_roles:
+            name = md_role.user.get_full_name() or md_role.user.username
+            if name not in options:
+                options.append(name)
+
+    return options
 
 
 @login_required
@@ -1517,6 +1701,9 @@ def submit_my_leave(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
 
     leave_types = LeaveType.objects.all()
+    colleagues = Employee.objects.filter(
+        department=employee.department, is_active=True
+    ).exclude(pk=employee.pk).order_by('emp_name')
 
     if request.method == 'POST':
         expected_from = request.POST.get('expected_from')
@@ -1535,6 +1722,7 @@ def submit_my_leave(request):
             expected_from=expected_from,
             expected_to=expected_to,
             reported_to=request.POST.get('reported_to', ''),
+            assigned_to_id=request.POST.get('assigned_to') or None,
             reason=request.POST.get('reason', ''),
             days=days,
             leave_application=request.FILES.get('leave_application'),
@@ -1546,7 +1734,9 @@ def submit_my_leave(request):
     return render(request, 'hr_de/submit_leave.html', {
         'employee': employee,
         'leave_types': leave_types,
+        'colleagues': colleagues,
         'default_reported_to': _default_reported_to(request.user, employee),
+        'reported_to_options': _reported_to_options(request.user, employee),
     })
 
 

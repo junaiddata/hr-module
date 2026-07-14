@@ -1,0 +1,116 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Assigned Work - {{ employee.emp_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.dashboard-header { background: linear-gradient(135deg, #1e40af 0%, #6366f1 100%); color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; }
+.leave-table { width: 100%; background: var(--bg-primary); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.leave-table th { padding: 0.9rem 1.25rem; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+.leave-table td { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.leave-table tbody tr:hover { background: var(--bg-hover); }
+.badge-pending { background: rgba(245,158,11,0.15); color: #d97706; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.badge-accepted { background: rgba(16,185,129,0.15); color: #059669; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.badge-rejected { background: rgba(239,68,68,0.15); color: #dc2626; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+.btn-accept { background: linear-gradient(135deg,#16a34a,#15803d); color: #fff; padding: 0.45rem 1rem; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.btn-accept:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+.btn-decline { background: #fff; color: #dc2626; border: 2px solid #dc2626; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.btn-decline:hover { background: #fef2f2; }
+.reject-section { display: none; margin-top: 0.6rem; }
+.reject-section textarea { width: 100%; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem; font-size: 0.85rem; resize: vertical; min-height: 60px; }
+.action-cell { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+.action-btns { display: flex; gap: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h1 style="font-size:1.75rem; font-weight:700; margin:0;">
+            <i class="fas fa-people-arrows" style="margin-right:0.5rem;"></i>
+            Assigned Work
+        </h1>
+        <p style="margin:0.25rem 0 0; opacity:0.85;">Leave-coverage requests handed to you by colleagues — {{ employee.emp_name }}</p>
+        {% if pending_count %}
+        <p style="margin:0.5rem 0 0; opacity:0.95;"><i class="fas fa-exclamation-circle"></i> {{ pending_count }} awaiting your response</p>
+        {% endif %}
+    </div>
+
+    <table class="leave-table">
+        <thead>
+            <tr>
+                <th>Colleague</th>
+                <th>Leave Type</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th>Response</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in assignments %}
+            <tr>
+                <td>
+                    <strong>{{ leave.employee.emp_name }}</strong><br>
+                    <span style="font-size:.75rem;color:var(--text-tertiary);">{{ leave.employee.emp_id }}</span>
+                </td>
+                <td>{{ leave.leave_type.name|default:"—" }}</td>
+                <td>{{ leave.expected_from|date:"d M Y" }}</td>
+                <td>{{ leave.expected_to|date:"d M Y" }}</td>
+                <td>{{ leave.reason|default:"—"|truncatechars:40 }}</td>
+                <td>
+                    <div class="action-cell">
+                        {% if leave.assignment_status == 'Accepted' %}
+                            <span class="badge-accepted"><i class="fas fa-check"></i> Accepted</span>
+                            {% if leave.assignment_responded_at %}<span style="font-size:0.72rem;color:var(--text-tertiary);">{{ leave.assignment_responded_at|date:"d M Y, H:i" }}</span>{% endif %}
+                        {% elif leave.assignment_status == 'Rejected' %}
+                            <span class="badge-rejected"><i class="fas fa-times"></i> Declined</span>
+                            {% if leave.assignment_reject_reason %}<span style="font-size:0.72rem;color:var(--text-tertiary);">{{ leave.assignment_reject_reason }}</span>{% endif %}
+                        {% else %}
+                            <span class="badge-pending"><i class="fas fa-clock"></i> Pending</span>
+                            <form method="post" action="{% url 'respond_assigned_work' leave.pk %}" class="respond-form">
+                                {% csrf_token %}
+                                <div class="action-btns">
+                                    <button type="submit" name="action" value="accept" class="btn-accept">
+                                        <i class="fas fa-check"></i> Accept
+                                    </button>
+                                    <button type="button" class="btn-decline" onclick="toggleReject(this)">
+                                        <i class="fas fa-times"></i> Decline
+                                    </button>
+                                </div>
+                                <div class="reject-section">
+                                    <textarea name="reject_reason" placeholder="Optional reason for declining..."></textarea>
+                                    <button type="submit" name="action" value="reject" class="btn-decline" style="margin-top:0.4rem;">
+                                        <i class="fas fa-ban"></i> Confirm Decline
+                                    </button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:0.75rem;"></i>
+                        No work has been assigned to you.
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleReject(btn) {
+    const section = btn.closest('.respond-form').querySelector('.reject-section');
+    section.style.display = section.style.display === 'block' ? 'none' : 'block';
+}
+</script>
+{% endblock %}

@@ -19,6 +19,15 @@
 .btn-apply { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 0.65rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
 .btn-apply:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.35); color: white; }
 .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+
+.btn-delete-leave {
+    width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border-color);
+    background: var(--bg-tertiary); color: #dc2626; display: inline-flex; align-items: center;
+    justify-content: center; cursor: pointer; transition: all 0.2s;
+}
+.btn-delete-leave:hover { background: #fee2e2; border-color: #fecaca; }
+.btn-delete-leave.disabled { color: var(--text-tertiary); cursor: not-allowed; opacity: 0.6; }
+.btn-delete-leave.disabled:hover { background: var(--bg-tertiary); border-color: var(--border-color); }
 </style>
 {% endblock %}
 
@@ -73,13 +82,15 @@
                 <th>To</th>
                 <th>Days</th>
                 <th>Reason</th>
+                <th>Assignee</th>
                 <th>Status</th>
                 <th>Stage</th>
+                <th style="text-align:center;">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for leave in leaves %}
-            <tr>
+            <tr class="leave-row" style="cursor:pointer;" onclick="window.location='{% url 'my_leave_detail' leave.pk %}';">
                 <td>{{ leave.leave_type.name }}</td>
                 <td>
                     {{ leave.expected_from|date:"d M Y" }}
@@ -95,6 +106,20 @@
                 </td>
                 <td>{{ leave.days }}</td>
                 <td>{{ leave.reason|truncatechars:40 }}</td>
+                <td>
+                    {% if leave.assigned_to %}
+                        {{ leave.assigned_to.emp_name }}
+                        {% if leave.assignment_status == 'Accepted' %}
+                            <div class="badge-approved" style="display:inline-block;margin-top:0.25rem;">Accepted</div>
+                        {% elif leave.assignment_status == 'Rejected' %}
+                            <div class="badge-rejected" style="display:inline-block;margin-top:0.25rem;">Declined</div>
+                        {% else %}
+                            <div class="badge-pending" style="display:inline-block;margin-top:0.25rem;">Awaiting</div>
+                        {% endif %}
+                    {% else %}
+                        <span style="color:var(--text-tertiary);">—</span>
+                    {% endif %}
+                </td>
                 <td>
                     {% if leave.status == 'Pending' %}
                         <span class="badge-pending">Pending</span>
@@ -124,10 +149,26 @@
                     {% elif leave.status == 'Rejected' %}Rejected
                     {% endif %}
                 </td>
+                <td style="text-align:center;" onclick="event.stopPropagation();">
+                    {% if leave.status == 'Approved' %}
+                    <button type="button" class="btn-delete-leave disabled" title="Approved leaves can't be deleted" disabled>
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    {% else %}
+                    <form method="post" action="{% url 'delete_my_leave' leave.pk %}" style="display:inline;"
+                          data-confirm="Delete the {{ leave.leave_type.name|default:'leave' }} request for {{ leave.expected_from|date:'d M Y' }} – {{ leave.expected_to|date:'d M Y' }}? This cannot be undone."
+                          data-confirm-title="Delete leave request?">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-delete-leave" title="Delete leave request">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7">
+                <td colspan="9">
                     <div class="empty-state">
                         <i class="fas fa-calendar-times" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:0.75rem;"></i>
                         No leave requests yet. <a href="{% url 'submit_my_leave' %}">Apply your first leave</a>.

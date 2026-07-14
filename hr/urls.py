@@ -90,6 +90,10 @@ urlpatterns = [
     path('dashboard/', views.employee_dashboard, name='employee_dashboard'),
     path('my-leaves/', views.my_leaves, name='my_leaves'),
     path('my-leaves/apply/', views.submit_my_leave, name='submit_my_leave'),
+    path('my-leaves/<int:pk>/', views.my_leave_detail, name='my_leave_detail'),
+    path('my-leaves/<int:pk>/delete/', views.delete_my_leave, name='delete_my_leave'),
+    path('assigned-work/', views.assigned_work, name='assigned_work'),
+    path('assigned-work/<int:leave_pk>/respond/', views.respond_assigned_work, name='respond_assigned_work'),
 
     # Attendance
     path('attendance/mark/',        views.attendance_mark,        name='attendance_mark'),
