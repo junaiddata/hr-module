@@ -57,6 +57,11 @@ WHATSAPP_DEFAULT_COUNTRY_CODE = _env_str('WHATSAPP_DEFAULT_COUNTRY_CODE', '971')
 # first name and the expiry date.
 WHATSAPP_LABOUR_RENEWAL_TEMPLATE      = _env_str('WHATSAPP_LABOUR_RENEWAL_TEMPLATE', 'labour_card_renewal')
 WHATSAPP_LABOUR_RENEWAL_TEMPLATE_LANG = _env_str('WHATSAPP_LABOUR_RENEWAL_TEMPLATE_LANG', 'en')
+# Attach the "Employment Terms Renewal" letter (PDF) to the renewal prompt as
+# the template's document header. Only turn this on once the Meta template
+# has actually been edited to include a Document header component — sending
+# a header parameter to a template that doesn't define one gets rejected.
+WHATSAPP_LABOUR_RENEWAL_ATTACH_PDF = _env_bool('WHATSAPP_LABOUR_RENEWAL_ATTACH_PDF', False)
 # Shared secret configured in the Meta App dashboard's webhook subscription —
 # proves inbound "GET /whatsapp/webhook/" verification calls really came from
 # Meta. Must also be reachable over public HTTPS for Meta to call it at all.
