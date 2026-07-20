@@ -3,7 +3,7 @@
     <!-- Card header -->
     <div class="dept-card-header {% if shop_card %}dept-accent-shop{% else %}dept-accent-{{ accent_idx }}{% endif %}">
         <h3><i class="fas {% if shop_card %}fa-store{% else %}fa-building{% endif %}" style="margin-right:.45rem;opacity:.85;"></i>{{ item.department.name }}</h3>
-        <span class="dept-total-badge">{{ item.total }} emp.</span>
+        <a class="dept-total-badge" href="{% url 'employee_list' %}?department={{ item.department.pk }}" title="View all employees in {{ item.department.name }}">{{ item.total }} emp.</a>
     </div>
 
     <!-- Card body -->
@@ -18,7 +18,11 @@
 
             {% if item.heads %}
                 {% for head in item.heads %}
+                {% if head.employee %}
+                <a class="head-item" href="{% url 'employee_detail' head.employee.pk %}">
+                {% else %}
                 <div class="head-item">
+                {% endif %}
                     <div class="head-avatar">{{ head.user.username|first|upper }}</div>
                     <div class="head-info">
                         <div class="hname">
@@ -28,7 +32,7 @@
                             {% if head.employee %}{{ head.employee.emp_id }}{% else %}{{ head.user.username }}{% endif %}
                         </div>
                     </div>
-                </div>
+                {% if head.employee %}</a>{% else %}</div>{% endif %}
                 {% endfor %}
             {% else %}
             <div class="no-head-box">
@@ -49,7 +53,7 @@
         <div class="emp-section-label"><i class="fas fa-users"></i> Team Members</div>
         <div class="emp-items">
             {% for emp in item.employees|slice:":6" %}
-            <div class="emp-item"
+            <a class="emp-item" href="{% url 'employee_detail' emp.pk %}"
                  {% if can_assign_head %}
                  draggable="true"
                  data-emp-pk="{{ emp.pk }}"
@@ -64,10 +68,10 @@
                 {% if can_assign_head %}
                 <span class="drag-badge"><i class="fas fa-grip-vertical"></i></span>
                 {% endif %}
-            </div>
+            </a>
             {% endfor %}
             {% if item.employees|length > 6 %}
-            <div class="more-emp">+ {{ item.employees|length|add:"-6" }} more member{{ item.employees|length|add:"-6"|pluralize }}</div>
+            <a class="more-emp" href="{% url 'employee_list' %}?department={{ item.department.pk }}">+ {{ item.employees|length|add:"-6" }} more member{{ item.employees|length|add:"-6"|pluralize }}</a>
             {% endif %}
         </div>
         {% else %}

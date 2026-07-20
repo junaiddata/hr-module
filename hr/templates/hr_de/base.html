@@ -592,6 +592,24 @@
                             <li class="sub-item"><a href="{% url 'passport_apply' %}"       class="sub-link" data-path="/passport-requests/apply/">New Request</a></li>
                         </ul>
                     </li>
+                    <li class="nav-item">
+                        <a href="{% url 'labour_renewal_list' %}" class="nav-link-item" data-path="/labour-renewals/">
+                            <span class="nav-icon"><i class="fas fa-file-signature"></i></span>
+                            <span class="nav-text">Labour Card Renewals</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link-item" onclick="toggleGroup(this)" data-group="salary-cert-hr">
+                            <span class="nav-icon"><i class="fas fa-file-invoice"></i></span>
+                            <span class="nav-text">Salary Certificates</span>
+                            <i class="fas fa-chevron-right nav-chevron"></i>
+                        </button>
+                        <ul class="sub-menu" id="group-salary-cert-hr">
+                            <li class="sub-item"><a href="{% url 'salary_certificate_list' %}"    class="sub-link" data-path="/salary-certificates/">All Requests</a></li>
+                            <li class="sub-item"><a href="{% url 'salary_certificate_pending' %}" class="sub-link" data-path="/salary-certificates/pending/">Pending Approvals</a></li>
+                            <li class="sub-item"><a href="{% url 'salary_certificate_apply' %}"   class="sub-link" data-path="/salary-certificates/apply/">New Request</a></li>
+                        </ul>
+                    </li>
                 </ul>
 
                 <div class="nav-section-label">Accounts</div>
@@ -841,6 +859,22 @@
                     </li>
                 </ul>
 
+                <div class="nav-section-label">Salary Certificate</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'salary_certificate_list' %}" class="nav-link-item" data-path="/salary-certificates/">
+                            <span class="nav-icon"><i class="fas fa-file-invoice"></i></span>
+                            <span class="nav-text">Dept Requests</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'salary_certificate_apply' %}" class="nav-link-item" data-path="/salary-certificates/apply/">
+                            <span class="nav-icon"><i class="fas fa-plus-circle"></i></span>
+                            <span class="nav-text">New Request</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="nav-section-label">Account</div>
                 <ul class="nav-list">
                     <li class="nav-item">
@@ -924,6 +958,22 @@
                         <a href="{% url 'passport_apply' %}" class="nav-link-item" data-path="/passport-requests/apply/">
                             <span class="nav-icon"><i class="fas fa-plus-circle"></i></span>
                             <span class="nav-text">Request Passport</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-label">Salary Certificate</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'my_salary_certificates' %}" class="nav-link-item" data-path="/my-salary-certificates/">
+                            <span class="nav-icon"><i class="fas fa-file-invoice"></i></span>
+                            <span class="nav-text">My Certificates</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'salary_certificate_apply' %}" class="nav-link-item" data-path="/salary-certificates/apply/">
+                            <span class="nav-icon"><i class="fas fa-plus-circle"></i></span>
+                            <span class="nav-text">Request Certificate</span>
                         </a>
                     </li>
                 </ul>

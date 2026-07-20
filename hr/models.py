@@ -569,6 +569,81 @@ class PassportRequest(models.Model):
         return f"{self.employee.emp_name} — Passport Request ({self.status})"
 
 
+class SalaryCertificateRequest(models.Model):
+    """Employee requests a salary certificate letter; HR reviews and issues it."""
+    PURPOSE_CHOICES = [
+        ('Bank Loan',        'Bank Loan'),
+        ('Visa Application', 'Visa Application'),
+        ('Embassy',          'Embassy / Immigration'),
+        ('Personal',         'Personal Use'),
+        ('Other',            'Other'),
+    ]
+    STATUS_CHOICES = [
+        ('Pending',  'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_certificate_requests')
+    purpose  = models.CharField(max_length=30, choices=PURPOSE_CHOICES, default='Personal')
+    reason   = models.TextField(blank=True)
+
+    status   = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+
+    approved_by      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_salary_certificates')
+    approved_at       = models.DateTimeField(null=True, blank=True)
+    rejection_reason  = models.TextField(null=True, blank=True)
+
+    applied_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='submitted_salary_certificates')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — Salary Certificate ({self.status})"
+
+
+class LabourCardRenewalPrompt(models.Model):
+    """Tracks the 'renew your visa?' WhatsApp outreach sent ~2 months before an
+    employee's labour card expires, and captures their Yes/No reply."""
+    RESPONSE_CHOICES = [
+        ('',    'Awaiting Response'),
+        ('Yes', 'Yes — Renew'),
+        ('No',  'No — Do Not Renew'),
+    ]
+    WHATSAPP_STATUS_CHOICES = [
+        ('not_sent', 'Not Sent'),
+        ('sent',     'Sent'),
+        ('failed',   'Failed'),
+    ]
+
+    employee        = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='labour_renewal_prompts')
+    expiry_snapshot = models.DateField()   # labour_card_expiry at the time this prompt was raised
+
+    whatsapp_status     = models.CharField(max_length=10, choices=WHATSAPP_STATUS_CHOICES, default='not_sent')
+    whatsapp_message_id = models.CharField(max_length=128, blank=True, default='')
+    whatsapp_error      = models.TextField(blank=True, default='')
+    whatsapp_sent_at    = models.DateTimeField(null=True, blank=True)
+    whatsapp_to_number  = models.CharField(max_length=30, blank=True, default='')
+
+    response     = models.CharField(max_length=5, choices=RESPONSE_CHOICES, blank=True, default='')
+    response_raw = models.CharField(max_length=255, blank=True, default='')   # what they actually typed/tapped
+    responded_at = models.DateTimeField(null=True, blank=True)
+    responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='recorded_labour_renewal_responses')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('employee', 'expiry_snapshot')
+
+    def __str__(self):
+        return f"{self.employee.emp_name} — Labour Card Renewal ({self.get_response_display() or 'Pending'})"
+
+
 class SalaryRevision(models.Model):
     """Audit trail for every salary change (increment / decrement / adjustment)."""
     CHANGE_TYPE_CHOICES = [

@@ -189,6 +189,29 @@
     .ed-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
     .ed-meta { text-align: center; color: var(--text-tertiary); font-size: .82rem; padding: .5rem 0 1rem; }
 
+    /* ── Tabs ───────────────────────────────────────────────────── */
+    .ed-tabs {
+        display: flex; gap: .25rem; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;
+        scrollbar-width: thin;
+    }
+    .ed-tab {
+        display: flex; align-items: center; gap: .5rem; white-space: nowrap; flex-shrink: 0;
+        padding: .8rem 1.1rem; border: none; background: none; cursor: pointer;
+        font-size: .87rem; font-weight: 600; color: var(--text-secondary);
+        border-bottom: 2.5px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s;
+    }
+    .ed-tab:hover { color: var(--text-primary); }
+    .ed-tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); }
+    .ed-tab-badge {
+        background: #f59e0b; color: #fff; font-size: .66rem; font-weight: 800;
+        padding: .06rem .42rem; border-radius: 20px; line-height: 1.35;
+    }
+    .ed-tab-badge.balance { background: #dc2626; }
+    .ed-tab-panel { display: none; }
+    .ed-tab-panel.active { display: block; animation: edFadeIn .18s ease; }
+    @keyframes edFadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
     @media (max-width: 900px) {
         .ed-two-col { grid-template-columns: 1fr; }
         .ed-info-grid { grid-template-columns: 1fr; gap: .9rem; }
@@ -203,11 +226,12 @@
         .ed-doc-table td { border: none; padding: .35rem .5rem; }
     }
 
-    /* Print: show only the record, hide app chrome */
+    /* Print: show only the record, hide app chrome — and every tab, not just the active one */
     @media print {
-        .sidebar, .mobile-toggle, .ed-actions, .info-tip, .copy-btn, .ed-doc-link { display: none !important; }
+        .sidebar, .mobile-toggle, .ed-actions, .info-tip, .copy-btn, .ed-doc-link, .ed-tabs { display: none !important; }
         .main-content { margin-left: 0 !important; }
         .ed-card { break-inside: avoid; box-shadow: none; }
+        .ed-tab-panel { display: block !important; }
     }
 </style>
 {% endblock %}
@@ -291,6 +315,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Tab navigation -->
+    <div class="ed-tabs" role="tablist">
+        <button type="button" class="ed-tab active" data-tab="overview" role="tab" aria-selected="true">
+            <i class="fas fa-user"></i> Overview
+        </button>
+        {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+        <button type="button" class="ed-tab" data-tab="advance" role="tab" aria-selected="false">
+            <i class="fas fa-money-bill-transfer"></i> Advance &amp; Transactions
+            {% if outstanding_balance > 0 %}<span class="ed-tab-badge balance">AED {{ outstanding_balance|floatformat:0 }}</span>{% endif %}
+        </button>
+        <button type="button" class="ed-tab" data-tab="salary" role="tab" aria-selected="false">
+            <i class="fas fa-sack-dollar"></i> Salary &amp; Bank
+        </button>
+        <button type="button" class="ed-tab" data-tab="performance" role="tab" aria-selected="false">
+            <i class="fas fa-clipboard-check"></i> Performance
+        </button>
+        {% endif %}
+        <button type="button" class="ed-tab" data-tab="documents" role="tab" aria-selected="false">
+            <i class="fas fa-file-lines"></i> Documents
+            {% if expiry_alerts %}<span class="ed-tab-badge">{{ expiry_alerts }}</span>{% endif %}
+        </button>
+        {% if other_records or related_vehicles or related_properties %}
+        <button type="button" class="ed-tab" data-tab="assets" role="tab" aria-selected="false">
+            <i class="fas fa-boxes-stacked"></i> Assets &amp; Records
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- ═══════════════════ Overview tab ═══════════════════ -->
+    <div class="ed-tab-panel active" id="tab-overview">
 
     <!-- Personal Details -->
     <div class="ed-card">
@@ -434,8 +489,124 @@
         </div>
     </div>
 
-    <!-- Salary Structure (HR / MD only) -->
+    </div>
+    <!-- ═══════════════════ /Overview tab ═══════════════════ -->
+
     {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+
+    <!-- ═══════════════════ Advance & Transactions tab ═══════════════════ -->
+    <div class="ed-tab-panel" id="tab-advance">
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Advance Salary &amp; Transactions
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Outstanding advance balance and the most recent confirmed payroll deductions for this employee.</span></span>
+            </h2>
+            {% if request.user.role.role == 'HR' %}
+            <a href="{% url 'pending_dues' %}" class="ed-btn" style="padding:.35rem .8rem;font-size:.78rem;">
+                <i class="fas fa-file-invoice-dollar"></i> Accounts
+            </a>
+            {% endif %}
+        </div>
+        <div class="ed-card-body">
+            <div class="ed-info-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:1.25rem;">
+                <div class="ed-info-row" style="flex-direction:column;align-items:flex-start;gap:.2rem;">
+                    <span class="ed-info-label">Outstanding Balance</span>
+                    <span class="ed-info-value" style="font-size:1.15rem;font-weight:800;color:{% if outstanding_balance > 0 %}#dc2626{% else %}#16a34a{% endif %};">AED {{ outstanding_balance|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row" style="flex-direction:column;align-items:flex-start;gap:.2rem;">
+                    <span class="ed-info-label">Total Advanced (Lifetime)</span>
+                    <span class="ed-info-value" style="font-size:1.15rem;font-weight:800;">AED {{ total_advanced|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row" style="flex-direction:column;align-items:flex-start;gap:.2rem;">
+                    <span class="ed-info-label">Last Deduction</span>
+                    {% if last_deduction %}
+                    <span class="ed-info-value" style="font-size:1.15rem;font-weight:800;">AED {{ last_deduction.advance_deduction|floatformat:2 }}</span>
+                    <span style="font-size:.75rem;color:var(--text-tertiary);">{{ last_deduction.payroll_run.get_month_display }} {{ last_deduction.payroll_run.year }}</span>
+                    {% else %}
+                    <span class="ed-info-value" style="color:var(--text-tertiary);">—</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if advances %}
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:.5rem;">Advance History</div>
+            <div style="overflow-x:auto;margin-bottom:1.25rem;">
+                <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Date</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Amount</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Deducted</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Remaining</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for adv in advances %}
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <td style="padding:.5rem .6rem;white-space:nowrap;">{{ adv.created_at|date:"M d, Y" }}</td>
+                            <td style="padding:.5rem .6rem;">AED {{ adv.amount|floatformat:2 }}</td>
+                            <td style="padding:.5rem .6rem;color:#16a34a;">
+                                {% if adv.status == 'Approved' %}AED {{ adv.total_deducted|floatformat:2 }}{% else %}—{% endif %}
+                            </td>
+                            <td style="padding:.5rem .6rem;{% if adv.status == 'Approved' and adv.remaining_amount > 0 %}color:#dc2626;font-weight:600;{% endif %}">
+                                {% if adv.status == 'Approved' %}AED {{ adv.remaining_amount|floatformat:2 }}{% else %}—{% endif %}
+                            </td>
+                            <td style="padding:.5rem .6rem;">
+                                <span style="display:inline-flex;padding:.15rem .55rem;border-radius:20px;font-size:.72rem;font-weight:700;
+                                    {% if adv.status == 'Approved' %}background:rgba(22,163,74,.12);color:#16a34a;
+                                    {% elif adv.status == 'Rejected' %}background:rgba(220,38,38,.12);color:#dc2626;
+                                    {% else %}background:rgba(217,119,6,.12);color:#d97706;{% endif %}">
+                                    {{ adv.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            {% if recent_transactions %}
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:.5rem;">Recent Payroll Transactions</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Month</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Gross</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Advance Deduction</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Other Deductions</th>
+                            <th style="text-align:left;padding:.5rem .6rem;color:var(--text-tertiary);font-size:.72rem;text-transform:uppercase;">Net Salary</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in recent_transactions %}
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <td style="padding:.5rem .6rem;white-space:nowrap;">{{ t.payroll_run.get_month_display }} {{ t.payroll_run.year }}</td>
+                            <td style="padding:.5rem .6rem;">AED {{ t.gross_salary|floatformat:2 }}</td>
+                            <td style="padding:.5rem .6rem;{% if t.advance_deduction > 0 %}color:#dc2626;{% endif %}">AED {{ t.advance_deduction|floatformat:2 }}</td>
+                            <td style="padding:.5rem .6rem;">AED {{ t.loan_deduction|add:t.other_deductions|add:t.attendance_deduction|floatformat:2 }}</td>
+                            <td style="padding:.5rem .6rem;font-weight:700;">AED {{ t.net_salary|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif not advances %}
+            <p style="color:var(--text-tertiary);font-size:.9rem;margin:0;">
+                <i class="fas fa-circle-info" style="margin-right:.4rem;"></i>
+                No advance salary or payroll transactions recorded yet.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+    <!-- ═══════════════════ /Advance & Transactions tab ═══════════════════ -->
+
+    <!-- ═══════════════════ Salary & Bank tab ═══════════════════ -->
+    <div class="ed-tab-panel" id="tab-salary">
     <div class="ed-card">
         <div class="ed-card-header">
             <h2 class="ed-card-title">
@@ -511,10 +682,8 @@
             {% endwith %}
         </div>
     </div>
-    {% endif %}
 
-    <!-- Bank Details (HR / MD only) -->
-    {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+    <!-- Bank Details -->
     <div class="ed-card">
         <div class="ed-card-header">
             <h2 class="ed-card-title">
@@ -545,10 +714,11 @@
             </div>
         </div>
     </div>
-    {% endif %}
+    </div>
+    <!-- ═══════════════════ /Salary & Bank tab ═══════════════════ -->
 
-    <!-- Performance Reviews (HR / MD only) -->
-    {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+    <!-- ═══════════════════ Performance tab ═══════════════════ -->
+    <div class="ed-tab-panel" id="tab-performance">
     <div class="ed-card">
         <div class="ed-card-header">
             <h2 class="ed-card-title">
@@ -565,7 +735,82 @@
             </p>
         </div>
     </div>
+    </div>
+    <!-- ═══════════════════ /Performance tab ═══════════════════ -->
+
     {% endif %}
+    {# /HR-or-MD tabs (advance, salary, performance) #}
+
+    <!-- ═══════════════════ Documents tab ═══════════════════ -->
+    <div class="ed-tab-panel" id="tab-documents">
+
+    <!-- Documents (numbers + expiry + files, all in one) -->
+    <div class="ed-card">
+        <div class="ed-card-header">
+            <h2 class="ed-card-title">
+                Documents
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Official documents with their reference numbers, expiry dates and uploaded copies. Colours flag what needs renewing.</span></span>
+            </h2>
+        </div>
+        <div class="ed-card-body">
+            <table class="ed-doc-table">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Number</th>
+                        <th>Expiry</th>
+                        <th>Status</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in documents %}
+                    <tr>
+                        <td class="ed-doc-name">{{ d.label }}</td>
+                        <td class="ed-doc-num">{{ d.number|default:"—" }}</td>
+                        <td>{{ d.expiry|date:"d M Y"|default:"—" }}</td>
+                        <td>
+                            {% if d.status == 'expired' %}
+                                <span class="badge-pill badge-expired"><i class="fas fa-circle-xmark"></i> Expired {{ d.abs_days }}d ago</span>
+                            {% elif d.status == 'critical' %}
+                                <span class="badge-pill badge-critical"><i class="fas fa-triangle-exclamation"></i> {{ d.days }}d left</span>
+                            {% elif d.status == 'warning' %}
+                                <span class="badge-pill badge-warning"><i class="fas fa-clock"></i> {{ d.days }}d left</span>
+                            {% elif d.status == 'valid' %}
+                                <span class="badge-pill badge-valid"><i class="fas fa-circle-check"></i> Valid</span>
+                            {% else %}
+                                <span class="badge-pill badge-none">No date</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if d.file %}
+                                <a href="{{ d.file.url }}" class="ed-doc-link" target="_blank"><i class="fas fa-external-link-alt"></i> View</a>
+                            {% else %}
+                                <span class="ed-doc-missing">Not uploaded</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Legend explaining the colours -->
+            <div class="ed-legend">
+                <span><i class="fas fa-info-circle"></i> What the colours mean:</span>
+                <span><span class="legend-dot" style="background:#ef4444;"></span> Expired — renew immediately</span>
+                <span><span class="legend-dot" style="background:#f97316;"></span> Expiring ≤ 30 days</span>
+                <span><span class="legend-dot" style="background:#eab308;"></span> Expiring ≤ 90 days</span>
+                <span><span class="legend-dot" style="background:#10b981;"></span> Valid</span>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    <!-- ═══════════════════ /Documents tab ═══════════════════ -->
+
+    {% if other_records or related_vehicles or related_properties %}
+    <!-- ═══════════════════ Assets & Records tab ═══════════════════ -->
+    <div class="ed-tab-panel" id="tab-assets">
 
     <!-- Related Other Records (HR / MD only) -->
     {% if other_records %}
@@ -668,66 +913,9 @@
     </div>
     {% endif %}
 
-    <!-- Documents (numbers + expiry + files, all in one) -->
-    <div class="ed-card">
-        <div class="ed-card-header">
-            <h2 class="ed-card-title">
-                Documents
-                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">Official documents with their reference numbers, expiry dates and uploaded copies. Colours flag what needs renewing.</span></span>
-            </h2>
-        </div>
-        <div class="ed-card-body">
-            <table class="ed-doc-table">
-                <thead>
-                    <tr>
-                        <th>Document</th>
-                        <th>Number</th>
-                        <th>Expiry</th>
-                        <th>Status</th>
-                        <th>File</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in documents %}
-                    <tr>
-                        <td class="ed-doc-name">{{ d.label }}</td>
-                        <td class="ed-doc-num">{{ d.number|default:"—" }}</td>
-                        <td>{{ d.expiry|date:"d M Y"|default:"—" }}</td>
-                        <td>
-                            {% if d.status == 'expired' %}
-                                <span class="badge-pill badge-expired"><i class="fas fa-circle-xmark"></i> Expired {{ d.abs_days }}d ago</span>
-                            {% elif d.status == 'critical' %}
-                                <span class="badge-pill badge-critical"><i class="fas fa-triangle-exclamation"></i> {{ d.days }}d left</span>
-                            {% elif d.status == 'warning' %}
-                                <span class="badge-pill badge-warning"><i class="fas fa-clock"></i> {{ d.days }}d left</span>
-                            {% elif d.status == 'valid' %}
-                                <span class="badge-pill badge-valid"><i class="fas fa-circle-check"></i> Valid</span>
-                            {% else %}
-                                <span class="badge-pill badge-none">No date</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if d.file %}
-                                <a href="{{ d.file.url }}" class="ed-doc-link" target="_blank"><i class="fas fa-external-link-alt"></i> View</a>
-                            {% else %}
-                                <span class="ed-doc-missing">Not uploaded</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            <!-- Legend explaining the colours -->
-            <div class="ed-legend">
-                <span><i class="fas fa-info-circle"></i> What the colours mean:</span>
-                <span><span class="legend-dot" style="background:#ef4444;"></span> Expired — renew immediately</span>
-                <span><span class="legend-dot" style="background:#f97316;"></span> Expiring ≤ 30 days</span>
-                <span><span class="legend-dot" style="background:#eab308;"></span> Expiring ≤ 90 days</span>
-                <span><span class="legend-dot" style="background:#10b981;"></span> Valid</span>
-            </div>
-        </div>
     </div>
+    <!-- ═══════════════════ /Assets & Records tab ═══════════════════ -->
+    {% endif %}
 
     <div class="ed-meta">
         <i class="fas fa-clock"></i>
@@ -752,5 +940,37 @@
             });
         });
     });
+
+    // Tabbed sections — click a tab, or land directly on one via #hash (e.g. #advance)
+    (function () {
+        var tabs = document.querySelectorAll('.ed-tab');
+        var panels = document.querySelectorAll('.ed-tab-panel');
+        if (!tabs.length) return;
+
+        function activate(name) {
+            var found = false;
+            tabs.forEach(function (t) {
+                var on = t.dataset.tab === name;
+                if (on) found = true;
+                t.classList.toggle('active', on);
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            if (!found) name = tabs[0].dataset.tab;
+            panels.forEach(function (p) {
+                p.classList.toggle('active', p.id === 'tab-' + name);
+            });
+            tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
+        }
+
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function () {
+                activate(t.dataset.tab);
+                if (history.replaceState) history.replaceState(null, '', '#' + t.dataset.tab);
+            });
+        });
+
+        var initial = (window.location.hash || '').replace('#', '');
+        activate(initial || tabs[0].dataset.tab);
+    })();
 </script>
 {% endblock %}

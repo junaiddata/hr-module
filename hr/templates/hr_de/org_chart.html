@@ -122,7 +122,10 @@
         border-radius: 20px;
         padding: .15rem .65rem;
         font-size: .78rem; font-weight: 600;
+        color: #fff; text-decoration: none;
+        transition: background .15s;
     }
+    .dept-total-badge:hover { background: rgba(255,255,255,.4); text-decoration: none; }
 
     .dept-accent-0  { background: linear-gradient(135deg,#4f46e5,#7c3aed); }
     .dept-accent-1  { background: linear-gradient(135deg,#0891b2,#06b6d4); }
@@ -178,7 +181,11 @@
         border: 1px solid rgba(245,158,11,.15);
         border-radius: 10px;
         margin-bottom: .4rem;
+        text-decoration: none;
+        transition: background .15s, border-color .15s;
     }
+    a.head-item { cursor: pointer; }
+    a.head-item:hover { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.3); }
     .head-avatar {
         width: 34px; height: 34px;
         border-radius: 8px;
@@ -214,6 +221,8 @@
         padding: .4rem .5rem;
         border-radius: 8px;
         transition: background .15s, opacity .2s;
+        text-decoration: none;
+        cursor: pointer;
     }
     .emp-item:hover { background: var(--bg-hover); }
     .emp-item[draggable="true"] { cursor: grab; }
@@ -241,9 +250,12 @@
     .emp-mini-info .edesig { font-size: .72rem; color: var(--text-secondary); }
 
     .more-emp {
-        font-size: .78rem; color: var(--text-tertiary);
+        display: block;
+        font-size: .78rem; color: var(--accent-primary);
         text-align: center; padding: .35rem 0;
+        text-decoration: none; font-weight: 600;
     }
+    .more-emp:hover { text-decoration: underline; }
 
     /* Card footer */
     .dept-card-footer {

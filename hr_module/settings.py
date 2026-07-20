@@ -52,6 +52,21 @@ WHATSAPP_BIRTHDAY_NAME_PARAM  = _env_bool('WHATSAPP_BIRTHDAY_NAME_PARAM', True)
 # Default country code prepended to local numbers (UAE = 971).
 WHATSAPP_DEFAULT_COUNTRY_CODE = _env_str('WHATSAPP_DEFAULT_COUNTRY_CODE', '971')
 
+# The approved template used to ask an employee whether to renew their labour
+# card / visa (sent ~2 months before expiry). Expects two {{ }} body variables:
+# first name and the expiry date.
+WHATSAPP_LABOUR_RENEWAL_TEMPLATE      = _env_str('WHATSAPP_LABOUR_RENEWAL_TEMPLATE', 'labour_card_renewal')
+WHATSAPP_LABOUR_RENEWAL_TEMPLATE_LANG = _env_str('WHATSAPP_LABOUR_RENEWAL_TEMPLATE_LANG', 'en')
+# Shared secret configured in the Meta App dashboard's webhook subscription —
+# proves inbound "GET /whatsapp/webhook/" verification calls really came from
+# Meta. Must also be reachable over public HTTPS for Meta to call it at all.
+WHATSAPP_VERIFY_TOKEN = _env_str('WHATSAPP_VERIFY_TOKEN', '')
+# App secret from the Meta App dashboard, used to validate the
+# X-Hub-Signature-256 header on inbound webhook POSTs. If left blank, inbound
+# payloads are accepted without signature verification (fine for local testing
+# only — always set this once the webhook is public).
+WHATSAPP_APP_SECRET = _env_str('WHATSAPP_APP_SECRET', '')
+
 # ── Logging — self-rotating birthday-wish log (no cron cleanup needed) ────────
 # Writes to logs/birthday_wishes.log and rotates at ~1 MB, keeping 1 backup, so
 # the whole thing never exceeds 2 files / ~2 MB on disk.

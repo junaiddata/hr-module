@@ -44,6 +44,21 @@ urlpatterns = [
     path('passport-requests/<int:pk>/return/',  views.passport_mark_returned, name='passport_mark_returned'),
     path('my-passport-requests/',               views.my_passport_requests,   name='my_passport_requests'),
 
+    # Salary Certificate Requests
+    path('salary-certificates/',                  views.salary_certificate_list,    name='salary_certificate_list'),
+    path('salary-certificates/apply/',             views.salary_certificate_apply,   name='salary_certificate_apply'),
+    path('salary-certificates/pending/',           views.salary_certificate_pending, name='salary_certificate_pending'),
+    path('salary-certificates/<int:pk>/approve/',  views.salary_certificate_approve, name='salary_certificate_approve'),
+    path('salary-certificates/<int:pk>/pdf/',      views.salary_certificate_pdf,     name='salary_certificate_pdf'),
+    path('my-salary-certificates/',                views.my_salary_certificates,     name='my_salary_certificates'),
+
+    # Labour Card Renewal (WhatsApp prompt + consent letter)
+    path('labour-renewals/',                        views.labour_renewal_list,          name='labour_renewal_list'),
+    path('labour-renewals/send/',                    views.labour_renewal_send,          name='labour_renewal_send'),
+    path('labour-renewals/<int:emp_pk>/mark-response/', views.labour_renewal_mark_response, name='labour_renewal_mark_response'),
+    path('labour-renewals/<int:pk>/pdf/',             views.labour_renewal_pdf,           name='labour_renewal_pdf'),
+    path('whatsapp/webhook/',                        views.whatsapp_webhook,             name='whatsapp_webhook'),
+
     ############  AUTHENTICATION URLs ############
     path('signupjunaid6231/', views.signup_view, name='signup'),
     path('login/', views.login_view, name='login'),

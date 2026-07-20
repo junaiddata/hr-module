@@ -1,9 +1,0 @@
-<form method="post">
-    {% csrf_token %}
-    <div>
-        <label for="id_name">Leave Type Name:</label>
-        <input type="text" id="id_name" name="name" value="{{ leave_type.name|default_if_none:'' }}">
-    </div>
-    <button type="submit">Save</button>
-    <a href="{% url 'leave_type_list' %}">Cancel</a>
-</form>

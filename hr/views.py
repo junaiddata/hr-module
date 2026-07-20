@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django_countries import countries
 from django.http import JsonResponse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 def role_required(allowed_roles=[]):
     def decorator(view_func):
@@ -488,6 +489,28 @@ def employee_detail(request, pk):
             'abs_days': abs(days) if days is not None else None,
         })
 
+    # Advance salary balance + recent payroll transactions (HR / MD only)
+    advances = []
+    outstanding_balance = 0
+    total_advanced = 0
+    recent_transactions = []
+    last_deduction = None
+    if viewer_role in ('HR', 'MD'):
+        advances = list(employee.advance_salaries.all())
+        approved = [a for a in advances if a.status == 'Approved']
+        outstanding_balance = round(sum(a.remaining_amount for a in approved), 2)
+        total_advanced = round(sum(a.amount for a in approved), 2)
+
+        recent_transactions = list(
+            PayrollEntry.objects.filter(employee=employee, payroll_run__status='Confirmed')
+            .select_related('payroll_run')
+            .order_by('-payroll_run__year', '-payroll_run__month')[:6]
+        )
+        for t in recent_transactions:
+            if t.advance_deduction > 0:
+                last_deduction = t
+                break
+
     return render(request, 'hr_de/employee_detail.html', {
         'employee': employee,
         'documents': documents,
@@ -495,6 +518,11 @@ def employee_detail(request, pk):
         'age': _years_since(employee.dob),
         'tenure': _years_since(employee.joining_date),
         'is_own': is_own,
+        'advances': advances,
+        'outstanding_balance': outstanding_balance,
+        'total_advanced': total_advanced,
+        'recent_transactions': recent_transactions,
+        'last_deduction': last_deduction,
         # Related "Other Records" — HR/MD only
         'other_records': (
             employee.other_records.select_related('uploaded_by').all()
@@ -2968,6 +2996,655 @@ def my_passport_requests(request):
     })
 
 
+############ SALARY CERTIFICATE REQUESTS ############
+
+@login_required
+def salary_certificate_apply(request):
+    """Submit a salary certificate request. HR/Head can apply on behalf; others apply for self."""
+    try:
+        user_role = request.user.role.role
+    except Exception:
+        user_role = None
+
+    if user_role == 'HR':
+        employees = Employee.objects.filter(is_active=True).order_by('emp_name')
+    elif user_role == 'Head':
+        dept = request.user.role.department
+        employees = Employee.objects.filter(is_active=True, department=dept).order_by('emp_name') if dept else Employee.objects.none()
+    else:
+        try:
+            employees = [request.user.employee]
+        except Exception:
+            return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        emp_pk  = request.POST.get('employee')
+        purpose = request.POST.get('purpose', '').strip()
+        reason  = request.POST.get('reason', '').strip()
+
+        if not purpose:
+            messages.error(request, 'Purpose is required.')
+            return redirect('salary_certificate_apply')
+
+        if user_role == 'HR':
+            employee = get_object_or_404(Employee, pk=emp_pk)
+        elif user_role == 'Head':
+            dept = request.user.role.department
+            employee = get_object_or_404(Employee, pk=emp_pk, department=dept)
+        else:
+            employee = request.user.employee
+
+        SalaryCertificateRequest.objects.create(
+            employee   = employee,
+            purpose    = purpose,
+            reason     = reason,
+            applied_by = request.user,
+        )
+        messages.success(request, f'Salary certificate request submitted for {employee.emp_name}.')
+        return redirect('salary_certificate_list' if user_role in ('HR', 'Head') else 'my_salary_certificates')
+
+    return render(request, 'hr_de/salary_certificate/apply.html', {
+        'employees': employees,
+        'user_role': user_role,
+        'purpose_choices': SalaryCertificateRequest.PURPOSE_CHOICES,
+    })
+
+
+@login_required
+def salary_certificate_pending(request):
+    """HR queue of pending salary certificate requests."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    requests_qs = SalaryCertificateRequest.objects.filter(status='Pending').select_related(
+        'employee', 'employee__department'
+    )
+    return render(request, 'hr_de/salary_certificate/pending.html', {'requests': requests_qs})
+
+
+@login_required
+def salary_certificate_approve(request, pk):
+    """HR approves or rejects a salary certificate request."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    req = get_object_or_404(SalaryCertificateRequest.objects.select_related('employee'), pk=pk)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if req.status != 'Pending':
+            messages.error(request, 'This request has already been processed.')
+            return redirect('salary_certificate_pending')
+
+        if action == 'approve':
+            req.status      = 'Approved'
+            req.approved_by = request.user
+            req.approved_at = timezone.now()
+            req.save()
+            messages.success(request, f'Salary certificate for {req.employee.emp_name} approved.')
+        elif action == 'reject':
+            req.status           = 'Rejected'
+            req.approved_by      = request.user
+            req.approved_at      = timezone.now()
+            req.rejection_reason = request.POST.get('rejection_reason', '').strip()
+            req.save()
+            messages.success(request, f'Salary certificate request for {req.employee.emp_name} rejected.')
+        return redirect('salary_certificate_pending')
+
+    return render(request, 'hr_de/salary_certificate/approve.html', {'req': req})
+
+
+@login_required
+def salary_certificate_list(request):
+    """Salary certificate request history. HR sees all; Head sees their own department."""
+    try:
+        role_obj  = request.user.role
+        user_role = role_obj.role
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if user_role not in ('HR', 'Head'):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    status_filter = request.GET.get('status', '')
+    query         = request.GET.get('q', '')
+
+    requests_qs = SalaryCertificateRequest.objects.select_related(
+        'employee', 'employee__department', 'approved_by'
+    )
+
+    # Head is scoped to their own department
+    if user_role == 'Head':
+        dept = role_obj.department
+        requests_qs = requests_qs.filter(employee__department=dept) if dept else requests_qs.none()
+
+    if status_filter:
+        requests_qs = requests_qs.filter(status=status_filter)
+    if query:
+        requests_qs = requests_qs.filter(
+            Q(employee__emp_name__icontains=query) |
+            Q(employee__emp_id__icontains=query)
+        )
+
+    return render(request, 'hr_de/salary_certificate/list.html', {
+        'requests':        requests_qs,
+        'status_choices':  SalaryCertificateRequest.STATUS_CHOICES,
+        'selected_status': status_filter,
+        'query':           query,
+        'user_role':       user_role,
+    })
+
+
+@login_required
+def my_salary_certificates(request):
+    """Employee's own salary certificate requests."""
+    try:
+        employee = request.user.employee
+    except Exception:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    requests_qs = SalaryCertificateRequest.objects.filter(employee=employee)
+    return render(request, 'hr_de/salary_certificate/my_requests.html', {
+        'employee': employee,
+        'requests': requests_qs,
+    })
+
+
+@login_required
+def salary_certificate_pdf(request, pk):
+    """Render the approved salary certificate as a PDF on the company letterhead."""
+    req = get_object_or_404(
+        SalaryCertificateRequest.objects.select_related('employee', 'employee__department'), pk=pk
+    )
+
+    try:
+        user_role = request.user.role.role
+    except Exception:
+        user_role = None
+    is_own = bool(req.employee.user_id) and req.employee.user_id == request.user.id
+    if user_role not in ('HR', 'MD', 'Head') and not is_own:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    if user_role == 'Head' and request.user.role.department_id != req.employee.department_id:
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if req.status != 'Approved':
+        messages.error(request, 'This request has not been approved yet.')
+        return redirect('salary_certificate_list' if user_role in ('HR', 'Head') else 'my_salary_certificates')
+
+    import os, html as _html
+    from io import BytesIO
+    from django.conf import settings
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+    from reportlab.platypus import Paragraph, Spacer, Frame
+
+    employee = req.employee
+    try:
+        gross_salary = employee.salary_structure.total
+    except Exception:
+        gross_salary = employee.emp_salary or 0
+
+    PW, PH = A4                       # 595.276 x 841.89
+    IMG_W, IMG_H = 1241, 1755         # letterhead template pixel size
+    sx, sy = PW / IMG_W, PH / IMG_H
+
+    def X(px):  # pixel-x → points
+        return px * sx
+
+    def Y(py):  # pixel-y (from top) → points (baseline from bottom)
+        return PH - py * sy
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    # Letterhead background (logo + footer already printed on it).
+    letterhead = os.path.join(settings.MEDIA_ROOT, 'HR MEMO SAMPLE.JPG')
+    if os.path.exists(letterhead):
+        c.drawImage(letterhead, 0, 0, width=PW, height=PH,
+                    preserveAspectRatio=False, mask='auto')
+
+    # Blank out the memo-specific "MEMORANDUM" title / Ref-To-Date-Re block —
+    # we draw our own certificate heading and body in this space instead.
+    c.setFillColorRGB(1, 1, 1)
+    c.rect(0, Y(650), PW, Y(200) - Y(650), fill=1, stroke=0)
+
+    title_style = ParagraphStyle('cert_title', fontName='Helvetica-Bold', fontSize=16, leading=20, alignment=TA_CENTER)
+    line_style  = ParagraphStyle('cert_line', fontName='Helvetica', fontSize=12, leading=16)
+    body_style  = ParagraphStyle('cert_body', fontName='Helvetica', fontSize=12.5, leading=21, alignment=TA_JUSTIFY)
+    close_style = ParagraphStyle('cert_close', fontName='Helvetica', fontSize=12.5, leading=18)
+    sign_style  = ParagraphStyle('cert_sign', fontName='Helvetica-Oblique', fontSize=12.5, leading=16)
+
+    salutation = 'Mr.' if employee.gender == 'M' else 'Ms.'
+    dept_name  = employee.department.name if employee.department else '—'
+    join_str   = employee.joining_date.strftime('%d %B %Y') if employee.joining_date else '—'
+    today_str  = timezone.now().strftime('%d %B %Y')
+
+    body_text = (
+        f"This is to certify that {salutation} <b>{_html.escape(employee.emp_name)}</b>"
+        f"{' (Emirates ID No. ' + _html.escape(employee.eid_number) + ')' if employee.eid_number else ''}, "
+        f"is employed with <b>Junaid Sanitary &amp; Electrical Requisites Trading L.L.C.</b> as "
+        f"<b>{_html.escape(employee.designation or '—')}</b> in the {_html.escape(dept_name)} Department "
+        f"since {join_str}."
+        f"<br/><br/>"
+        f"His/her current monthly gross salary is <b>AED {gross_salary:,.2f}/-</b> as per company records."
+        f"<br/><br/>"
+        f"This certificate is issued upon the employee's request for "
+        f"<b>{_html.escape(req.get_purpose_display())}</b> purposes and may be used for the intended purpose only."
+    )
+
+    story = [
+        Paragraph('SALARY CERTIFICATE', title_style),
+        Spacer(1, 22),
+        Paragraph(f'Date: {today_str}', line_style),
+        Spacer(1, 18),
+        Paragraph('TO WHOM IT MAY CONCERN,', line_style),
+        Spacer(1, 14),
+        Paragraph(body_text, body_style),
+        Spacer(1, 34),
+        Paragraph('Thanks and regards,', close_style),
+        Spacer(1, 40),
+        Paragraph('HR/ADMIN DIVISION', sign_style),
+    ]
+
+    body_top = Y(250)
+    frame = Frame(X(150), Y(1560), PW - X(150) - X(90), body_top - Y(1560),
+                  leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
+    frame.addFromList(story, c)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    resp = HttpResponse(buf, content_type='application/pdf')
+    fname = f"salary-certificate-{employee.emp_id}".replace('/', '-')
+    resp['Content-Disposition'] = f'inline; filename="{fname}.pdf"'
+    return resp
+
+
+############ LABOUR CARD RENEWAL (WhatsApp prompt, 2 months before expiry) ############
+
+@login_required
+def labour_renewal_list(request):
+    """HR view: every active employee whose labour card expires within the
+    lookout window, with the WhatsApp prompt status and Yes/No response (if any)."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    from .whatsapp import whatsapp_configured
+
+    today = timezone.now().date()
+    horizon = today + timezone.timedelta(days=90)   # slightly wider than the 60-day auto-send window, so HR can see what's coming
+
+    employees = (Employee.objects
+                 .filter(is_active=True, labour_card_expiry__isnull=False, labour_card_expiry__lte=horizon)
+                 .select_related('department', 'mol')
+                 .order_by('labour_card_expiry'))
+
+    prompts_by_key = {
+        (p.employee_id, p.expiry_snapshot): p
+        for p in LabourCardRenewalPrompt.objects.filter(employee__in=employees)
+    }
+
+    rows = []
+    for emp in employees:
+        prompt = prompts_by_key.get((emp.pk, emp.labour_card_expiry))
+        rows.append({
+            'employee':  emp,
+            'prompt':    prompt,
+            'days_left': (emp.labour_card_expiry - today).days,
+        })
+
+    return render(request, 'hr_de/labour_renewal/list.html', {
+        'rows':            rows,
+        'whatsapp_ready':  whatsapp_configured(),
+        'today':           today,
+    })
+
+
+@login_required
+def labour_renewal_send(request):
+    """AJAX: HR (re)sends the WhatsApp renewal prompt for one employee."""
+    if not _hr_only(request):
+        return JsonResponse({'ok': False, 'error': 'Not authorized.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required.'}, status=405)
+
+    from .whatsapp import send_labour_card_renewal_prompt, whatsapp_configured
+    import json as _json
+    try:
+        data = _json.loads(request.body or '{}')
+    except ValueError:
+        data = {}
+    emp_pk = data.get('employee_pk') or request.POST.get('employee_pk')
+
+    emp = Employee.objects.filter(pk=emp_pk, is_active=True).first()
+    if not emp:
+        return JsonResponse({'ok': False, 'error': 'Employee not found.'}, status=404)
+    if not emp.labour_card_expiry:
+        return JsonResponse({'ok': False, 'error': 'No labour card expiry date on file.'}, status=400)
+    if not whatsapp_configured():
+        return JsonResponse({
+            'ok': False,
+            'error': 'WhatsApp is not configured yet — add the token and phone number id in settings.',
+        }, status=400)
+
+    ok, info, _prompt = send_labour_card_renewal_prompt(emp, emp.labour_card_expiry)
+
+    Notification.objects.create(
+        employee=emp,
+        title=f"Labour card renewal prompt sent — {emp.emp_name}" if ok else f"Labour card renewal prompt FAILED — {emp.emp_name}",
+        message=(
+            f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
+            f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
+            if ok else
+            f"Could not send the WhatsApp renewal prompt to {emp.emp_name}: {info}"
+        ),
+        category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
+        urgency='warning' if ok else 'critical',
+    )
+
+    if ok:
+        return JsonResponse({'ok': True, 'message': f'Renewal prompt sent to {emp.emp_name}.'})
+    return JsonResponse({'ok': False, 'error': info}, status=400)
+
+
+@require_POST
+@login_required
+def labour_renewal_mark_response(request, emp_pk):
+    """HR manually records the employee's Yes/No — a fallback for when the
+    reply arrives by phone call or a WhatsApp chat message HR reads directly,
+    rather than through the automated webhook. Works even if no WhatsApp
+    prompt has been sent yet (creates the tracking row on the spot)."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    employee = get_object_or_404(Employee, pk=emp_pk, is_active=True)
+    if not employee.labour_card_expiry:
+        messages.error(request, 'No labour card expiry date on file for this employee.')
+        return redirect('labour_renewal_list')
+
+    response = request.POST.get('response')
+    if response not in ('Yes', 'No'):
+        messages.error(request, 'Choose Yes or No.')
+        return redirect('labour_renewal_list')
+
+    prompt, _created = LabourCardRenewalPrompt.objects.get_or_create(
+        employee=employee, expiry_snapshot=employee.labour_card_expiry,
+    )
+    prompt.response      = response
+    prompt.response_raw  = request.POST.get('note', '').strip() or f'Recorded manually by HR: {response}'
+    prompt.responded_at  = timezone.now()
+    prompt.responded_by  = request.user
+    prompt.save(update_fields=['response', 'response_raw', 'responded_at', 'responded_by'])
+
+    Notification.objects.create(
+        employee=prompt.employee,
+        title=f"Renewal response recorded — {prompt.employee.emp_name}",
+        message=(
+            f"{prompt.employee.emp_name} {'wants to renew' if response == 'Yes' else 'does NOT want to renew'} "
+            f"their labour card / visa (expires {prompt.expiry_snapshot.strftime('%d %b %Y')}) "
+            f"— recorded by {request.user.get_full_name() or request.user.username}."
+        ),
+        category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
+        urgency='info' if response == 'Yes' else 'warning',
+    )
+    messages.success(request, f"Response recorded for {prompt.employee.emp_name}.")
+    return redirect('labour_renewal_list')
+
+
+@login_required
+def labour_renewal_pdf(request, pk):
+    """Render the 'Employment Terms Renewal' consent letter — Department is
+    followed by Mol, both pulled straight from the employee record."""
+    if not _hr_only(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    prompt = get_object_or_404(
+        LabourCardRenewalPrompt.objects.select_related('employee', 'employee__department', 'employee__mol'),
+        pk=pk,
+    )
+    employee = prompt.employee
+
+    import os, html as _html
+    from io import BytesIO
+    from django.conf import settings
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+    from PIL import Image as PILImage
+
+    PW, _PH = A4
+    margin = 22 * mm
+    content_w = PW - 2 * margin
+
+    buf = BytesIO()
+
+    # Crop the company logo strip out of the shared letterhead JPG so a
+    # second static asset isn't needed just for this letter.
+    logo_flowable = None
+    letterhead_path = os.path.join(settings.MEDIA_ROOT, 'HR MEMO SAMPLE.JPG')
+    if os.path.exists(letterhead_path):
+        with PILImage.open(letterhead_path) as im:
+            logo_crop = im.crop((0, 0, im.width, 230))
+            logo_buf = BytesIO()
+            logo_crop.convert('RGB').save(logo_buf, format='PNG')
+            logo_buf.seek(0)
+        logo_flowable = RLImage(logo_buf, width=content_w, height=content_w * 230 / im.width)
+
+    label_style = ParagraphStyle('lr_label', fontName='Helvetica-Bold', fontSize=10, leading=13)
+    value_style = ParagraphStyle('lr_value', fontName='Helvetica-Bold', fontSize=10, leading=13)
+    body_style  = ParagraphStyle('lr_body',  fontName='Helvetica', fontSize=10.5, leading=16)
+    small_style = ParagraphStyle('lr_small', fontName='Helvetica', fontSize=10, leading=14)
+
+    ref_no      = f"JN/HR-VISARENEWAL/{prompt.created_at.strftime('%d%m%Y')}-{prompt.pk}"
+    dept_name   = employee.department.name if employee.department else '—'
+    mol_name    = employee.mol.mol if employee.mol else '—'
+    expiry_str  = prompt.expiry_snapshot.strftime('%d %b %Y')
+    letter_date = timezone.now().strftime('%d %b %Y')
+
+    info_rows = [
+        [Paragraph('REF:', label_style),        Paragraph(_html.escape(ref_no), value_style)],
+        [Paragraph('DATE:', label_style),       Paragraph(letter_date, value_style)],
+        ['', ''],
+        [Paragraph('To', label_style),          Paragraph(_html.escape(employee.emp_name.upper()), value_style)],
+        [Paragraph('EMP ID', label_style),      Paragraph(_html.escape(employee.emp_id), value_style)],
+        [Paragraph('DEPARTMENT', label_style),  Paragraph(_html.escape(dept_name.upper()), value_style)],
+        [Paragraph('MOL', label_style),         Paragraph(_html.escape(mol_name.upper()), value_style)],
+    ]
+    info_table = Table(info_rows, colWidths=[35 * mm, content_w - 35 * mm])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+
+    subject_data = [
+        [Paragraph('SUBJECT', label_style), Paragraph('EMPLOYMENT TERMS RENEWAL', value_style), ''],
+        ['', Paragraph('Residence Visa', value_style), Paragraph(expiry_str, value_style)],
+    ]
+    subject_table = Table(subject_data, colWidths=[30 * mm, 70 * mm, content_w - 100 * mm])
+    subject_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.75, colors.black),
+        ('SPAN', (0, 0), (0, 1)),
+        ('SPAN', (1, 0), (2, 0)),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
+    yes_mark = 'X' if prompt.response == 'Yes' else ' '
+    no_mark  = 'X' if prompt.response == 'No' else ' '
+    tick_table = Table([[
+        Paragraph(f'( {yes_mark} ) Yes, renew my work permit', small_style),
+        Paragraph(f'( {no_mark} ) No, do not renew my work permit', small_style),
+    ]], colWidths=[content_w / 2, content_w / 2])
+    tick_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+
+    reason_line = Table([['']], colWidths=[content_w])
+    reason_line.setStyle(TableStyle([('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.grey)]))
+
+    sig_table = Table(
+        [['', ''], [Paragraph('Employee Signature', label_style), Paragraph('Approval of HOD', label_style)]],
+        colWidths=[content_w / 2, content_w / 2], rowHeights=[34, 16],
+    )
+    sig_table.setStyle(TableStyle([('LINEABOVE', (0, 1), (-1, 1), 0.75, colors.black)]))
+
+    reason_text = _html.escape(prompt.response_raw) if (prompt.response == 'No' and prompt.response_raw) else ''
+
+    story = []
+    if logo_flowable:
+        story += [logo_flowable, Spacer(1, 10)]
+    story += [
+        info_table, Spacer(1, 10),
+        subject_table, Spacer(1, 16),
+        Paragraph(f'Dear {_html.escape(employee.emp_name.upper())},', body_style),
+        Spacer(1, 8),
+        Paragraph(
+            'We are pleased to inform you that your Labour Contract &amp; Residence Visa is due for the '
+            'renewal as mentioned above. Please mark your consent to proceed further in the columns below;',
+            body_style,
+        ),
+        Spacer(1, 14),
+        Paragraph('<b>Please tick Yes or No:</b>', body_style),
+        Spacer(1, 10),
+        tick_table, Spacer(1, 16),
+        Paragraph(f'<b>Reason:</b> {reason_text}', body_style),
+        Spacer(1, 4),
+        reason_line, Spacer(1, 22),
+        Paragraph('Kindly sign on the space provided below in acknowledgement.', body_style),
+        Spacer(1, 30),
+        sig_table,
+    ]
+
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=margin, rightMargin=margin,
+                            topMargin=margin, bottomMargin=margin)
+    doc.build(story)
+    buf.seek(0)
+    resp = HttpResponse(buf, content_type='application/pdf')
+    fname = f"visa-renewal-letter-{employee.emp_id}".replace('/', '-')
+    resp['Content-Disposition'] = f'inline; filename="{fname}.pdf"'
+    return resp
+
+
+############ WHATSAPP WEBHOOK (Meta Cloud API) ############
+
+def _verify_whatsapp_signature(request):
+    """Validate X-Hub-Signature-256 against WHATSAPP_APP_SECRET.
+
+    If no app secret is configured, verification is skipped (local/dev use
+    only — always set WHATSAPP_APP_SECRET once the webhook is public)."""
+    import hmac, hashlib
+    from django.conf import settings
+
+    app_secret = getattr(settings, 'WHATSAPP_APP_SECRET', '')
+    if not app_secret:
+        return True
+    signature = request.headers.get('X-Hub-Signature-256', '')
+    if not signature.startswith('sha256='):
+        return False
+    expected = hmac.new(app_secret.encode('utf-8'), request.body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature[7:], expected)
+
+
+def _process_renewal_reply(from_number, body_text):
+    """Match an inbound WhatsApp text to the employee's pending renewal
+    prompt and record Yes/No if the reply is recognizable."""
+    import re
+    from .whatsapp import normalize_phone, send_whatsapp_text
+
+    if not from_number or not body_text:
+        return
+    digits = re.sub(r'\D', '', from_number)
+
+    employee = None
+    for emp in Employee.objects.filter(is_active=True).exclude(contact_number__isnull=True).exclude(contact_number=''):
+        if normalize_phone(emp.contact_number) == digits:
+            employee = emp
+            break
+    if not employee:
+        return
+
+    prompt = (LabourCardRenewalPrompt.objects
+              .filter(employee=employee, response='')
+              .order_by('-created_at').first())
+    if not prompt:
+        return
+
+    text_lower = body_text.strip().lower()
+    if text_lower in ('yes', 'y', 'renew', 'yes renew', 'yes, renew', 'yes please'):
+        response = 'Yes'
+    elif text_lower in ('no', 'n', "don't renew", 'do not renew', 'no, do not renew', 'decline', 'no thanks'):
+        response = 'No'
+    else:
+        return   # not a recognizable yes/no reply — leave pending for HR to follow up
+
+    prompt.response     = response
+    prompt.response_raw = body_text[:255]
+    prompt.responded_at = timezone.now()
+    prompt.save(update_fields=['response', 'response_raw', 'responded_at'])
+
+    Notification.objects.create(
+        employee=employee,
+        title=f"Renewal response received — {employee.emp_name}",
+        message=(
+            f'{employee.emp_name} replied "{body_text[:200]}" — '
+            f"{'wants to renew' if response == 'Yes' else 'does NOT want to renew'} their labour card / visa "
+            f"(expires {prompt.expiry_snapshot.strftime('%d %b %Y')})."
+        ),
+        category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
+        urgency='info' if response == 'Yes' else 'warning',
+    )
+
+    ack = ("Thank you — we've recorded that you'd like to renew your work permit. HR will be in touch."
+           if response == 'Yes' else
+           "Thank you — we've recorded that you do NOT wish to renew your work permit. HR will be in touch.")
+    send_whatsapp_text(normalize_phone(employee.contact_number), ack)
+
+
+@csrf_exempt
+def whatsapp_webhook(request):
+    """Meta WhatsApp Cloud API webhook — GET handles Meta's verification
+    handshake, POST receives inbound messages (used to capture employees'
+    Yes/No replies to the labour-card renewal prompt).
+
+    Only useful once this app is deployed behind a public HTTPS URL and that
+    URL + WHATSAPP_VERIFY_TOKEN are registered in the Meta App dashboard
+    (WhatsApp > Configuration > Webhook)."""
+    from django.conf import settings
+
+    if request.method == 'GET':
+        verify_token = getattr(settings, 'WHATSAPP_VERIFY_TOKEN', '')
+        if (verify_token
+                and request.GET.get('hub.mode') == 'subscribe'
+                and request.GET.get('hub.verify_token') == verify_token):
+            return HttpResponse(request.GET.get('hub.challenge', ''), content_type='text/plain')
+        return HttpResponse('Verification failed.', status=403)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    if not _verify_whatsapp_signature(request):
+        return HttpResponse(status=403)
+
+    import json as _json
+    try:
+        payload = _json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return HttpResponse(status=400)
+
+    for entry in payload.get('entry', []):
+        for change in entry.get('changes', []):
+            value = change.get('value', {})
+            for msg in value.get('messages', []):
+                if msg.get('type') != 'text':
+                    continue
+                _process_renewal_reply(msg.get('from', ''), (msg.get('text') or {}).get('body', '').strip())
+
+    return HttpResponse('EVENT_RECEIVED', status=200)
+
+
 #######################  AUTHENTICATION VIEWS #######################
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -4159,9 +4836,11 @@ def attendance_grid(request):
     if not (1 <= month <= 12):
         month = today.month
 
-    # Only the current and future months/years are offered — clamp any past
-    # month/year (typed into the URL or otherwise) back to the current one.
-    if dt.date(year, month, 1) < dt.date(today.year, today.month, 1):
+    # Past months/years are viewable (and editable, to fix mistakes) going back
+    # MIN_YEAR_OFFSET years, plus a few years ahead for pre-planning holidays.
+    # Anything outside that window (bad URL params) clamps back to today.
+    MIN_YEAR, MAX_YEAR = today.year - 5, today.year + 3
+    if not (MIN_YEAR <= year <= MAX_YEAR):
         month, year = today.month, today.year
 
     num_days  = calendar.monthrange(year, month)[1]
@@ -4263,7 +4942,7 @@ def attendance_grid(request):
     dept_groups = [{'name': name, 'rows': rows} for name, rows in grouped.items()]
 
     months = [{'num': i, 'name': dt.date(2000, i, 1).strftime('%B')} for i in range(1, 13)]
-    years  = list(range(today.year, today.year + 4))
+    years  = list(range(MAX_YEAR, MIN_YEAR - 1, -1))   # newest first
 
     return render(request, 'hr_de/attendance/grid.html', {
         'dept_groups':   dept_groups,
