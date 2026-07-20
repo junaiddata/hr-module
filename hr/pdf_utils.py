@@ -35,17 +35,15 @@ def build_labour_renewal_pdf(prompt):
 
     buf = BytesIO()
 
-    # Crop the company logo strip out of the shared letterhead JPG so a
-    # second static asset isn't needed just for this letter.
+    # Company wordmark logo, centered at the top of the letter.
     logo_flowable = None
-    letterhead_path = os.path.join(settings.MEDIA_ROOT, 'HR MEMO SAMPLE.JPG')
-    if os.path.exists(letterhead_path):
-        with PILImage.open(letterhead_path) as im:
-            logo_crop = im.crop((0, 0, im.width, 230))
-            logo_buf = BytesIO()
-            logo_crop.convert('RGB').save(logo_buf, format='PNG')
-            logo_buf.seek(0)
-        logo_flowable = RLImage(logo_buf, width=content_w, height=content_w * 230 / im.width)
+    logo_path = os.path.join(settings.MEDIA_ROOT, 'junaid_wordmark_logo.png')
+    if os.path.exists(logo_path):
+        with PILImage.open(logo_path) as im:
+            logo_w, logo_h = im.size
+        display_w = 115 * mm
+        logo_flowable = RLImage(logo_path, width=display_w, height=display_w * logo_h / logo_w)
+        logo_flowable.hAlign = 'CENTER'
 
     label_style = ParagraphStyle('lr_label', fontName='Helvetica-Bold', fontSize=10, leading=13)
     value_style = ParagraphStyle('lr_value', fontName='Helvetica-Bold', fontSize=10, leading=13)
