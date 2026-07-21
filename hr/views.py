@@ -3306,21 +3306,21 @@ def labour_renewal_send(request):
 
     ok, info, _prompt = send_labour_card_renewal_prompt(emp, emp.labour_card_expiry)
 
-    Notification.objects.create(
-        employee=emp,
-        title=f"Labour card renewal notification sent — {emp.emp_name}" if ok else f"Labour card renewal notification FAILED — {emp.emp_name}",
-        message=(
-            f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
-            f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
-            if ok else
-            f"Could not send the WhatsApp renewal notification to {emp.emp_name}: {info}"
-        ),
-        category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
-        urgency='warning' if ok else 'critical',
-    )
-
     if ok:
+        Notification.objects.create(
+            employee=emp,
+            title=f"Labour card renewal notification sent — {emp.emp_name}",
+            message=(
+                f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
+                f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
+            ),
+            category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
+            urgency='warning',
+        )
         return JsonResponse({'ok': True, 'message': f'Renewal notification sent to {emp.emp_name}.'})
+    # No notification raised on failure — the labour card's existing
+    # document-expiry alert already covers HR visibility; this error is
+    # returned straight to the caller instead.
     return JsonResponse({'ok': False, 'error': info}, status=400)
 
 

@@ -78,26 +78,28 @@ class Command(BaseCommand):
 
             ok, info, _prompt = send_labour_card_renewal_prompt(emp, emp.labour_card_expiry)
 
-            Notification.objects.create(
-                employee=emp,
-                title=(f"Labour card renewal notification sent — {emp.emp_name}" if ok
-                       else f"Labour card renewal notification FAILED — {emp.emp_name}"),
-                message=(
-                    f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
-                    f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
-                    if ok else
-                    f"Could not send the WhatsApp renewal notification to {emp.emp_name}: {info}"
-                ),
-                category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
-                urgency='warning' if ok else 'critical',
-            )
-
             if ok:
                 sent += 1
+                Notification.objects.create(
+                    employee=emp,
+                    title=f"Labour card renewal notification sent — {emp.emp_name}",
+                    message=(
+                        f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
+                        f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
+                    ),
+                    category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
+                    urgency='warning',
+                )
                 self.stdout.write(self.style.SUCCESS(f'  sent   {emp.emp_name} ({info})'))
             else:
+                # Don't raise a notification for send failures — the employee's
+                # existing document-expiry alert (from _generate_expiry_notifications)
+                # already surfaces that their labour card is expiring; the WhatsApp
+                # delivery failure itself is an ops/config issue, not something HR
+                # needs an actionable notification for. It's still fully logged.
                 failed += 1
                 self.stdout.write(self.style.ERROR(f'  fail   {emp.emp_name}: {info}'))
+                logger.error('FAILED %s: %s', emp.emp_name, info)
 
         summary = f'sent={sent} skipped={skipped} failed={failed}'
         self.stdout.write('')
