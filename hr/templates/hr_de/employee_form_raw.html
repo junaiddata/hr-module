@@ -1002,8 +1002,9 @@
                             <i class="fas fa-id-card-alt"></i> Labour Card Copy
                         </label>
                         <div class="file-upload-wrapper">
-                            <input type="file" name="labour_card" class="file-upload-input" 
-                                   id="labour-upload" accept=".pdf,.jpg,.jpeg,.png">
+                            <input type="file" name="labour_card" class="file-upload-input"
+                                   id="labour-upload" accept=".pdf,.jpg,.jpeg,.png"
+                                   {% if employee.labour_card %}data-current-url="{{ employee.labour_card.url }}"{% endif %}>
                             <label for="labour-upload" class="file-upload-label">
                                 <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
                                 <span class="file-upload-text">Click to upload or drag and drop</span>
@@ -1202,6 +1203,22 @@ $(document).ready(function() {
             const url = URL.createObjectURL(file);
             $('#photo-preview').attr('src', url).show();
             $('#photo-placeholder').hide();
+        }
+    });
+
+    // Labour card replacement: auto-download the current file to the HR
+    // user's PC before it gets overwritten by the new upload, so the old
+    // copy is never lost.
+    $('#labour-upload').on('change', function() {
+        const file = this.files[0];
+        const currentUrl = $(this).data('current-url');
+        if (file && currentUrl) {
+            const a = document.createElement('a');
+            a.href = currentUrl;
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
         }
     });
 
