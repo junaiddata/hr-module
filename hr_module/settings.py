@@ -96,10 +96,23 @@ LOGGING = {
             'encoding': 'utf-8',
             'formatter': 'birthday',
         },
+        'labour_card_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOG_DIR / 'labour_card_renewal.log'),
+            'maxBytes': 1_000_000,   # ~1 MB per file
+            'backupCount': 1,        # keep 1 old file -> 2 files max
+            'encoding': 'utf-8',
+            'formatter': 'birthday',
+        },
     },
     'loggers': {
         'hr.birthday': {
             'handlers': ['birthday_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'hr.labour_card_renewal': {
+            'handlers': ['labour_card_file'],
             'level': 'INFO',
             'propagate': False,
         },

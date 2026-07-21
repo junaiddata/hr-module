@@ -3263,40 +3263,18 @@ def salary_certificate_pdf(request, pk):
 
 @login_required
 def labour_renewal_list(request):
-    """HR view: every active employee whose labour card expires within the
-    lookout window, with the WhatsApp prompt status and Yes/No response (if any)."""
+    """HR view: a log of every labour-card renewal WhatsApp prompt that has
+    actually been sent, most recent first, with the Yes/No response (if any)
+    and a link to the letter PDF that went out."""
     if not _hr_only(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
 
-    from .whatsapp import whatsapp_configured
+    prompts = (LabourCardRenewalPrompt.objects
+               .filter(whatsapp_status='sent')
+               .select_related('employee', 'employee__department', 'employee__mol')
+               .order_by('-whatsapp_sent_at'))
 
-    today = timezone.now().date()
-    horizon = today + timezone.timedelta(days=90)   # slightly wider than the 60-day auto-send window, so HR can see what's coming
-
-    employees = (Employee.objects
-                 .filter(is_active=True, labour_card_expiry__isnull=False, labour_card_expiry__lte=horizon)
-                 .select_related('department', 'mol')
-                 .order_by('labour_card_expiry'))
-
-    prompts_by_key = {
-        (p.employee_id, p.expiry_snapshot): p
-        for p in LabourCardRenewalPrompt.objects.filter(employee__in=employees)
-    }
-
-    rows = []
-    for emp in employees:
-        prompt = prompts_by_key.get((emp.pk, emp.labour_card_expiry))
-        rows.append({
-            'employee':  emp,
-            'prompt':    prompt,
-            'days_left': (emp.labour_card_expiry - today).days,
-        })
-
-    return render(request, 'hr_de/labour_renewal/list.html', {
-        'rows':            rows,
-        'whatsapp_ready':  whatsapp_configured(),
-        'today':           today,
-    })
+    return render(request, 'hr_de/labour_renewal/list.html', {'prompts': prompts})
 
 
 @login_required
@@ -3330,19 +3308,19 @@ def labour_renewal_send(request):
 
     Notification.objects.create(
         employee=emp,
-        title=f"Labour card renewal prompt sent — {emp.emp_name}" if ok else f"Labour card renewal prompt FAILED — {emp.emp_name}",
+        title=f"Labour card renewal notification sent — {emp.emp_name}" if ok else f"Labour card renewal notification FAILED — {emp.emp_name}",
         message=(
             f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
             f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
             if ok else
-            f"Could not send the WhatsApp renewal prompt to {emp.emp_name}: {info}"
+            f"Could not send the WhatsApp renewal notification to {emp.emp_name}: {info}"
         ),
         category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
         urgency='warning' if ok else 'critical',
     )
 
     if ok:
-        return JsonResponse({'ok': True, 'message': f'Renewal prompt sent to {emp.emp_name}.'})
+        return JsonResponse({'ok': True, 'message': f'Renewal notification sent to {emp.emp_name}.'})
     return JsonResponse({'ok': False, 'error': info}, status=400)
 
 

@@ -100,8 +100,10 @@
         display: flex; align-items: center; gap: .65rem;
         background: var(--bg-primary); border: 1px solid var(--border-color);
         border-radius: 12px; padding: .7rem 1rem; box-shadow: var(--shadow-sm);
-        min-width: 150px;
+        min-width: 150px; font: inherit; text-align: left; cursor: default;
     }
+    .ed-chip-clickable { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+    .ed-chip-clickable:hover, .ed-chip-clickable:focus-visible { box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,.08)); transform: translateY(-1px); outline: none; }
     .ed-chip-icon {
         width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
@@ -305,7 +307,7 @@
                 <div class="ed-chip-value">{% if tenure is not None %}{{ tenure }} yr{{ tenure|pluralize }}{% else %}—{% endif %}</div>
             </div>
         </div>
-        <div class="ed-chip">
+        <button type="button" class="ed-chip ed-chip-clickable" onclick="document.querySelector('.ed-tab[data-tab=documents]').click(); document.querySelector('.ed-tab[data-tab=documents]').scrollIntoView({behavior:'smooth', block:'center'});">
             <div class="ed-chip-icon" style="background:{% if expiry_alerts %}#f59e0b{% else %}#10b981{% endif %};"><i class="fas fa-triangle-exclamation"></i></div>
             <div>
                 <div class="ed-chip-label">Document Alerts
@@ -313,7 +315,7 @@
                 </div>
                 <div class="ed-chip-value">{% if expiry_alerts %}{{ expiry_alerts }} need attention{% else %}All valid{% endif %}</div>
             </div>
-        </div>
+        </button>
     </div>
 
     <!-- Tab navigation -->
@@ -761,6 +763,7 @@
                         <th>Expiry</th>
                         <th>Status</th>
                         <th>File</th>
+                        {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}<th>Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -789,6 +792,11 @@
                                 <span class="ed-doc-missing">Not uploaded</span>
                             {% endif %}
                         </td>
+                        {% if request.user.role.role == 'HR' or request.user.role.role == 'MD' %}
+                        <td>
+                            <a href="{% url 'employee_edit' employee.pk %}#documents-section" class="ed-doc-link"><i class="fas fa-pen"></i> Edit</a>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

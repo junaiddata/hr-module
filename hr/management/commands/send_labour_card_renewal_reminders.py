@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand
 from hr.models import Employee, LabourCardRenewalPrompt, Notification
 from hr.whatsapp import send_labour_card_renewal_prompt, whatsapp_configured
 
-logger = logging.getLogger('hr.birthday')
+logger = logging.getLogger('hr.labour_card_renewal')
 
 
 class Command(BaseCommand):
@@ -80,13 +80,13 @@ class Command(BaseCommand):
 
             Notification.objects.create(
                 employee=emp,
-                title=(f"Labour card renewal prompt sent — {emp.emp_name}" if ok
-                       else f"Labour card renewal prompt FAILED — {emp.emp_name}"),
+                title=(f"Labour card renewal notification sent — {emp.emp_name}" if ok
+                       else f"Labour card renewal notification FAILED — {emp.emp_name}"),
                 message=(
                     f"WhatsApp message asking whether to renew was sent to {emp.emp_name} "
                     f"(labour card expires {emp.labour_card_expiry.strftime('%d %b %Y')})."
                     if ok else
-                    f"Could not send the WhatsApp renewal prompt to {emp.emp_name}: {info}"
+                    f"Could not send the WhatsApp renewal notification to {emp.emp_name}: {info}"
                 ),
                 category='labour_card_renewal', doc_type='LABOUR_CARD_RENEWAL',
                 urgency='warning' if ok else 'critical',
