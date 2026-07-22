@@ -190,7 +190,8 @@
                     </td>
                     <td><span class="role-badge">MD</span></td>
                     <td>
-                        <form method="post" action="{% url 'md_account_delete' role_obj.pk %}" onsubmit="return confirm('Delete MD account for {{ role_obj.user.username }}? This cannot be undone.');">
+                        <form method="post" action="{% url 'md_account_delete' role_obj.pk %}"
+                              data-confirm="Delete MD account for “{{ role_obj.user.username }}”? This cannot be undone." data-confirm-title="Delete MD account?">
                             {% csrf_token %}
                             <button type="submit" class="btn-del">
                                 <i class="fas fa-trash"></i> Delete

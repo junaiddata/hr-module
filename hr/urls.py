@@ -201,6 +201,8 @@ urlpatterns = [
     path('properties/add/',          views.property_add,    name='property_add'),
     path('properties/<int:pk>/edit/',   views.property_edit,   name='property_edit'),
     path('properties/<int:pk>/delete/', views.property_delete, name='property_delete'),
+    path('properties/categories/',              views.property_category_list,   name='property_category_list'),
+    path('properties/categories/<int:pk>/delete/', views.property_category_delete, name='property_category_delete'),
 
     # Employee self-service: my vehicles + request service
     path('my-vehicles/',                     views.my_vehicles,          name='my_vehicles'),

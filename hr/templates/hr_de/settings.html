@@ -95,6 +95,11 @@
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
     }
+
+    .card-icon.property {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: white;
+    }
     
     /* Card Content */
     .card-title {
@@ -208,6 +213,18 @@
             <h2 class="card-title">Bulk Upload Employees</h2>
             <p class="card-description">
                 Import multiple employees at once by uploading a filled Excel template
+            </p>
+            <i class="fas fa-arrow-right card-arrow"></i>
+        </a>
+
+        <!-- Property Categories Card -->
+        <a href="{% url 'property_category_list' %}" class="setting-card">
+            <div class="card-icon property">
+                <i class="fas fa-box-open"></i>
+            </div>
+            <h2 class="card-title">Company Property Categories</h2>
+            <p class="card-description">
+                Add, edit or remove categories offered in the Category dropdown when adding a company property
             </p>
             <i class="fas fa-arrow-right card-arrow"></i>
         </a>

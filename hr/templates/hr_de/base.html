@@ -1095,14 +1095,15 @@
         var iconEl  = document.getElementById('confirmIcon');
         var okBtn   = document.getElementById('confirmOk');
         var cancelBtn = document.getElementById('confirmCancel');
-        var pendingForm = null;
+        var pendingForm      = null;   // form to (re)submit once confirmed
+        var pendingSubmitter = null;   // the specific submit button clicked, if any
+        var pendingLink      = null;   // <a> to navigate to once confirmed
 
-        function open(form) {
-            pendingForm = form;
-            var msg   = form.getAttribute('data-confirm') || 'Are you sure?';
-            var title = form.getAttribute('data-confirm-title') || 'Are you sure?';
-            var okTxt = form.getAttribute('data-confirm-ok') || 'Delete';
-            var kind  = form.getAttribute('data-confirm-kind') || 'danger';  // danger | neutral
+        function open(source) {
+            var msg   = source.getAttribute('data-confirm') || 'Are you sure?';
+            var title = source.getAttribute('data-confirm-title') || 'Are you sure?';
+            var okTxt = source.getAttribute('data-confirm-ok') || 'Delete';
+            var kind  = source.getAttribute('data-confirm-kind') || 'danger';  // danger | neutral
             msgEl.textContent = msg;
             titleEl.textContent = title;
             okBtn.textContent = okTxt;
@@ -1116,23 +1117,50 @@
             overlay.classList.remove('show');
             overlay.setAttribute('aria-hidden', 'true');
             pendingForm = null;
+            pendingSubmitter = null;
+            pendingLink = null;
         }
 
-        // Intercept submits on any form carrying data-confirm.
+        // Intercept submits on any form carrying data-confirm — either on the
+        // form itself, or on the specific button that triggered the submit
+        // (so a single form with several actions, e.g. Approve/Reject, can
+        // prompt only for the ones that need it).
         document.addEventListener('submit', function (e) {
             var form = e.target;
-            if (form.hasAttribute && form.hasAttribute('data-confirm') && !form.dataset.confirmed) {
+            if (form.dataset.confirmed) return;
+            var submitter = e.submitter;
+            var source = (submitter && submitter.hasAttribute('data-confirm')) ? submitter : form;
+            if (source.hasAttribute && source.hasAttribute('data-confirm')) {
                 e.preventDefault();
-                open(form);
+                pendingForm = form;
+                pendingSubmitter = (submitter && submitter.hasAttribute('data-confirm')) ? submitter : null;
+                open(source);
+            }
+        }, true);
+
+        // Intercept clicks on any link carrying data-confirm.
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest && e.target.closest('a[data-confirm]');
+            if (link && !link.dataset.confirmed) {
+                e.preventDefault();
+                pendingLink = link;
+                open(link);
             }
         }, true);
 
         okBtn.addEventListener('click', function () {
+            if (pendingLink) {
+                var l = pendingLink;
+                l.dataset.confirmed = '1';
+                close();
+                window.location.href = l.href;
+                return;
+            }
             if (!pendingForm) return;
-            var f = pendingForm;
+            var f = pendingForm, s = pendingSubmitter;
             f.dataset.confirmed = '1';     // allow the next submit through
             close();
-            if (f.requestSubmit) f.requestSubmit(); else f.submit();
+            if (f.requestSubmit) f.requestSubmit(s || undefined); else f.submit();
         });
         cancelBtn.addEventListener('click', close);
         overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });

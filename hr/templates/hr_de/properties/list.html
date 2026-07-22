@@ -29,6 +29,8 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 .pr-badge { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(99,102,241,.1); color: #4f46e5; }
 .pr-chip-assigned { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(16,185,129,.12); color: #059669; }
 .pr-chip-available { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: var(--bg-tertiary); color: var(--text-tertiary); }
+.pr-badge-sold    { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(239,68,68,.12); color: #dc2626; margin-left: .4rem; }
+.pr-badge-damaged { font-size: .7rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(251,191,36,.15); color: #b45309; margin-left: .4rem; }
 .pr-doc { color: var(--accent-primary); font-weight: 600; text-decoration: none; }
 .pr-actions { display: flex; gap: .4rem; }
 .pr-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .78rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
@@ -48,13 +50,18 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
             <h1 class="pr-title"><i class="fas fa-box-open"></i> Company Properties</h1>
             <p class="pr-sub">Company-owned assets — assign them to employees to show on their profile. HR &amp; MD only.</p>
         </div>
-        <a href="{% url 'property_add' %}" class="pr-add"><i class="fas fa-plus"></i> Add Property</a>
+        <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+            <a href="{% url 'property_category_list' %}" style="border:1.5px solid var(--border-color); border-radius:10px; padding:.6rem 1.2rem; font-weight:600; font-size:.88rem; color: var(--text-secondary); text-decoration:none; display:inline-flex; align-items:center; gap:.5rem;"><i class="fas fa-tags"></i> Manage Categories</a>
+            <a href="{% url 'property_add' %}" class="pr-add"><i class="fas fa-plus"></i> Add Property</a>
+        </div>
     </div>
 
     <div class="pr-tabs">
-        <a href="?" class="pr-tab {% if not assigned %}active{% endif %}">All</a>
+        <a href="?" class="pr-tab {% if not assigned and not status %}active{% endif %}">All</a>
         <a href="?assigned=assigned" class="pr-tab {% if assigned == 'assigned' %}active{% endif %}">Assigned ({{ assigned_count }})</a>
         <a href="?assigned=available" class="pr-tab {% if assigned == 'available' %}active{% endif %}">Available ({{ available_count }})</a>
+        <a href="?status=sold" class="pr-tab {% if status == 'sold' %}active{% endif %}">Sold ({{ sold_count }})</a>
+        <a href="?status=damaged" class="pr-tab {% if status == 'damaged' %}active{% endif %}">Damaged ({{ damaged_count }})</a>
     </div>
 
     <form method="get" class="pr-search">
@@ -62,8 +69,14 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
         <input type="text" name="q" value="{{ query }}" placeholder="Search name, serial, employee…">
         <select name="category" onchange="this.form.submit()">
             <option value="">All Categories</option>
-            {% for value, label in category_choices %}
-            <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+            {% for c in category_choices %}
+            <option value="{{ c.pk }}" {% if category == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="status" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
         <button type="submit"><i class="fas fa-search"></i> Search</button>
@@ -80,7 +93,7 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
             <tbody>
                 {% for p in properties %}
                 <tr>
-                    <td class="pr-name">{{ p.name }}</td>
+                    <td class="pr-name">{{ p.name }}{% if p.status == 'sold' %}<span class="pr-badge-sold" title="Sold{% if p.status_date %} on {{ p.status_date|date:'d M Y' }}{% endif %}">Sold</span>{% elif p.status == 'damaged' %}<span class="pr-badge-damaged" title="Damaged{% if p.status_date %} on {{ p.status_date|date:'d M Y' }}{% endif %}">Damaged</span>{% endif %}</td>
                     <td>{% if p.category %}<span class="pr-badge">{{ p.category_label }}</span>{% else %}<span class="pr-muted">—</span>{% endif %}</td>
                     <td>{{ p.serial_number|default:"—" }}</td>
                     <td>
@@ -94,7 +107,8 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
                     <td>
                         <div class="pr-actions">
                             <a href="{% url 'property_edit' p.pk %}" class="pr-btn edit"><i class="fas fa-pen"></i></a>
-                            <form method="post" action="{% url 'property_delete' p.pk %}" style="margin:0;" onsubmit="return confirm('Delete “{{ p.name }}”?')">
+                            <form method="post" action="{% url 'property_delete' p.pk %}" style="margin:0;"
+                                  data-confirm="Delete “{{ p.name }}”? This cannot be undone." data-confirm-title="Delete property?">
                                 {% csrf_token %}
                                 <button type="submit" class="pr-btn del"><i class="fas fa-trash"></i></button>
                             </form>
@@ -108,7 +122,7 @@ table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
     {% else %}
     <div class="pr-empty">
         <i class="fas fa-box-open"></i>
-        {% if query or category or assigned %}No properties match your filters.{% else %}No company properties yet. Click <strong>Add Property</strong> to add one.{% endif %}
+        {% if query or category or assigned or status %}No properties match your filters.{% else %}No company properties yet. Click <strong>Add Property</strong> to add one.{% endif %}
     </div>
     {% endif %}
 

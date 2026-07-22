@@ -73,9 +73,10 @@
                             <a href="{% url 'department_edit' dept.pk %}" class="btn-edit">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
-                            <form method="post" action="{% url 'department_delete' dept.pk %}" style="display:inline;">
+                            <form method="post" action="{% url 'department_delete' dept.pk %}" style="display:inline;"
+                                  data-confirm="Delete “{{ dept.name }}”? Employees assigned to it will lose their department." data-confirm-title="Delete department?">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete {{ dept.name }}? Employees assigned to it will lose their department.')">
+                                <button type="submit" class="btn-delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>

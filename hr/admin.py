@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, Memo, MemoType
+from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, PropertyCategory, Memo, MemoType
 
 admin.site.register(Employee)
 admin.site.register(ChangeLog)
@@ -48,9 +48,15 @@ class CountryVisaAdmin(admin.ModelAdmin):
 
 @admin.register(CompanyProperty)
 class CompanyPropertyAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'serial_number', 'assigned_to', 'assigned_on', 'value']
-    list_filter = ['category', 'assigned_to']
+    list_display = ['name', 'category', 'serial_number', 'assigned_to', 'assigned_on', 'value', 'status']
+    list_filter = ['category', 'status', 'assigned_to']
     search_fields = ['name', 'serial_number', 'assigned_to__emp_name']
+
+
+@admin.register(PropertyCategory)
+class PropertyCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
 
 
 @admin.register(Memo)

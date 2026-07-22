@@ -391,7 +391,8 @@
                 <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
             </div>
             <div class="d-flex gap-3 flex-wrap">
-                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to Manager?')">
+                <button type="submit" name="action" value="approve" class="btn btn-approve"
+                        data-confirm="Approve and forward to Manager?" data-confirm-title="Approve leave?" data-confirm-ok="Approve" data-confirm-kind="neutral">
                     <i class="fas fa-check-circle"></i> Approve — Forward to Manager
                 </button>
                 <button type="button" class="btn btn-reject" onclick="toggleReject()">
@@ -415,7 +416,8 @@
                 <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
             </div>
             <div class="d-flex gap-3 flex-wrap">
-                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to MD?')">
+                <button type="submit" name="action" value="approve" class="btn btn-approve"
+                        data-confirm="Approve and forward to MD?" data-confirm-title="Approve leave?" data-confirm-ok="Approve" data-confirm-kind="neutral">
                     <i class="fas fa-check-circle"></i> Approve — Forward to MD
                 </button>
                 <button type="button" class="btn btn-reject" onclick="toggleReject()">
@@ -439,7 +441,8 @@
                 <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
             </div>
             <div class="d-flex gap-3 flex-wrap">
-                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to HR?')">
+                <button type="submit" name="action" value="approve" class="btn btn-approve"
+                        data-confirm="Approve and forward to HR?" data-confirm-title="Approve leave?" data-confirm-ok="Approve" data-confirm-kind="neutral">
                     <i class="fas fa-check-circle"></i> Approve — Forward to HR
                 </button>
                 <button type="button" class="btn btn-reject" onclick="toggleReject()">
@@ -463,7 +466,8 @@
                 <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
             </div>
             <div class="d-flex gap-3 flex-wrap">
-                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve and forward to MD?')">
+                <button type="submit" name="action" value="approve" class="btn btn-approve"
+                        data-confirm="Approve and forward to MD?" data-confirm-title="Approve leave?" data-confirm-ok="Approve" data-confirm-kind="neutral">
                     <i class="fas fa-check-circle"></i> Approve — Forward to MD
                 </button>
                 <button type="button" class="btn btn-reject" onclick="toggleReject()">
@@ -487,7 +491,8 @@
                 <textarea name="rejection_reason" id="rejectReason" placeholder="Explain why this leave is being rejected..."></textarea>
             </div>
             <div class="d-flex gap-3 flex-wrap">
-                <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Give final approval for this leave?')">
+                <button type="submit" name="action" value="approve" class="btn btn-approve"
+                        data-confirm="Give final approval for this leave?" data-confirm-title="Approve leave?" data-confirm-ok="Approve" data-confirm-kind="neutral">
                     <i class="fas fa-check-double"></i> Final Approve
                 </button>
                 <button type="button" class="btn btn-reject" onclick="toggleReject()">

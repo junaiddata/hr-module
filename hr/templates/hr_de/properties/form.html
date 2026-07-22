@@ -18,6 +18,9 @@
 .pf-assign { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color); }
 .pf-assign-h { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
 .pf-assign-h i { color: var(--accent-primary); }
+.pf-status { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color); }
+.pf-status-h { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
+.pf-status-h i { color: #dc2626; }
 .pf-actions { display: flex; gap: .6rem; margin-top: 1.5rem; }
 .pf-save { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .65rem 1.4rem; font-weight: 700; cursor: pointer; }
 .pf-cancel { border: 1.5px solid var(--border-color); background: #fff; color: var(--text-secondary); border-radius: 9px; padding: .65rem 1.4rem; font-weight: 600; text-decoration: none; }
@@ -41,10 +44,11 @@
                     <label class="pf-label">Category</label>
                     <select name="category" class="pf-select">
                         <option value="">— Select —</option>
-                        {% for value, label in category_choices %}
-                        <option value="{{ value }}" {% if property.category == value %}selected{% endif %}>{{ label }}</option>
+                        {% for c in category_choices %}
+                        <option value="{{ c.pk }}" {% if property.category_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
                         {% endfor %}
                     </select>
+                    <a href="{% url 'property_category_list' %}" style="display:inline-block;margin-top:.35rem;font-size:.78rem;color:var(--accent-primary);font-weight:600;">Manage categories</a>
                 </div>
                 <div class="pf-group">
                     <label class="pf-label">Serial / Asset No.</label>
@@ -91,6 +95,45 @@
                 </div>
             </div>
 
+            <!-- Status: sold / damaged -->
+            <div class="pf-status">
+                <div class="pf-status-h"><i class="fas fa-triangle-exclamation"></i> Status</div>
+                <div class="pf-grid">
+                    <div class="pf-group">
+                        <label class="pf-label">Status</label>
+                        <select name="status" id="statusSelect" class="pf-select">
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if property.status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pf-grid pf-status-fields" id="statusFields" style="margin-top:1rem;">
+                    <div class="pf-group">
+                        <label class="pf-label" id="statusDateLabel">Sold / Damaged On</label>
+                        <input type="date" name="status_date" class="pf-input" value="{{ property.status_date|date:'Y-m-d' }}">
+                    </div>
+                    <div class="pf-group" id="statusAmountGroup">
+                        <label class="pf-label">Sold Amount (AED)</label>
+                        <input type="number" step="0.01" name="status_amount" class="pf-input" value="{{ property.status_amount|default:'' }}" placeholder="e.g. 500">
+                    </div>
+                    <div class="pf-group">
+                        <label class="pf-label" id="statusPartyLabel">Sold To / Reported By</label>
+                        <input type="text" name="status_party" class="pf-input" value="{{ property.status_party|default:'' }}">
+                    </div>
+                    <div class="pf-group full">
+                        <label class="pf-label">Notes</label>
+                        <textarea name="status_note" class="pf-textarea" placeholder="e.g. damage description…">{{ property.status_note|default:'' }}</textarea>
+                    </div>
+                    <div class="pf-group full">
+                        <label class="pf-label">Sale / Damage Document</label>
+                        <input type="file" name="status_document" class="pf-input">
+                        {% if property.status_document %}<div class="pf-file-current">Current: <a href="{{ property.status_document.url }}" target="_blank">View</a> — uploading replaces it.</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
             <div class="pf-actions">
                 <button type="submit" class="pf-save"><i class="fas fa-save"></i> Save Property</button>
                 <a href="{% url 'property_list' %}" class="pf-cancel">Cancel</a>
@@ -115,6 +158,23 @@
             o.hidden = q && hay.indexOf(q) === -1;
         });
     });
+})();
+
+(function () {
+    var statusSelect  = document.getElementById('statusSelect');
+    var fields        = document.getElementById('statusFields');
+    var dateLabel     = document.getElementById('statusDateLabel');
+    var partyLabel    = document.getElementById('statusPartyLabel');
+    var amountGroup   = document.getElementById('statusAmountGroup');
+    if (!statusSelect || !fields) return;
+    function sync() {
+        var v = statusSelect.value;
+        fields.style.display = (v === 'active') ? 'none' : '';
+        amountGroup.style.display = (v === 'sold') ? '' : 'none';
+        dateLabel.textContent  = (v === 'damaged') ? 'Damaged On' : 'Sold On';
+        partyLabel.textContent = (v === 'damaged') ? 'Reported By' : 'Sold To';
+    }
+    statusSelect.addEventListener('change', sync); sync();
 })();
 </script>
 {% endblock %}

@@ -1138,23 +1138,30 @@ class CountryVisa(models.Model):
         return self.get_visa_type_display() if self.visa_type else ''
 
 
+class PropertyCategory(models.Model):
+    """A company property category, created by HR/MD, offered as a dropdown
+    when adding/editing a Company Property."""
+    name = models.CharField('Category Name', max_length=50, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Property categories'
+
+    def __str__(self):
+        return self.name
+
+
 class CompanyProperty(models.Model):
     """A company-owned asset/property that can be assigned to an employee.
     When assigned, it appears on that employee's detail page. HR/MD only."""
-    CATEGORY_CHOICES = [
-        ('laptop',    'Laptop'),
-        ('desktop',   'Desktop'),
-        ('phone',     'Phone'),
-        ('sim',       'SIM Card'),
-        ('tablet',    'Tablet'),
-        ('furniture', 'Furniture'),
-        ('equipment', 'Equipment'),
-        ('tool',      'Tool'),
-        ('other',     'Other'),
+    STATUS_CHOICES = [
+        ('active',  'Active'),
+        ('sold',    'Sold'),
+        ('damaged', 'Damaged'),
     ]
 
     name          = models.CharField('Property Name', max_length=200)
-    category      = models.CharField(max_length=20, choices=CATEGORY_CHOICES, blank=True, default='')
+    category      = models.ForeignKey(PropertyCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
     serial_number = models.CharField('Serial / Asset No.', max_length=100, blank=True, default='')
     description   = models.TextField(blank=True, default='')
     purchase_date = models.DateField(null=True, blank=True)
@@ -1164,6 +1171,14 @@ class CompanyProperty(models.Model):
     # Assignment
     assigned_to = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
     assigned_on = models.DateField(null=True, blank=True)
+
+    # Disposal / condition record — filled in by HR when a property is sold or damaged.
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    status_date     = models.DateField('Sold / Damaged On', null=True, blank=True)
+    status_amount   = models.DecimalField('Sold Amount (AED)', max_digits=12, decimal_places=2, null=True, blank=True)
+    status_party    = models.CharField('Sold To / Reported By', max_length=200, blank=True, default='')
+    status_note     = models.TextField('Notes', blank=True, default='')
+    status_document = models.FileField('Sale / Damage Document', upload_to='properties/status/', null=True, blank=True)
 
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_properties')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1178,7 +1193,11 @@ class CompanyProperty(models.Model):
 
     @property
     def category_label(self):
-        return self.get_category_display() if self.category else ''
+        return self.category.name if self.category_id else ''
+
+    @property
+    def status_label(self):
+        return self.get_status_display()
 
 
 class MemoType(models.Model):

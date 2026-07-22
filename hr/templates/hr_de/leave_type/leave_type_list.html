@@ -182,9 +182,9 @@
                         <a href="{% url 'leave_type_edit' leave_type.id %}" class="btn-edit">
                             <i class="fas fa-edit"></i> Edit
                         </a>
-                        <a href="{% url 'leave_type_delete' leave_type.id %}" 
-                           class="btn-delete" 
-                           onclick="return confirm('Are you sure you want to delete this leave type?');">
+                        <a href="{% url 'leave_type_delete' leave_type.id %}"
+                           class="btn-delete"
+                           data-confirm="Delete “{{ leave_type.name }}”? This cannot be undone." data-confirm-title="Delete leave type?">
                             <i class="fas fa-trash"></i> Delete
                         </a>
                     </div>

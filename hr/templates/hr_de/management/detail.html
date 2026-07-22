@@ -88,7 +88,7 @@ table.md-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
         <div class="md-actions">
             <a href="{% url 'management_edit' member.pk %}" class="md-btn primary"><i class="fas fa-pen"></i> Edit</a>
             <form method="post" action="{% url 'management_delete' member.pk %}" style="margin:0;"
-                  onsubmit="return confirm('Delete “{{ member.name }}”{% if not member.is_family %} and all their family members{% endif %}? This cannot be undone.')">
+                  data-confirm="Delete “{{ member.name }}”{% if not member.is_family %} and all their family members{% endif %}? This cannot be undone." data-confirm-title="Delete member?">
                 {% csrf_token %}
                 <button type="submit" class="md-btn danger"><i class="fas fa-trash"></i> Delete</button>
             </form>
@@ -154,7 +154,8 @@ table.md-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
                     <td class="{% if cv.expiry and cv.expiry < today %}md-exp-expired{% endif %}">{% if cv.expiry %}{{ cv.expiry|date:"d M Y" }}{% if cv.expiry < today %} (expired){% endif %}{% else %}<span class="md-muted">—</span>{% endif %}</td>
                     <td>{% if cv.document %}<a href="{{ cv.document.url }}" target="_blank" class="md-doc-link">View</a>{% else %}<span class="md-muted">—</span>{% endif %}</td>
                     <td>
-                        <form method="post" action="{% url 'country_visa_delete' cv.pk %}" style="margin:0;" onsubmit="return confirm('Delete this visa?')">
+                        <form method="post" action="{% url 'country_visa_delete' cv.pk %}" style="margin:0;"
+                              data-confirm="Delete this visa? This cannot be undone." data-confirm-title="Delete visa?">
                             {% csrf_token %}
                             <button class="md-btn danger" style="padding:.3rem .6rem;"><i class="fas fa-trash"></i></button>
                         </form>

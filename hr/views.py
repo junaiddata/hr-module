@@ -6313,8 +6313,8 @@ def country_visa_delete(request, pk):
 def _apply_property_post(prop, request):
     """Copy submitted fields onto a CompanyProperty (shared by add & edit)."""
     prop.name          = (request.POST.get('name') or '').strip()
-    category           = (request.POST.get('category') or '').strip()
-    prop.category      = category if category in dict(CompanyProperty.CATEGORY_CHOICES) else ''
+    cat_id             = (request.POST.get('category') or '').strip()
+    prop.category      = PropertyCategory.objects.filter(pk=cat_id).first() if cat_id else None
     prop.serial_number = (request.POST.get('serial_number') or '').strip()
     prop.description   = (request.POST.get('description') or '').strip()
     prop.purchase_date = request.POST.get('purchase_date') or None
@@ -6330,6 +6330,23 @@ def _apply_property_post(prop, request):
 
     if request.FILES.get('document'):
         prop.document = request.FILES['document']
+
+    # Disposal / condition — sold or damaged detail fields only apply off 'active'.
+    status = (request.POST.get('status') or '').strip()
+    prop.status = status if status in dict(CompanyProperty.STATUS_CHOICES) else 'active'
+    if prop.status in ('sold', 'damaged'):
+        prop.status_date   = request.POST.get('status_date') or None
+        prop.status_amount = (request.POST.get('status_amount') or '').strip() or None
+        prop.status_party  = (request.POST.get('status_party') or '').strip()
+        prop.status_note   = (request.POST.get('status_note') or '').strip()
+        if request.FILES.get('status_document'):
+            prop.status_document = request.FILES['status_document']
+    else:
+        prop.status_date   = None
+        prop.status_amount = None
+        prop.status_party  = ''
+        prop.status_note   = ''
+        # Note: a previously uploaded status document is retained on file even if un-marked.
 
 
 @login_required
@@ -6349,8 +6366,8 @@ def property_list(request):
         ).distinct()
 
     category = (request.GET.get('category') or '').strip()
-    if category in dict(CompanyProperty.CATEGORY_CHOICES):
-        properties = properties.filter(category=category)
+    if category:
+        properties = properties.filter(category_id=category)
 
     assigned = (request.GET.get('assigned') or '').strip()
     if assigned == 'assigned':
@@ -6358,14 +6375,22 @@ def property_list(request):
     elif assigned == 'available':
         properties = properties.filter(assigned_to__isnull=True)
 
+    status = (request.GET.get('status') or '').strip()
+    if status in dict(CompanyProperty.STATUS_CHOICES):
+        properties = properties.filter(status=status)
+
     return render(request, 'hr_de/properties/list.html', {
         'properties':        properties,
         'query':             query,
         'category':          category,
         'assigned':          assigned,
-        'category_choices':  CompanyProperty.CATEGORY_CHOICES,
+        'status':            status,
+        'category_choices':  PropertyCategory.objects.all(),
+        'status_choices':    CompanyProperty.STATUS_CHOICES,
         'assigned_count':    CompanyProperty.objects.filter(assigned_to__isnull=False).count(),
         'available_count':   CompanyProperty.objects.filter(assigned_to__isnull=True).count(),
+        'sold_count':        CompanyProperty.objects.filter(status='sold').count(),
+        'damaged_count':     CompanyProperty.objects.filter(status='damaged').count(),
     })
 
 
@@ -6386,7 +6411,8 @@ def property_add(request):
         return redirect('property_list')
 
     return render(request, 'hr_de/properties/form.html', {
-        'category_choices': CompanyProperty.CATEGORY_CHOICES,
+        'category_choices': PropertyCategory.objects.all(),
+        'status_choices':   CompanyProperty.STATUS_CHOICES,
         'employees':        Employee.objects.filter(is_active=True).order_by('emp_name'),
     })
 
@@ -6409,7 +6435,8 @@ def property_edit(request, pk):
 
     return render(request, 'hr_de/properties/form.html', {
         'property':         prop,
-        'category_choices': CompanyProperty.CATEGORY_CHOICES,
+        'category_choices': PropertyCategory.objects.all(),
+        'status_choices':   CompanyProperty.STATUS_CHOICES,
         'employees':        Employee.objects.filter(is_active=True).order_by('emp_name'),
     })
 
@@ -6424,6 +6451,42 @@ def property_delete(request, pk):
     prop.delete()
     messages.success(request, f"Property '{name}' deleted.")
     return redirect('property_list')
+
+
+@login_required
+def property_category_list(request):
+    """HR/MD manage the property categories offered in the property form dropdown."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, 'Category name is required.')
+        elif PropertyCategory.objects.filter(name__iexact=name).exists():
+            messages.error(request, f"Category '{name}' already exists.")
+        else:
+            PropertyCategory.objects.create(name=name)
+            messages.success(request, f"Category '{name}' added.")
+        return redirect('property_category_list')
+
+    return render(request, 'hr_de/properties/category_list.html', {
+        'categories': PropertyCategory.objects.annotate(property_count=Count('properties')).order_by('name'),
+    })
+
+
+@require_POST
+@login_required
+def property_category_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    category = get_object_or_404(PropertyCategory, pk=pk)
+    if category.properties.exists():
+        messages.error(request, f"Cannot delete '{category.name}' — it is used by existing properties.")
+    else:
+        name = category.name
+        category.delete()
+        messages.success(request, f"Category '{name}' deleted.")
+    return redirect('property_category_list')
 
 
 # ── Memos (official memorandums on company letterhead — HR & MD only) ─────────
