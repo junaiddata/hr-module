@@ -714,6 +714,7 @@ class Notification(models.Model):
     mol      = models.ForeignKey('Mol', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     vehicle  = models.ForeignKey('Vehicle', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     management_member = models.ForeignKey('ManagementMember', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    labour_camp = models.ForeignKey('LabourCampRentalAgreement', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
 
     class Meta:
         ordering = ['-created_at']
@@ -721,6 +722,21 @@ class Notification(models.Model):
     def soft_delete(self):
         self.is_read = True
         self.save()
+
+
+class NotificationComment(models.Model):
+    """A running log of HR notes left on a Notification (any category) —
+    e.g. status updates while a document renewal is in progress."""
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='comments')
+    text         = models.TextField()
+    created_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notification_comments')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment on notification #{self.notification_id}"
 
 
 class OtherRecord(models.Model):
@@ -1198,6 +1214,50 @@ class CompanyProperty(models.Model):
     @property
     def status_label(self):
         return self.get_status_display()
+
+
+class LabourCampRentalAgreement(models.Model):
+    """A rental agreement for a labour camp (worker accommodation) leased by
+    the company from a landlord/camp owner. HR/MD only."""
+    labour_camp_name = models.CharField('Labour Camp Name', max_length=200)
+
+    contract_start = models.DateField('Contract Start Date', null=True, blank=True)
+    contract_end   = models.DateField('Contract End Date', null=True, blank=True)
+
+    contract_amount  = models.DecimalField('Contract Amount (AED)', max_digits=12, decimal_places=2, null=True, blank=True)
+    security_deposit = models.DecimalField('Security Deposit (AED)', max_digits=12, decimal_places=2, null=True, blank=True)
+
+    contact_person_name   = models.CharField('Contact Person Name', max_length=200, blank=True, default='')
+    contact_person_number = models.CharField('Contact Person Number', max_length=30, blank=True, default='')
+
+    document = models.FileField('Agreement Document', upload_to='labour_camps/', null=True, blank=True)
+
+    # Renewal reminders start 2 months before contract_end and repeat weekly
+    # (see _generate_labour_camp_renewal_notifications in views.py) until HR
+    # marks the renewal done. Editing contract_end resets this to start a
+    # fresh reminder cycle for the new contract period.
+    renewal_marked_done    = models.BooleanField(default=False)
+    renewal_marked_done_at = models.DateTimeField(null=True, blank=True)
+    renewal_marked_done_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marked_labour_camp_renewals')
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_labour_camp_agreements')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['labour_camp_name']
+        verbose_name = 'Labour Camp Rental Agreement'
+        verbose_name_plural = 'Labour Camp Rental Agreements'
+
+    def __str__(self):
+        return self.labour_camp_name
+
+    @property
+    def contract_days_left(self):
+        if self.contract_end:
+            from django.utils import timezone
+            return (self.contract_end - timezone.now().date()).days
+        return None
 
 
 class MemoType(models.Model):

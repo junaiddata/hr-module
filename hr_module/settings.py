@@ -104,6 +104,14 @@ LOGGING = {
             'encoding': 'utf-8',
             'formatter': 'birthday',
         },
+        'notifications_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOG_DIR / 'notifications.log'),
+            'maxBytes': 1_000_000,   # ~1 MB per file
+            'backupCount': 1,        # keep 1 old file -> 2 files max
+            'encoding': 'utf-8',
+            'formatter': 'birthday',
+        },
     },
     'loggers': {
         'hr.birthday': {
@@ -113,6 +121,11 @@ LOGGING = {
         },
         'hr.labour_card_renewal': {
             'handlers': ['labour_card_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'hr.notifications': {
+            'handlers': ['notifications_file'],
             'level': 'INFO',
             'propagate': False,
         },

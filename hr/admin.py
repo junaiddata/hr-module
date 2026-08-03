@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Employee, ChangeLog, Leave, Mol, Notification, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, PropertyCategory, Memo, MemoType
+from .models import Employee, ChangeLog, Leave, Mol, Notification, NotificationComment, Role, SalaryStructure, PayrollRun, PayrollEntry, Vehicle, VehicleService, ManagementMember, TravelRecord, CountryVisa, CompanyProperty, PropertyCategory, Memo, MemoType, LabourCampRentalAgreement
 
 admin.site.register(Employee)
 admin.site.register(ChangeLog)
@@ -59,6 +59,13 @@ class PropertyCategoryAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
+@admin.register(LabourCampRentalAgreement)
+class LabourCampRentalAgreementAdmin(admin.ModelAdmin):
+    list_display = ['labour_camp_name', 'contract_start', 'contract_end', 'contract_amount', 'security_deposit', 'contact_person_name', 'contact_person_number', 'renewal_marked_done']
+    list_filter = ['contract_start', 'contract_end', 'renewal_marked_done']
+    search_fields = ['labour_camp_name', 'contact_person_name', 'contact_person_number']
+
+
 @admin.register(Memo)
 class MemoAdmin(admin.ModelAdmin):
     list_display = ['ref_no', 'memo_type', 'to_text', 'subject', 'memo_date']
@@ -88,3 +95,9 @@ class NotificationAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('employee')
+
+
+@admin.register(NotificationComment)
+class NotificationCommentAdmin(admin.ModelAdmin):
+    list_display = ['notification', 'created_by', 'created_at']
+    search_fields = ['text', 'created_by__username']

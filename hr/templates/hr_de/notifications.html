@@ -125,6 +125,46 @@
 
 .notif-time  { font-size: .74rem; color: var(--text-tertiary); }
 
+/* comments */
+.notif-comment { font-size: .82rem; color: var(--text-secondary); background: var(--bg-secondary); border-radius: 8px; padding: .55rem .7rem; margin-bottom: .5rem; }
+.notif-comment-meta { font-size: .72rem; color: var(--text-tertiary); font-weight: 600; margin-bottom: .2rem; }
+.notif-comment-form { display: flex; gap: .5rem; }
+.notif-comment-input { flex: 1; border: 1.5px solid var(--border-color); border-radius: 8px; padding: .55rem .75rem; font-size: .85rem; font-family: inherit; background: #fff; }
+.notif-comment-btn { border: none; background: var(--accent-primary); color: #fff; border-radius: 8px; padding: .55rem 1rem; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.notif-comment-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.btn-comments {
+    padding: .4rem .85rem; border-radius: 8px; border: 1px solid var(--border-color);
+    background: #fff; color: var(--text-secondary); font-size: .78rem; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: .35rem;
+    transition: all .18s; white-space: nowrap; margin-top: .6rem;
+}
+.btn-comments:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+/* comments modal */
+.comments-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(15,23,42,.55);
+    z-index: 1000; align-items: center; justify-content: center; padding: 1rem;
+}
+.comments-modal-overlay.open { display: flex; }
+.comments-modal {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 480px;
+    max-height: 80vh; display: flex; flex-direction: column; box-shadow: var(--shadow-md);
+}
+.comments-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-color);
+}
+.comments-modal-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.comments-modal-close {
+    border: none; background: none; font-size: 1.3rem; line-height: 1; cursor: pointer;
+    color: var(--text-tertiary);
+}
+.comments-modal-close:hover { color: var(--text-primary); }
+.comments-modal-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1; }
+.comments-modal-empty { font-size: .84rem; color: var(--text-tertiary); text-align: center; padding: 1rem 0; }
+.comments-modal-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); }
+
 .notif-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; padding-top: .15rem; }
 .btn-mark {
     padding: .4rem .85rem; border-radius: 8px; border: 1px solid var(--border-color);
@@ -245,6 +285,14 @@
             <i class="fas fa-user-tie"></i> Management
             <span class="tab-count" id="count-management">0</span>
         </button>
+        <button class="tab-btn" data-filter="labourcard" onclick="setTab(this,'labourcard')">
+            <i class="fas fa-briefcase"></i> Labour Card
+            <span class="tab-count" id="count-labourcard">0</span>
+        </button>
+        <button class="tab-btn" data-filter="labourcamp" onclick="setTab(this,'labourcamp')">
+            <i class="fas fa-house-user"></i> Labour Camp
+            <span class="tab-count" id="count-labourcamp">0</span>
+        </button>
     </div>
 
     <!-- ── UNREAD ──────────────────────────────────────────────────────────── -->
@@ -257,7 +305,7 @@
     {% for n in unread %}
     <div class="notif-card" id="notif-{{ n.id }}"
          data-urgency="{{ n.urgency|default:'info' }}"
-         data-source="{% if n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+         data-source="{% if n.doc_type == 'LABOUR_CARD' or n.doc_type == 'LABOUR_CARD_RENEWAL' %}labourcard{% elif n.doc_type == 'LABOUR_CAMP_CONTRACT' %}labourcamp{% elif n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
         <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
         <div class="notif-inner">
 
@@ -274,6 +322,7 @@
                 {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}<i class="fas fa-file-certificate"></i>
                 {% elif n.doc_type == 'MOL_TENANCY' %}<i class="fas fa-file-contract"></i>
                 {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}<i class="fas fa-id-badge"></i>
+                {% elif n.doc_type == 'LABOUR_CAMP_CONTRACT' %}<i class="fas fa-house-user"></i>
                 {% elif 'MGMT_COUNTRY_VISA' in n.doc_type %}<i class="fas fa-earth-americas"></i>
                 {% else %}<i class="fas fa-bell"></i>{% endif %}
             </div>
@@ -299,6 +348,10 @@
                 <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#3b82f6,#6d28d9);">
                     <i class="fas fa-building" style="font-size:.9rem;"></i>
                 </div>
+            {% elif n.labour_camp %}
+                <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#059669,#065f46);">
+                    <i class="fas fa-house-user" style="font-size:.9rem;"></i>
+                </div>
             {% endif %}
 
             <!-- Body -->
@@ -320,10 +373,13 @@
                         <span class="doc-badge db-read"><i class="fas fa-user-tie"></i> Management</span>
                     {% elif n.mol %}
                         <span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>
+                    {% elif n.labour_camp %}
+                        <span class="doc-badge db-read"><i class="fas fa-house-user"></i> Labour Camp</span>
                     {% endif %}
                     {% if n.doc_type and n.doc_type != 'MULKIYA' %}
                         <span class="doc-badge db-read">
                             {% if n.doc_type == 'LABOUR_CARD_RENEWAL' %}Renewal Prompt
+                            {% elif n.doc_type == 'LABOUR_CAMP_CONTRACT' %}Labour Camp Contract
                             {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                             {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
                             {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}Establishment Card
@@ -347,9 +403,24 @@
                         <span class="notif-time"><i class="fas fa-sitemap"></i> {{ n.employee.department.name }}</span>
                     {% elif n.mol %}
                         <span class="notif-time"><i class="fas fa-building"></i> {{ n.mol.mol }}</span>
+                    {% elif n.labour_camp %}
+                        <span class="notif-time"><i class="fas fa-house-user"></i> {{ n.labour_camp.labour_camp_name }}</span>
                     {% endif %}
                     <span class="notif-time"><i class="fas fa-clock"></i> {{ n.created_at|timesince }} ago</span>
                 </div>
+
+                <!-- Comments (viewed/added via modal) -->
+                <div class="notif-comments-data" id="comments-data-{{ n.id }}" style="display:none;">
+                    {% for c in n.comments.all %}
+                    <div class="notif-comment">
+                        <div class="notif-comment-meta">{{ c.created_by.get_full_name|default:c.created_by.username|default:"Unknown" }} · {{ c.created_at|date:"d M Y, h:i A" }}</div>
+                        <div>{{ c.text }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn-comments" data-id="{{ n.id }}" onclick="openCommentsModal({{ n.id }}, '{{ n.title|escapejs }}')">
+                    <i class="fas fa-comment"></i> Comments{% if n.comments.all %} ({{ n.comments.all|length }}){% endif %}
+                </button>
             </div>
 
             <!-- Actions -->
@@ -369,6 +440,10 @@
                 {% elif n.mol %}
                 <a href="{% url 'mol_edit' n.mol.pk %}" class="btn-profile">
                     <i class="fas fa-building"></i> View MOL
+                </a>
+                {% elif n.labour_camp %}
+                <a href="{% url 'labour_camp_edit' n.labour_camp.pk %}" class="btn-profile">
+                    <i class="fas fa-house-user"></i> View Agreement
                 </a>
                 {% endif %}
                 <button class="btn-mark" data-id="{{ n.id }}">
@@ -408,7 +483,7 @@
         </p>
         {% for n in read %}
         <div class="notif-card is-read"
-             data-source="{% if n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
+             data-source="{% if n.doc_type == 'LABOUR_CARD' or n.doc_type == 'LABOUR_CARD_RENEWAL' %}labourcard{% elif n.doc_type == 'LABOUR_CAMP_CONTRACT' %}labourcamp{% elif n.vehicle %}vehicle{% elif n.management_member %}management{% elif n.employee %}employee{% elif n.mol %}mol{% else %}other{% endif %}">
             <div class="notif-stripe stripe-{{ n.urgency|default:'default' }}"></div>
             <div class="notif-inner">
                 <div class="notif-doc-icon di-{{ n.urgency|default:'default' }}" style="opacity:.6;">
@@ -446,6 +521,10 @@
                     <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#3b82f6,#6d28d9);opacity:.7;">
                         <i class="fas fa-building" style="font-size:.9rem;"></i>
                     </div>
+                {% elif n.labour_camp %}
+                    <div class="notif-emp-avatar fallback" style="background:linear-gradient(135deg,#059669,#065f46);opacity:.7;">
+                        <i class="fas fa-house-user" style="font-size:.9rem;"></i>
+                    </div>
                 {% endif %}
                 <div class="notif-body">
                     <div class="notif-title" style="color:var(--text-secondary);">{{ n.title }}</div>
@@ -454,10 +533,12 @@
                         <span class="doc-badge db-read"><i class="fas fa-check"></i> Read</span>
                         {% if n.vehicle %}<span class="doc-badge db-read"><i class="fas fa-car"></i> Mulkiya</span>
                         {% elif n.management_member %}<span class="doc-badge db-read"><i class="fas fa-user-tie"></i> Management</span>
-                        {% elif n.mol %}<span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>{% endif %}
+                        {% elif n.mol %}<span class="doc-badge db-read"><i class="fas fa-building"></i> MOL</span>
+                        {% elif n.labour_camp %}<span class="doc-badge db-read"><i class="fas fa-house-user"></i> Labour Camp</span>{% endif %}
                         {% if n.doc_type and n.doc_type != 'MULKIYA' %}
                             <span class="doc-badge db-read">
                                 {% if n.doc_type == 'LABOUR_CARD_RENEWAL' %}Renewal Prompt
+                            {% elif n.doc_type == 'LABOUR_CAMP_CONTRACT' %}Labour Camp Contract
                             {% elif n.doc_type == 'MOL_TRADE_LICENSE' %}Trade License
                                 {% elif n.doc_type == 'MOL_TENANCY' %}Tenancy Contract
                                 {% elif n.doc_type == 'MOL_ESTABLISHMENT' %}Establishment Card
@@ -475,9 +556,24 @@
                             <span class="notif-time"><i class="fas fa-user"></i> {{ n.management_member.name }}</span>
                         {% elif n.mol %}
                             <span class="notif-time"><i class="fas fa-building"></i> {{ n.mol.mol }}</span>
+                        {% elif n.labour_camp %}
+                            <span class="notif-time"><i class="fas fa-house-user"></i> {{ n.labour_camp.labour_camp_name }}</span>
                         {% endif %}
                         <span class="notif-time"><i class="fas fa-clock"></i> {{ n.created_at|date:"d M Y" }}</span>
                     </div>
+
+                    <!-- Comments (viewed/added via modal) -->
+                    <div class="notif-comments-data" id="comments-data-{{ n.id }}" style="display:none;">
+                        {% for c in n.comments.all %}
+                        <div class="notif-comment">
+                            <div class="notif-comment-meta">{{ c.created_by.get_full_name|default:c.created_by.username|default:"Unknown" }} · {{ c.created_at|date:"d M Y, h:i A" }}</div>
+                            <div>{{ c.text }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-comments" data-id="{{ n.id }}" onclick="openCommentsModal({{ n.id }}, '{{ n.title|escapejs }}')">
+                        <i class="fas fa-comment"></i> Comments{% if n.comments.all %} ({{ n.comments.all|length }}){% endif %}
+                    </button>
                 </div>
                 {% if n.vehicle %}
                 <div class="notif-actions">
@@ -503,6 +599,12 @@
                         <i class="fas fa-building"></i> View MOL
                     </a>
                 </div>
+                {% elif n.labour_camp %}
+                <div class="notif-actions">
+                    <a href="{% url 'labour_camp_edit' n.labour_camp.pk %}" class="btn-profile">
+                        <i class="fas fa-house-user"></i> View Agreement
+                    </a>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -515,6 +617,23 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- ── Comments Modal ──────────────────────────────────────────────────── -->
+    <div class="comments-modal-overlay" id="commentsModalOverlay" onclick="if (event.target === this) closeCommentsModal();">
+        <div class="comments-modal">
+            <div class="comments-modal-header">
+                <span class="comments-modal-title" id="commentsModalTitle">Comments</span>
+                <button type="button" class="comments-modal-close" onclick="closeCommentsModal()">&times;</button>
+            </div>
+            <div class="comments-modal-body" id="commentsModalBody"></div>
+            <div class="comments-modal-footer">
+                <form class="notif-comment-form" id="commentsModalForm">
+                    <input type="text" class="notif-comment-input" id="commentsModalInput" placeholder="Add a comment…" maxlength="1000" required>
+                    <button type="submit" class="notif-comment-btn"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
 
 </div>
 {% endblock %}
@@ -534,6 +653,8 @@ document.getElementById('count-employee').textContent = countSource(allUnread, '
 document.getElementById('count-mol').textContent      = countSource(allUnread, 'mol');
 document.getElementById('count-vehicle').textContent  = countSource(allUnread, 'vehicle');
 document.getElementById('count-management').textContent = countSource(allUnread, 'management');
+document.getElementById('count-labourcard').textContent = countSource(allUnread, 'labourcard');
+document.getElementById('count-labourcamp').textContent = countSource(allUnread, 'labourcamp');
 
 // ── Tab switching (source) ───────────────────────────────────────────────
 let activeFilter = 'all';   // source: all | employee | mol | vehicle
@@ -631,6 +752,82 @@ function getCsrf() {
     return m ? m[1] : '';
 }
 
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+// ── Comments modal ────────────────────────────────────────────────────────
+let activeCommentNotifId = null;
+
+function openCommentsModal(id, title) {
+    activeCommentNotifId = id;
+    document.getElementById('commentsModalTitle').textContent = title ? `Comments — ${title}` : 'Comments';
+
+    const body   = document.getElementById('commentsModalBody');
+    const source = document.getElementById('comments-data-' + id);
+    body.innerHTML = (source && source.children.length) ? source.innerHTML
+        : '<div class="comments-modal-empty">No comments yet.</div>';
+
+    document.getElementById('commentsModalInput').value = '';
+    document.getElementById('commentsModalOverlay').classList.add('open');
+}
+
+function closeCommentsModal() {
+    document.getElementById('commentsModalOverlay').classList.remove('open');
+    activeCommentNotifId = null;
+}
+
+document.getElementById('commentsModalForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!activeCommentNotifId) return;
+    const id    = activeCommentNotifId;
+    const input = document.getElementById('commentsModalInput');
+    const btn   = this.querySelector('.notif-comment-btn');
+    const text  = input.value.trim();
+    if (!text) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    const body = new URLSearchParams({ text });
+    fetch(`/notifications/${id}/comment/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') return;
+        const c = data.comment;
+        const html = `<div class="notif-comment"><div class="notif-comment-meta">${escapeHtml(c.author)} · ${escapeHtml(c.created_at)}</div><div>${escapeHtml(c.text)}</div></div>`;
+
+        // Keep the hidden per-card store in sync so reopening the modal (or a
+        // future page load before refresh) still reflects this comment.
+        const source = document.getElementById('comments-data-' + id);
+        if (source) source.insertAdjacentHTML('beforeend', html);
+
+        const modalBody = document.getElementById('commentsModalBody');
+        const empty = modalBody.querySelector('.comments-modal-empty');
+        if (empty) empty.remove();
+        modalBody.insertAdjacentHTML('beforeend', html);
+        modalBody.scrollTop = modalBody.scrollHeight;
+
+        const commentsBtn = document.querySelector(`.btn-comments[data-id="${id}"]`);
+        if (commentsBtn) {
+            const count = source ? source.children.length : 1;
+            commentsBtn.innerHTML = `<i class="fas fa-comment"></i> Comments (${count})`;
+        }
+
+        input.value = '';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+    });
+});
+
 document.querySelectorAll('.btn-mark').forEach(btn => {
     btn.addEventListener('click', function () {
         const id   = this.dataset.id;
@@ -684,7 +881,7 @@ function markAllRead() {
                 checkEmpty();
                 updateUnreadBadge(0, true);
                 // reset counts
-                ['count-all','count-employee','count-mol','count-vehicle','count-management'].forEach(id => {
+                ['count-all','count-employee','count-mol','count-vehicle','count-management','count-labourcard','count-labourcamp'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.textContent = '0';
                 });

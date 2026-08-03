@@ -3898,18 +3898,21 @@ def notification_list(request):
         return render(request, 'hr_de/unauthorized.html', status=403)
 
     _generate_expiry_notifications()
+    _generate_labour_camp_renewal_notifications()
     _dedupe_read_notifications()          # clean up any old duplicate read alerts
     _cleanup_old_read_notifications()     # drop read alerts older than 30 days
 
     _urgency_rank = {'critical': 0, 'warning': 1, 'info': 2}
     unread = sorted(
         Notification.objects.filter(is_read=False)
-            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head'),
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head', 'labour_camp')
+            .prefetch_related('comments', 'comments__created_by'),
         key=lambda n: _urgency_rank.get(n.urgency, 3),
     )
     read = list(
         Notification.objects.filter(is_read=True)
-            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head')
+            .select_related('employee', 'employee__department', 'mol', 'vehicle', 'vehicle__employee', 'management_member', 'management_member__head', 'labour_camp')
+            .prefetch_related('comments', 'comments__created_by')
             .order_by('-created_at')[:50]
     )
 
@@ -3935,6 +3938,31 @@ def mark_notification_read(request, pk):
         return JsonResponse({'status': 'success'})
     except Notification.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
+
+
+@require_POST
+def add_notification_comment(request, pk):
+    text = (request.POST.get('text') or '').strip()
+    if not text:
+        return JsonResponse({'status': 'error', 'message': 'Comment text is required'}, status=400)
+    try:
+        n = Notification.objects.get(pk=pk)
+    except Notification.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
+
+    comment = NotificationComment.objects.create(
+        notification=n, text=text,
+        created_by=request.user if request.user.is_authenticated else None,
+    )
+    return JsonResponse({
+        'status': 'success',
+        'comment': {
+            'id': comment.id,
+            'text': comment.text,
+            'author': comment.created_by.get_full_name() or comment.created_by.username if comment.created_by else 'Unknown',
+            'created_at': comment.created_at.strftime('%d %b %Y, %I:%M %p'),
+        },
+    })
 
 
 @require_POST
@@ -6487,6 +6515,146 @@ def property_category_delete(request, pk):
         category.delete()
         messages.success(request, f"Category '{name}' deleted.")
     return redirect('property_category_list')
+
+
+# ── Labour Camp Rental Agreements (worker accommodation leases — HR & MD only) ─
+
+def _apply_labour_camp_post(agreement, request):
+    """Copy submitted fields onto a LabourCampRentalAgreement (shared by add & edit)."""
+    agreement.labour_camp_name = (request.POST.get('labour_camp_name') or '').strip()
+    agreement.contract_start   = request.POST.get('contract_start') or None
+
+    old_contract_end = agreement.contract_end.isoformat() if agreement.contract_end else None
+    new_contract_end = request.POST.get('contract_end') or None
+    agreement.contract_end = new_contract_end
+    if new_contract_end != old_contract_end:
+        # Contract period changed — start a fresh renewal-reminder cycle.
+        agreement.renewal_marked_done    = False
+        agreement.renewal_marked_done_at = None
+        agreement.renewal_marked_done_by = None
+
+    agreement.contract_amount  = (request.POST.get('contract_amount') or '').strip() or None
+    agreement.security_deposit = (request.POST.get('security_deposit') or '').strip() or None
+    agreement.contact_person_name   = (request.POST.get('contact_person_name') or '').strip()
+    agreement.contact_person_number = (request.POST.get('contact_person_number') or '').strip()
+
+    if request.FILES.get('document'):
+        agreement.document = request.FILES['document']
+
+
+@login_required
+def labour_camp_list(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    agreements = LabourCampRentalAgreement.objects.all()
+
+    query = (request.GET.get('q') or '').strip()
+    if query:
+        agreements = agreements.filter(
+            Q(labour_camp_name__icontains=query) |
+            Q(contact_person_name__icontains=query) |
+            Q(contact_person_number__icontains=query)
+        ).distinct()
+
+    return render(request, 'hr_de/labour_camps/list.html', {
+        'agreements': agreements,
+        'query':      query,
+    })
+
+
+@login_required
+def labour_camp_add(request):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+
+    if request.method == 'POST':
+        labour_camp_name = (request.POST.get('labour_camp_name') or '').strip()
+        if not labour_camp_name:
+            messages.error(request, 'Labour camp name is required.')
+            return redirect('labour_camp_add')
+        agreement = LabourCampRentalAgreement(created_by=request.user)
+        _apply_labour_camp_post(agreement, request)
+        agreement.save()
+        messages.success(request, f"Labour camp rental agreement '{agreement.labour_camp_name}' added.")
+        return redirect('labour_camp_list')
+
+    return render(request, 'hr_de/labour_camps/form.html', {})
+
+
+@login_required
+def labour_camp_edit(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    agreement = get_object_or_404(LabourCampRentalAgreement, pk=pk)
+
+    if request.method == 'POST':
+        labour_camp_name = (request.POST.get('labour_camp_name') or '').strip()
+        if not labour_camp_name:
+            messages.error(request, 'Labour camp name is required.')
+            return redirect('labour_camp_edit', pk=pk)
+        _apply_labour_camp_post(agreement, request)
+        agreement.save()
+        messages.success(request, f"Labour camp rental agreement '{agreement.labour_camp_name}' updated.")
+        return redirect('labour_camp_list')
+
+    return render(request, 'hr_de/labour_camps/form.html', {
+        'agreement': agreement,
+    })
+
+
+@require_POST
+@login_required
+def labour_camp_delete(request, pk):
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    agreement = get_object_or_404(LabourCampRentalAgreement, pk=pk)
+    name = agreement.labour_camp_name
+    agreement.delete()
+    messages.success(request, f"Labour camp rental agreement '{name}' deleted.")
+    return redirect('labour_camp_list')
+
+
+@require_POST
+@login_required
+def labour_camp_mark_renewed(request, pk):
+    """Stop the weekly renewal reminders for this agreement until the contract
+    end date is next changed."""
+    if not _hr_or_md(request):
+        return render(request, 'hr_de/unauthorized.html', status=403)
+    agreement = get_object_or_404(LabourCampRentalAgreement, pk=pk)
+    agreement.renewal_marked_done    = True
+    agreement.renewal_marked_done_at = timezone.now()
+    agreement.renewal_marked_done_by = request.user
+    agreement.save()
+    Notification.objects.filter(category='labour_camp_renewal', labour_camp=agreement, is_read=False).update(is_read=True)
+    messages.success(request, f"Renewal for '{agreement.labour_camp_name}' marked as done.")
+    return redirect('labour_camp_list')
+
+
+def _generate_labour_camp_renewal_notifications():
+    """Reminders start 2 months (60 days) before contract_end and repeat
+    weekly — unlike _upsert_expiry_notification's 'notify once, then only
+    escalate' behaviour — until HR marks the renewal done or the contract end
+    date is changed."""
+    today = timezone.now().date()
+    for agreement in LabourCampRentalAgreement.objects.filter(contract_end__isnull=False, renewal_marked_done=False):
+        days_left = (agreement.contract_end - today).days
+        if days_left > 60:
+            continue
+        last = (Notification.objects
+                .filter(category='labour_camp_renewal', labour_camp=agreement)
+                .order_by('-created_at').first())
+        if last and (timezone.now() - last.created_at).days < 7:
+            continue
+        _, urgency, title, message = _expiry_urgency_and_text(
+            agreement.contract_end, today, 'Labour Camp Contract', agreement.labour_camp_name,
+        )
+        Notification.objects.create(
+            labour_camp=agreement,
+            title=title, message=message,
+            category='labour_camp_renewal', urgency=urgency, doc_type='LABOUR_CAMP_CONTRACT',
+        )
 
 
 # ── Memos (official memorandums on company letterhead — HR & MD only) ─────────

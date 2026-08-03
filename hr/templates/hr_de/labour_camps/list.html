@@ -1,0 +1,115 @@
+{% extends "hr_de/base.html" %}
+{% block title %}Labour Camp Rental Agreements{% endblock %}
+
+{% block extra_css %}
+<style>
+.pr-wrap { max-width: 1150px; margin: 0 auto; padding: 2rem; }
+.pr-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.pr-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: .6rem; }
+.pr-title i { color: var(--accent-primary); }
+.pr-sub { color: var(--text-secondary); font-size: .9rem; margin-top: .25rem; }
+.pr-add { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 10px; background: var(--gradient-primary); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; }
+.pr-add:hover { color: #fff; transform: translateY(-1px); }
+
+.pr-search { display: flex; gap: .6rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.pr-search input { flex: 1; max-width: 320px; border: 1.5px solid var(--border-color); border-radius: 9px; padding: .55rem .8rem; font-size: .9rem; }
+.pr-search button { border: none; background: var(--gradient-primary); color: #fff; border-radius: 9px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+
+.pr-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm); }
+table.pr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.pr-table th { text-align: left; padding: .7rem .9rem; background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); }
+.pr-table td { padding: .7rem .9rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.pr-table tr:last-child td { border-bottom: none; }
+.pr-name { font-weight: 700; }
+.pr-doc { color: var(--accent-primary); font-weight: 600; text-decoration: none; }
+.pr-actions { display: flex; gap: .4rem; }
+.pr-btn { padding: .32rem .7rem; border-radius: 7px; font-size: .78rem; font-weight: 600; text-decoration: none; border: none; cursor: pointer; }
+.pr-btn.edit { background: rgba(251,191,36,.15); color: #d97706; }
+.pr-btn.del  { background: rgba(239,68,68,.1); color: #ef4444; }
+.pr-muted { color: var(--text-tertiary); }
+.pr-empty { text-align: center; color: var(--text-tertiary); padding: 3rem; }
+.pr-empty i { font-size: 2.2rem; display: block; margin-bottom: .75rem; }
+.pr-chip-renewed  { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(16,185,129,.12); color: #059669; }
+.pr-chip-due      { font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 9999px; background: rgba(239,68,68,.1); color: #ef4444; }
+.pr-btn.renew { background: rgba(16,185,129,.12); color: #059669; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pr-wrap">
+
+    <div class="pr-top">
+        <div>
+            <h1 class="pr-title"><i class="fas fa-house-user"></i> Labour Camp Rental Agreements</h1>
+            <p class="pr-sub">Rental agreements for worker accommodation (labour camps). HR &amp; MD only.</p>
+        </div>
+        <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+            <a href="{% url 'labour_camp_add' %}" class="pr-add"><i class="fas fa-plus"></i> Add Agreement</a>
+        </div>
+    </div>
+
+    <form method="get" class="pr-search">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search camp, contact person, number…">
+        <button type="submit"><i class="fas fa-search"></i> Search</button>
+    </form>
+
+    {% if agreements %}
+    <div class="pr-table-wrap">
+        <table class="pr-table">
+            <thead>
+                <tr>
+                    <th>Labour Camp</th><th>Contract Period</th><th>Contract Amount</th><th>Security Deposit</th><th>Contact Person</th><th>Contact Number</th><th>Renewal</th><th>Doc</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in agreements %}
+                <tr>
+                    <td class="pr-name">{{ a.labour_camp_name }}</td>
+                    <td>
+                        {% if a.contract_start or a.contract_end %}
+                        {{ a.contract_start|date:"d M Y"|default:"—" }} – {{ a.contract_end|date:"d M Y"|default:"—" }}
+                        {% else %}<span class="pr-muted">—</span>{% endif %}
+                    </td>
+                    <td>{% if a.contract_amount %}AED {{ a.contract_amount }}{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>{% if a.security_deposit %}AED {{ a.security_deposit }}{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>{{ a.contact_person_name|default:"—" }}</td>
+                    <td>{{ a.contact_person_number|default:"—" }}</td>
+                    <td>
+                        {% if a.renewal_marked_done %}
+                        <span class="pr-chip-renewed"><i class="fas fa-check"></i> Renewed</span>
+                        {% elif a.contract_days_left != None and a.contract_days_left <= 60 %}
+                        <span class="pr-chip-due">Renewal Due{% if a.contract_days_left >= 0 %} ({{ a.contract_days_left }}d){% else %} (Expired){% endif %}</span>
+                        {% else %}<span class="pr-muted">—</span>{% endif %}
+                    </td>
+                    <td>{% if a.document %}<a href="{{ a.document.url }}" target="_blank" class="pr-doc">View</a>{% else %}<span class="pr-muted">—</span>{% endif %}</td>
+                    <td>
+                        <div class="pr-actions">
+                            {% if not a.renewal_marked_done and a.contract_days_left != None and a.contract_days_left <= 60 %}
+                            <form method="post" action="{% url 'labour_camp_mark_renewed' a.pk %}" style="margin:0;"
+                                  data-confirm="Mark the renewal for “{{ a.labour_camp_name }}” as done? This stops the weekly reminders." data-confirm-title="Mark renewed?">
+                                {% csrf_token %}
+                                <button type="submit" class="pr-btn renew" title="Mark Renewed"><i class="fas fa-check"></i></button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'labour_camp_edit' a.pk %}" class="pr-btn edit"><i class="fas fa-pen"></i></a>
+                            <form method="post" action="{% url 'labour_camp_delete' a.pk %}" style="margin:0;"
+                                  data-confirm="Delete “{{ a.labour_camp_name }}”? This cannot be undone." data-confirm-title="Delete agreement?">
+                                {% csrf_token %}
+                                <button type="submit" class="pr-btn del"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="pr-empty">
+        <i class="fas fa-house-user"></i>
+        {% if query %}No agreements match your search.{% else %}No labour camp rental agreements yet. Click <strong>Add Agreement</strong> to add one.{% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

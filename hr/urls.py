@@ -9,6 +9,7 @@ urlpatterns = [
     path('settings/', views.settings, name='settings'),
     path('notifications/', views.notification_list, name='notification_list'),
     path('notifications/<int:pk>/mark-read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/<int:pk>/comment/', views.add_notification_comment, name='add_notification_comment'),
     path('notifications/mark-all-read/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
 
     path('employees/', views.employee_list, name='employee_list'),
@@ -203,6 +204,13 @@ urlpatterns = [
     path('properties/<int:pk>/delete/', views.property_delete, name='property_delete'),
     path('properties/categories/',              views.property_category_list,   name='property_category_list'),
     path('properties/categories/<int:pk>/delete/', views.property_category_delete, name='property_category_delete'),
+
+    # Labour Camp Rental Agreements (worker accommodation leases — HR & MD only)
+    path('labour-camps/',              views.labour_camp_list,   name='labour_camp_list'),
+    path('labour-camps/add/',          views.labour_camp_add,    name='labour_camp_add'),
+    path('labour-camps/<int:pk>/edit/',   views.labour_camp_edit,   name='labour_camp_edit'),
+    path('labour-camps/<int:pk>/delete/', views.labour_camp_delete, name='labour_camp_delete'),
+    path('labour-camps/<int:pk>/mark-renewed/', views.labour_camp_mark_renewed, name='labour_camp_mark_renewed'),
 
     # Employee self-service: my vehicles + request service
     path('my-vehicles/',                     views.my_vehicles,          name='my_vehicles'),
