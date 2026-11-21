@@ -138,6 +138,84 @@ def employee_list(request):
     })
 
 @login_required
+def employee_id_check(request):
+    """AJAX: is this Employee ID already taken? (?emp_id=..&exclude=<pk>)"""
+    try:
+        role = request.user.role.role
+    except Exception:
+        role = None
+    if role not in ['HR']:
+        return JsonResponse({'exists': False}, status=403)
+    emp_id = (request.GET.get('emp_id') or '').strip()
+    qs = Employee.objects.filter(emp_id__iexact=emp_id)
+    exclude = request.GET.get('exclude')
+    if exclude and exclude.isdigit():
+        qs = qs.exclude(pk=int(exclude))
+    return JsonResponse({'exists': bool(emp_id) and qs.exists()})
+
+
+def _save_company_splits(request, employee, primary_mol):
+    """Save the company-wise salary split from the employee form.
+
+    Form fields: `split_companies` (extra MOL ids, multi-select) and
+    `split_pct_<mol_id>` for the primary + each extra company. Splits are only
+    stored when more than one company is chosen and the percentages total 100;
+    otherwise any existing splits are cleared (single-company behaviour) or the
+    old ones are kept untouched if the new values are invalid.
+    """
+    from decimal import Decimal, InvalidOperation
+    data = request.POST
+
+    extra_ids = []
+    for raw in data.getlist('split_companies'):
+        try:
+            mid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if (not primary_mol or mid != primary_mol.pk) and mid not in extra_ids:
+            extra_ids.append(mid)
+
+    mols = list(Mol.objects.filter(pk__in=extra_ids))
+    if not primary_mol or not mols:
+        # Only one company → no split
+        EmployeeCompanySplit.objects.filter(employee=employee).delete()
+        return
+
+    rows = []
+    total = Decimal('0')
+    for m in [primary_mol] + mols:
+        try:
+            pct = Decimal(data.get(f'split_pct_{m.pk}', '0') or '0')
+        except InvalidOperation:
+            pct = Decimal('-1')
+        if pct < 0 or pct > 100:
+            messages.error(request, 'Company salary split not saved: invalid percentage.')
+            return
+        rows.append((m, pct))
+        total += pct
+
+    if abs(total - Decimal('100')) > Decimal('0.01'):
+        messages.error(request, f'Company salary split not saved: percentages total {total}%, must be 100%.')
+        return
+
+    EmployeeCompanySplit.objects.filter(employee=employee).delete()
+    EmployeeCompanySplit.objects.bulk_create([
+        EmployeeCompanySplit(employee=employee, mol=m, percentage=pct)
+        for m, pct in rows if pct > 0
+    ])
+
+
+def _split_form_context(employee=None):
+    """Existing split data for the employee form (JSON-friendly)."""
+    if not employee:
+        return []
+    return [
+        {'mol_id': s.mol_id, 'pct': float(s.percentage)}
+        for s in employee.company_splits.all()
+    ]
+
+
+@login_required
 def employee_create(request):
     # Inline role check — Head users cannot create employees
     try:
@@ -167,10 +245,20 @@ def employee_create(request):
             except Mol.DoesNotExist:
                 pass
 
+        # Employee ID must be unique — show a message instead of crashing
+        new_emp_id = (data.get('emp_id') or '').strip()
+        if Employee.objects.filter(emp_id__iexact=new_emp_id).exists():
+            messages.error(request, f"Employee ID '{new_emp_id}' already exists. Please use a different Employee ID.")
+            return render(request, 'hr_de/employee_form_raw.html', {
+                'mols': Mol.objects.all(),
+                'countries': countries,
+                'departments': Department.objects.all().order_by('name'),
+            })
+
         dept_obj = Department.objects.filter(pk=data.get('department')).first()
         employee = Employee.objects.create(
             emp_name=data.get('emp_name'),
-            emp_id=data.get('emp_id'),
+            emp_id=new_emp_id,
             photo=files.get('photo'),
             dob=parse_date(data.get('dob')),
             gender=data.get('gender', 'M'),
@@ -236,6 +324,9 @@ def employee_create(request):
                 updated_by=request.user,
             )
 
+        # Company-wise salary split (only when more than one company selected)
+        _save_company_splits(request, employee, mol_instance)
+
         # Create login account if username provided
         username = data.get('username', '').strip()
         password = data.get('password', '').strip()
@@ -293,8 +384,14 @@ def employee_edit(request, pk):
             except Mol.DoesNotExist:
                 pass
 
+        # Employee ID must be unique — show a message instead of crashing
+        upd_emp_id = (data.get('emp_id') or '').strip()
+        if Employee.objects.filter(emp_id__iexact=upd_emp_id).exclude(pk=employee.pk).exists():
+            messages.error(request, f"Employee ID '{upd_emp_id}' already belongs to another employee. No changes were saved.")
+            return redirect('employee_edit', pk=employee.pk)
+
         employee.emp_name = data.get('emp_name')
-        employee.emp_id = data.get('emp_id')
+        employee.emp_id = upd_emp_id
         employee.dob = parse_date(data.get('dob'))
         employee.gender = data.get('gender')
         employee.nationality = data.get('nationality')
@@ -391,6 +488,9 @@ def employee_edit(request, pk):
                 }
             )
 
+        # Company-wise salary split (only when more than one company selected)
+        _save_company_splits(request, employee, mol_instance)
+
         # Handle head promotion/demotion (head of the HR dept becomes full HR)
         if employee.user:
             emp_user = employee.user
@@ -422,6 +522,7 @@ def employee_edit(request, pk):
         'countries': countries,
         'departments': Department.objects.all().order_by('name'),
         'is_head': is_head,
+        'existing_splits': _split_form_context(employee),
     })
 
 
@@ -2454,7 +2555,32 @@ def payslip(request, entry_pk):
         PayrollEntry.objects.select_related('employee', 'employee__department', 'payroll_run'),
         pk=entry_pk
     )
-    return render(request, 'hr_de/payroll/payslip.html', {'entry': entry})
+
+    # Company-wise split of the total salary (only for multi-company employees)
+    company_splits = []
+    splits = list(entry.employee.company_splits.select_related('mol'))
+    if len(splits) > 1:
+        gross_left = round(entry.gross_salary or 0, 2)
+        net_left = round(entry.net_salary or 0, 2)
+        for i, s in enumerate(splits):
+            if i == len(splits) - 1:
+                # last row takes the remainder so shares add up exactly
+                g, n = round(gross_left, 2), round(net_left, 2)
+            else:
+                g = round((entry.gross_salary or 0) * float(s.percentage) / 100, 2)
+                n = round((entry.net_salary or 0) * float(s.percentage) / 100, 2)
+                gross_left -= g
+                net_left -= n
+            company_splits.append({
+                'mol': s.mol, 'percentage': s.percentage,
+                'gross': g, 'net': n,
+                'is_primary': s.mol_id == entry.employee.mol_id,
+            })
+
+    return render(request, 'hr_de/payroll/payslip.html', {
+        'entry': entry,
+        'company_splits': company_splits,
+    })
 
 
 ############ ADVANCE SALARY ############

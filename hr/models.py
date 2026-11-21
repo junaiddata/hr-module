@@ -304,6 +304,23 @@ class SalaryStructure(models.Model):
         return f"Salary Structure – {self.employee.emp_name}"
 
 
+class EmployeeCompanySplit(models.Model):
+    """Optional company-wise split of an employee's total salary, for employees
+    who work for more than one company (MOL). Shown on the payslip only.
+    Employee.mol stays the primary company; employees with no rows here behave
+    exactly as before."""
+    employee   = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='company_splits')
+    mol        = models.ForeignKey(Mol, on_delete=models.CASCADE, related_name='employee_splits')
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        unique_together = ('employee', 'mol')
+        ordering = ['-percentage', 'mol__mol']
+
+    def __str__(self):
+        return f"{self.employee.emp_name} – {self.mol.mol} ({self.percentage}%)"
+
+
 class PayrollRun(models.Model):
     STATUS_CHOICES = [('Draft', 'Draft'), ('Confirmed', 'Confirmed')]
     MONTH_CHOICES  = [

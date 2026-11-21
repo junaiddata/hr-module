@@ -140,7 +140,7 @@
         <!-- Header -->
         <div class="ps-header">
             <div>
-                <div class="ps-company">{{ request.user.get_full_name|default:"Company" }}</div>
+                <div class="ps-company">{{ entry.employee.mol.mol|default:"Company" }}</div>
                 <div class="ps-title">Salary Slip / Payslip</div>
             </div>
             <div class="ps-period">
@@ -292,6 +292,31 @@
             <div style="font-size:.8rem;color:#64748b;padding:.5rem 0;">
                 <strong>Remarks:</strong> {{ entry.notes }}
             </div>
+            {% endif %}
+
+            {% if company_splits %}
+            <!-- Company-wise salary split -->
+            <div class="section-title" style="margin-top:1.25rem;"><i class="fas fa-building" style="color:#3b82f6;"></i> Company-wise Salary Split</div>
+            <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+                <thead>
+                    <tr style="background:#f1f5f9;color:#475569;text-transform:uppercase;font-size:.7rem;letter-spacing:.05em;">
+                        <th style="text-align:left;padding:.5rem .6rem;">Company</th>
+                        <th style="text-align:right;padding:.5rem .6rem;">Share</th>
+                        <th style="text-align:right;padding:.5rem .6rem;">Gross (AED)</th>
+                        <th style="text-align:right;padding:.5rem .6rem;">Net (AED)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in company_splits %}
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:.5rem .6rem;font-weight:600;">{{ s.mol.mol }}{% if s.is_primary %} <span style="font-size:.68rem;color:#94a3b8;font-weight:500;">(Primary)</span>{% endif %}</td>
+                        <td style="padding:.5rem .6rem;text-align:right;">{{ s.percentage|floatformat:"-2" }}%</td>
+                        <td style="padding:.5rem .6rem;text-align:right;">{{ s.gross|floatformat:2 }}</td>
+                        <td style="padding:.5rem .6rem;text-align:right;font-weight:700;">{{ s.net|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% endif %}
 
         </div><!-- /ps-body -->

@@ -16,6 +16,7 @@ urlpatterns = [
     path('birthdays/', views.birthdays, name='birthdays'),
     path('birthdays/wish/', views.birthday_wish_send, name='birthday_wish_send'),
     path('birthdays/wish-log/', views.birthday_wish_log, name='birthday_wish_log'),
+    path('employee/check-id/', views.employee_id_check, name='employee_id_check'),
     path('employee/add/', views.employee_create, name='employee_create'),
     path('employee/<int:pk>/edit/', views.employee_edit, name='employee_edit'),
     path('employee/<int:pk>/', views.employee_detail, name='employee_detail'),

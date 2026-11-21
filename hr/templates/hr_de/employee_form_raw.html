@@ -219,10 +219,21 @@
     }
     
     /* Switch Styling */
+    /* Switch row: toggle + label side by side (Bootstrap's negative margin
+       on the input is cancelled because the left padding is removed) */
     .form-switch {
         padding-left: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 1.5rem;
     }
-    
+    .form-switch .form-check-input {
+        float: none;
+        margin: 0;
+        flex-shrink: 0;
+    }
+
     .form-check-input {
         width: 3rem;
         height: 1.5rem;
@@ -230,17 +241,53 @@
         border: none;
         cursor: pointer;
     }
-    
+
+    /* Plain checkbox (e.g. Make Department Head) — normal checkbox size */
+    .form-check:not(.form-switch) .form-check-input {
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid var(--border-color);
+        margin-top: 0.15rem;
+    }
+
     .form-check-input:checked {
         background-color: var(--accent-primary);
         border-color: var(--accent-primary);
     }
-    
+
     .form-check-label {
-        margin-left: 0.5rem;
+        margin-left: 0;
         font-weight: 500;
         color: var(--text-primary);
         cursor: pointer;
+    }
+    .form-check:not(.form-switch) .form-check-label {
+        margin-left: 0.25rem;
+    }
+
+    /* Make Department Head: checkbox + label on one line, hint aligned under the label */
+    .head-check {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        column-gap: 0.6rem;
+        align-items: center;
+        padding-left: 0;
+        margin: 0;
+    }
+    .head-check .form-check-input {
+        float: none;
+        margin: 0;
+        background-color: #fff;
+    }
+    .head-check .form-check-input:checked {
+        background-color: var(--accent-primary);
+    }
+    .head-check .form-check-label {
+        margin-left: 0;
+    }
+    .head-check .form-text {
+        grid-column: 2;
+        margin-top: 0.15rem;
     }
     
     /* Select2 Customization */
@@ -261,6 +308,46 @@
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
     }
     
+    /* Select2 multi-select (Company) — match the single-select look */
+    .select2-container--default .select2-selection--multiple {
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        min-height: 44px;
+        padding: 0.2rem 0.5rem;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--multiple,
+    .select2-container--default.select2-container--open .select2-selection--multiple {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--accent-primary);
+        border-radius: 6px;
+        margin-top: 6px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-search__field {
+        margin-top: 8px;
+    }
+
+    /* Company multi-select dropdown: tick-box rows */
+    .company-multi-dd .co-opt { display: flex; align-items: center; gap: 0.6rem; }
+    .company-multi-dd .co-chk {
+        width: 1.05rem; height: 1.05rem; margin: 0; flex-shrink: 0;
+        pointer-events: none; accent-color: var(--accent-primary);
+    }
+    .select2-container--default .company-multi-dd .select2-results__option[aria-selected=true],
+    .company-multi-dd.select2-dropdown .select2-results__option[aria-selected=true] {
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--text-primary);
+    }
+    .select2-container--default .company-multi-dd .select2-results__option--highlighted[aria-selected],
+    .company-multi-dd.select2-dropdown .select2-results__option--highlighted[aria-selected] {
+        background: rgba(99, 102, 241, 0.16);
+        color: var(--text-primary);
+    }
+
     /* Action Buttons */
     .form-actions {
         display: flex;
@@ -456,7 +543,8 @@
                         <input type="text" name="emp_id" class="form-control" 
                                placeholder="e.g., EMP001"
                                value="{{ employee.emp_id|default:'' }}" required>
-                        <small class="form-text">Unique identifier for the employee</small>
+                        <small class="form-text" id="empIdHint">Unique identifier for the employee</small>
+                        <div id="empIdError" style="display:none;color:#dc2626;font-size:.8rem;font-weight:600;margin-top:.25rem;"></div>
                     </div>
                 </div>
                 
@@ -564,6 +652,19 @@
                     </div>
                 </div>
                 
+                <div class="col-md-8">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Company
+                        </label>
+                        <select name="split_companies" id="splitCompanies" class="form-select" multiple>
+                            {% for m in mols %}
+                                <option value="{{ m.id }}">{{ m.mol }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label">
@@ -725,7 +826,21 @@
                 </div>
                 <span id="fDiffTag" style="display:none;font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;"></span>
             </div>
+
+            <!-- Company-wise salary split (visible only when extra companies are selected) -->
+            <div id="splitBox" style="display:none;margin-top:1.25rem;border:1.5px solid var(--border-color);border-radius:10px;padding:1rem 1.1rem;">
+                <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);margin-bottom:.25rem;">
+                    <i class="fas fa-building"></i> Company-wise Salary Split
+                </div>
+                <div style="font-size:.78rem;color:var(--text-secondary);margin-bottom:.75rem;">Share of the total salary per company. Must total 100%. This is shown on the payslip.</div>
+                <div id="splitRows"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.6rem;">
+                    <span style="font-size:.8rem;font-weight:600;">Total: <span id="splitTotal">0</span>%</span>
+                    <span id="splitTag" style="font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;"></span>
+                </div>
+            </div>
         </div>
+        {{ existing_splits|json_script:"existingSplits" }}
 
         <!-- Document Information Section -->
         <div class="form-section" id="documents-section">
@@ -1088,7 +1203,7 @@
         </div>
         
         <!-- Login Account Section -->
-        <div class="section-card" style="border-left: 4px solid #6366f1;">
+        <div class="form-section" style="border-left: 4px solid #6366f1;">
             <div class="section-header">
                 <div class="section-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
                     <i class="fas fa-user-lock"></i>
@@ -1124,7 +1239,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 d-flex align-items-center" style="padding-top:1.75rem;">
-                    <div class="form-check">
+                    <div class="form-check head-check">
                         <input class="form-check-input" type="checkbox" name="make_head" id="make_head"
                                {% if is_head %}checked{% endif %}>
                         <label class="form-check-label fw-semibold" for="make_head" style="color: var(--text-primary);">
@@ -1300,5 +1415,195 @@ $(document).ready(function() {
     if (grossInput) grossInput.addEventListener('input', rebuild);
     document.addEventListener('DOMContentLoaded', rebuild);
 })();
+</script>
+
+<script>
+// ── Employee ID duplicate check (no page reload, typed data is kept) ────────
+(function () {
+    var input = document.querySelector('input[name="emp_id"]');
+    var errEl = document.getElementById('empIdError');
+    if (!input || !errEl) return;
+    var checkUrl = "{% url 'employee_id_check' %}";
+    var excludePk = "{{ employee.pk|default:'' }}";
+    var passThrough = false;
+
+    function showError(show, id) {
+        errEl.style.display = show ? 'block' : 'none';
+        errEl.textContent = show ? "Employee ID '" + id + "' already exists. Please use a different ID." : '';
+        input.style.borderColor = show ? '#dc2626' : '';
+    }
+    // Resolves true when the ID is already taken; false on any failure so a
+    // network problem never blocks saving (the server still validates).
+    function isTaken() {
+        var id = input.value.trim();
+        if (!id) { showError(false); return Promise.resolve(false); }
+        var url = checkUrl + '?emp_id=' + encodeURIComponent(id) + (excludePk ? '&exclude=' + excludePk : '');
+        return fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : { exists: false }; })
+            .then(function (d) { showError(d.exists, id); return d.exists; })
+            .catch(function () { return false; });
+    }
+
+    input.addEventListener('blur', isTaken);
+    input.addEventListener('input', function () { showError(false); });
+
+    document.addEventListener('submit', function (e) {
+        if (passThrough || !e.target.contains(input)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var form = e.target;
+        isTaken().then(function (taken) {
+            if (taken) {
+                input.focus();
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            passThrough = true;
+            if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+            passThrough = false;   // re-check on any later submit attempt
+        });
+    }, true);
+})();
+</script>
+
+<script>
+// ── Company-wise salary split ───────────────────────────────────────────────
+$(function () {
+    var $extra   = $('#splitCompanies');
+    var $primary = $('select[name="mol"]');
+    var box      = document.getElementById('splitBox');
+    var rowsEl   = document.getElementById('splitRows');
+    var totalEl  = document.getElementById('splitTotal');
+    var tagEl    = document.getElementById('splitTag');
+    if (!$extra.length || !box) return;
+
+    // Tick-box style options: each company shows a checkbox, and the list stays
+    // open while ticking several. The underlying <select multiple> is unchanged.
+    function chkTemplate(state) {
+        if (!state.id) { return state.text; }
+        var checked = ($extra.val() || []).indexOf(String(state.id)) !== -1;
+        var $row = $('<span class="co-opt"><input type="checkbox" class="co-chk" tabindex="-1"><span class="co-txt"></span></span>');
+        $row.find('.co-chk').attr('data-id', state.id).prop('checked', checked);
+        $row.find('.co-txt').text(state.text);
+        return $row;
+    }
+    function syncChecks() {
+        var sel = $extra.val() || [];
+        $('.select2-dropdown .co-chk').each(function () {
+            $(this).prop('checked', sel.indexOf(String($(this).attr('data-id'))) !== -1);
+        });
+    }
+    $extra.select2({
+        placeholder: 'Select Company',
+        allowClear: true,
+        width: '100%',
+        closeOnSelect: false,
+        templateResult: chkTemplate,
+        dropdownCssClass: 'company-multi-dd'
+    });
+    $extra.on('select2:select select2:unselect select2:open', function () { setTimeout(syncChecks, 0); });
+
+    // Previously saved split (edit page)
+    var saved = {};
+    try {
+        var ex = JSON.parse(document.getElementById('existingSplits').textContent);
+        if (Array.isArray(ex)) ex.forEach(function (s) { saved[s.mol_id] = s.pct; });
+    } catch (e) {}
+
+    var vals = {};   // mol id -> percentage (string) currently typed
+
+    function labelOf(id) {
+        var opt = $extra.find('option[value="' + id + '"]');
+        return opt.length ? opt.text() : id;
+    }
+    function grossAmount() {
+        var comp = parseFloat((document.getElementById('fTotal') || {}).textContent) || 0;
+        if (comp > 0) return comp;
+        var g = document.querySelector('input[name="emp_salary"]');
+        return parseFloat(g ? g.value : 0) || 0;
+    }
+    function selectedIds() {
+        var p = $primary.val();
+        var extras = ($extra.val() || []).filter(function (v) { return v !== p; });
+        return { primary: p, extras: extras };
+    }
+    function refreshTotal() {
+        var total = 0, gross = grossAmount();
+        rowsEl.querySelectorAll('input[data-mol]').forEach(function (inp) {
+            var v = parseFloat(inp.value) || 0;
+            total += v;
+            vals[inp.dataset.mol] = inp.value;
+            var amt = rowsEl.querySelector('[data-amt="' + inp.dataset.mol + '"]');
+            if (amt) amt.textContent = 'AED ' + (gross * v / 100).toFixed(2);
+        });
+        totalEl.textContent = (Math.round(total * 100) / 100).toString();
+        var ok = Math.abs(total - 100) < 0.01;
+        tagEl.textContent = ok ? '✓ 100%' : (total > 100 ? 'Over by ' : 'Short by ') + Math.abs(100 - total).toFixed(2) + '%';
+        tagEl.style.cssText = 'font-size:.78rem;font-weight:600;padding:.18rem .6rem;border-radius:20px;' +
+            (ok ? 'background:rgba(16,185,129,.12);color:#059669;' : 'background:rgba(239,68,68,.1);color:#dc2626;');
+        return ok;
+    }
+    function render(redistribute) {
+        var s = selectedIds();
+        if (!s.primary || !s.extras.length) {
+            box.style.display = 'none';
+            rowsEl.innerHTML = '';
+            return;
+        }
+        var ids = [s.primary].concat(s.extras);
+        var needEqual = redistribute || ids.some(function (id) { return vals[id] === undefined; });
+        if (needEqual) {
+            var each = Math.floor(10000 / ids.length) / 100, used = 0;
+            ids.forEach(function (id, i) {
+                var v = (i === ids.length - 1) ? Math.round((100 - used) * 100) / 100 : each;
+                vals[id] = String(v);
+                used += v;
+            });
+        }
+        rowsEl.innerHTML = '';
+        ids.forEach(function (id, i) {
+            var name = (id === s.primary ? $primary.find('option:selected').text() : labelOf(id)).trim();
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap;';
+            row.innerHTML =
+                '<div style="flex:1 1 180px;font-weight:600;font-size:.88rem;"></div>' +
+                '<div style="display:flex;align-items:center;gap:.35rem;"><input type="number" min="0" max="100" step="0.01" class="form-control" style="width:110px;" data-mol="' + id + '" name="split_pct_' + id + '"><span>%</span></div>' +
+                '<div style="min-width:120px;font-size:.82rem;color:var(--text-secondary);" data-amt="' + id + '"></div>';
+            row.firstChild.textContent = name + (id === s.primary ? ' (Primary)' : '');
+            row.querySelector('input').value = vals[id];
+            row.querySelector('input').addEventListener('input', refreshTotal);
+            rowsEl.appendChild(row);
+        });
+        box.style.display = 'block';
+        refreshTotal();
+    }
+
+    // Preselect saved extra companies (edit page)
+    var primaryNow = $primary.val();
+    var preset = Object.keys(saved).filter(function (id) { return id !== primaryNow; });
+    if (preset.length) {
+        Object.keys(saved).forEach(function (id) { vals[id] = String(saved[id]); });
+        $extra.val(preset).trigger('change.select2');
+    }
+    render(false);
+
+    $extra.on('change', function () { render(true); });
+    $primary.on('change', function () { render(true); });
+    ['fBasic','fHra','fTransport','fOthers','fFuel'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', refreshTotal);
+    });
+    var g = document.querySelector('input[name="emp_salary"]');
+    if (g) g.addEventListener('input', refreshTotal);
+
+    // Block submit when the split is visible but doesn't total 100%
+    document.addEventListener('submit', function (e) {
+        if (box.style.display !== 'none' && e.target.contains(box) && !refreshTotal()) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            alert('The company-wise salary split must total 100%.');
+        }
+    }, true);
+});
 </script>
 {% endblock %}
