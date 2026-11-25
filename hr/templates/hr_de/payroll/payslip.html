@@ -202,6 +202,12 @@
                 <span class="comp-value">AED {{ entry.fuel|floatformat:2 }}</span>
             </div>
             {% endif %}
+            {% if entry.car_allowance > 0 %}
+            <div class="comp-row">
+                <span class="comp-label"><span class="dot" style="background:#ec4899;"></span>Car Allowance</span>
+                <span class="comp-value">AED {{ entry.car_allowance|floatformat:2 }}</span>
+            </div>
+            {% endif %}
             {% if entry.others > 0 %}
             <div class="comp-row">
                 <span class="comp-label"><span class="dot" style="background:#8b5cf6;"></span>Other Allowances</span>

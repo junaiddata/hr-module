@@ -292,13 +292,14 @@ class SalaryStructure(models.Model):
     hra       = models.FloatField(default=0)
     transport = models.FloatField(default=0)
     fuel      = models.FloatField(default=0)
+    car_allowance = models.FloatField(default=0)
     others    = models.FloatField(default=0)
-    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    updated_by =models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def total(self):
-        return self.basic + self.hra + self.transport + self.fuel + self.others
+        return self.basic + self.hra + self.transport + self.fuel + self.car_allowance + self.others
 
     def __str__(self):
         return f"Salary Structure – {self.employee.emp_name}"
@@ -386,6 +387,7 @@ class PayrollEntry(models.Model):
     hra            = models.FloatField(default=0)
     transport      = models.FloatField(default=0)
     fuel           = models.FloatField(default=0)
+    car_allowance  = models.FloatField(default=0)
     others         = models.FloatField(default=0)
 
     # Additions
@@ -428,7 +430,7 @@ class PayrollEntry(models.Model):
         return self.loan_deduction + self.other_deductions + self.advance_deduction + self.attendance_deduction
 
     def compute_and_save(self):
-        self.gross_salary = self.basic + self.hra + self.transport + self.fuel + self.others
+        self.gross_salary = self.basic + self.hra + self.transport + self.fuel + self.car_allowance + self.others
         self.net_salary   = self.gross_salary + self.total_additions - self.total_deductions
         self.save()
 
@@ -678,6 +680,7 @@ class SalaryRevision(models.Model):
     old_hra       = models.FloatField(default=0)
     old_transport = models.FloatField(default=0)
     old_fuel      = models.FloatField(default=0)
+    old_car_allowance = models.FloatField(default=0)
     old_others    = models.FloatField(default=0)
 
     # Values applied by this revision
@@ -686,6 +689,7 @@ class SalaryRevision(models.Model):
     new_hra       = models.FloatField(default=0)
     new_transport = models.FloatField(default=0)
     new_fuel      = models.FloatField(default=0)
+    new_car_allowance = models.FloatField(default=0)
     new_others    = models.FloatField(default=0)
 
     reason     = models.TextField(blank=True)

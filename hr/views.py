@@ -312,14 +312,16 @@ def employee_create(request):
         hra       = _float('hra')
         transport = _float('transport')
         fuel      = _float('fuel')
+        car_allowance = _float('car_allowance')
         others    = _float('others')
-        if any([basic, hra, transport, fuel, others]):
+        if any([basic, hra, transport, fuel, car_allowance, others]):
             SalaryStructure.objects.create(
                 employee=employee,
                 basic=basic,
                 hra=hra,
                 transport=transport,
                 fuel=fuel,
+                car_allowance=car_allowance,
                 others=others,
                 updated_by=request.user,
             )
@@ -477,13 +479,15 @@ def employee_edit(request, pk):
         hra       = _float_edit('hra')
         transport = _float_edit('transport')
         fuel      = _float_edit('fuel')
+        car_allowance = _float_edit('car_allowance')
         others    = _float_edit('others')
-        if any([basic, hra, transport, fuel, others]):
+        if any([basic, hra, transport, fuel, car_allowance, others]):
             SalaryStructure.objects.update_or_create(
                 employee=employee,
                 defaults={
                     'basic': basic, 'hra': hra,
                     'transport': transport, 'fuel': fuel, 'others': others,
+                    'car_allowance': car_allowance,
                     'updated_by': request.user,
                 }
             )
@@ -2004,6 +2008,7 @@ def salary_structure(request, emp_pk):
         structure.hra       = _float('hra')
         structure.transport = _float('transport')
         structure.fuel      = _float('fuel')
+        structure.car_allowance = _float('car_allowance')
         structure.others    = _float('others')
         structure.updated_by = request.user
         structure.save()
@@ -2143,6 +2148,7 @@ def payroll_create(request):
                 hra=s.hra if s else 0,
                 transport=s.transport if s else 0,
                 fuel=s.fuel if s else 0,
+                car_allowance=s.car_allowance if s else 0,
                 others=s.others if s else 0,
                 advance_deduction=advance_ded,
                 advance_salary=advance_obj,
@@ -4124,6 +4130,7 @@ _BULK_COLUMNS = [
     ("TRANSPORTATION",          "Salary component – transport allowance (number)"),
     ("OTHERS",                  "Salary component – other allowances (number)"),
     ("FUEL",                    "Salary component – fuel allowance (number)"),
+    ("CAR ALLOWANCE",           "Salary component – car allowance (number). Leave blank if not applicable"),
     ("LOCATION",                "Work location / site"),
     ("EMPLOYEE STATUS",         "Active | Inactive | On Leave | Resigned | Terminated"),
     ("IS ACTIVE",               "YES or NO"),
@@ -4215,7 +4222,7 @@ def download_employee_template(request):
     sample = [
         "EMP001", "Ali Hassan", "1990-06-15", "M", "AE", "0501234567",
         "Sales", "Sales Manager", "ABC Trading LLC", "2023-01-01",
-        "8000", "4000", "1500", "1000", "500", "1000",
+        "8000", "3500", "1500", "1000", "500", "1000", "500",
         "Dubai", "Active", "YES", "With company",
         "P12345678", "2028-06-15", "LC123456", "2025-06-30", "L-2024-5567",
         "784-1990-1234567-1", "2027-03-15", "UAE-V-2024-778899", "2025-12-31",
@@ -4245,7 +4252,7 @@ def download_employee_template(request):
     ws.freeze_panes = "A4"
 
     col_widths = [12, 22, 14, 8, 14, 16, 18, 18, 22, 14,   # EMP ID .. DATE OF JOIN
-                  10, 10, 10, 16, 10, 10,                   # SALARY, BASIC, HRA, TRANSPORTATION, OTHERS, FUEL
+                  10, 10, 10, 16, 10, 10, 18,               # SALARY, BASIC, HRA, TRANSPORTATION, OTHERS, FUEL, CAR ALLOWANCE
                   14, 16, 10, 18,                           # LOCATION, EMP STATUS, IS ACTIVE, PASSPORT STATUS
                   16, 16, 14, 14, 16, 22, 14, 20, 14,       # PASSPORT, LABOUR CARD NO, LABOUR EXPIRY, LABOUR NO, EID.. VISA
                   14, 16, 18, 20,                           # INSURANCE.. DRIVING LICENSE EXPIRY
@@ -4282,6 +4289,9 @@ def bulk_upload_employees(request):
             # New template splits labour card no. and labour no. into two columns.
             # Old templates only have "LABOUR NO" (which was the card number).
             has_labour_card_col = "LABOUR CARD NO" in df.columns
+
+            # Older templates have no car allowance column; keep saved values then.
+            has_car_allowance_col = "CAR ALLOWANCE" in df.columns
 
             for index, row in df.iterrows():
                 try:
@@ -4383,14 +4393,18 @@ def bulk_upload_employees(request):
                     s_trans = _num("TRANSPORTATION")
                     s_other = _num("OTHERS")
                     s_fuel  = _num("FUEL")
-                    if any([s_basic, s_hra, s_trans, s_other, s_fuel]):
+                    s_car   = _num("CAR ALLOWANCE")
+                    if any([s_basic, s_hra, s_trans, s_other, s_fuel, s_car]):
+                        salary_values = {
+                            "basic": s_basic, "hra": s_hra,
+                            "transport": s_trans, "others": s_other,
+                            "fuel": s_fuel, "updated_by": request.user,
+                        }
+                        if has_car_allowance_col:
+                            salary_values["car_allowance"] = s_car
                         SalaryStructure.objects.update_or_create(
                             employee=emp_obj,
-                            defaults={
-                                "basic": s_basic, "hra": s_hra,
-                                "transport": s_trans, "others": s_other,
-                                "fuel": s_fuel, "updated_by": request.user,
-                            },
+                            defaults=salary_values,
                         )
 
                     # ── Login account creation ───────────────────────────────
@@ -4526,8 +4540,9 @@ def salary_revision_create(request, emp_id):
         new_hra       = _f('hra')
         new_transport = _f('transport')
         new_fuel      = _f('fuel')
+        new_car_allowance = _f('car_allowance')
         new_others    = _f('others')
-        new_salary    = round(new_basic + new_hra + new_transport + new_fuel + new_others, 2)
+        new_salary    = round(new_basic + new_hra + new_transport + new_fuel + new_car_allowance + new_others, 2)
 
         # Effective date is captured as a month (YYYY-MM); store the 1st of it.
         effective_month = (request.POST.get('effective_date') or '').strip()
@@ -4547,6 +4562,7 @@ def salary_revision_create(request, emp_id):
         old_transport = structure.transport if structure else 0
         old_fuel      = structure.fuel      if structure else 0
         old_others    = structure.others    if structure else 0
+        old_car_allowance = structure.car_allowance if structure else 0
 
         if new_salary > old_salary:
             change_type = 'Increment'
@@ -4565,6 +4581,8 @@ def salary_revision_create(request, emp_id):
             old_transport=old_transport,
             old_fuel=old_fuel,
             old_others=old_others,
+            old_car_allowance=old_car_allowance,
+            new_car_allowance=new_car_allowance,
             new_salary=new_salary,
             new_basic=new_basic,
             new_hra=new_hra,
@@ -4584,12 +4602,14 @@ def salary_revision_create(request, emp_id):
             structure.transport  = new_transport
             structure.fuel       = new_fuel
             structure.others     = new_others
+            structure.car_allowance = new_car_allowance
             structure.updated_by = request.user
             structure.save()
         else:
             SalaryStructure.objects.create(
                 employee=employee, basic=new_basic, hra=new_hra,
                 transport=new_transport, fuel=new_fuel, others=new_others,
+                car_allowance=new_car_allowance,
                 updated_by=request.user,
             )
 

@@ -161,6 +161,10 @@
             <div class="cur-val">AED {{ s.fuel|floatformat:2 }}</div>
         </div>
         <div class="cur-card">
+            <div class="cur-label">Car Allowance</div>
+            <div class="cur-val">AED {{ s.car_allowance|floatformat:2 }}</div>
+        </div>
+        <div class="cur-card">
             <div class="cur-label">Others</div>
             <div class="cur-val">AED {{ s.others|floatformat:2 }}</div>
         </div>
@@ -227,6 +231,7 @@
                                 <span><span style="color:#10b981;">●</span> HRA AED {{ r.new_hra|floatformat:2 }}</span>
                                 <span><span style="color:#f59e0b;">●</span> Trans AED {{ r.new_transport|floatformat:2 }}</span>
                                 <span><span style="color:#14b8a6;">●</span> Fuel AED {{ r.new_fuel|floatformat:2 }}</span>
+                                <span><span style="color:#ec4899;">●</span> Car AED {{ r.new_car_allowance|floatformat:2 }}</span>
                                 <span><span style="color:#8b5cf6;">●</span> Other AED {{ r.new_others|floatformat:2 }}</span>
                             </div>
                         </td>

@@ -613,7 +613,7 @@
         <div class="ed-card-header">
             <h2 class="ed-card-title">
                 Salary Structure
-                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">How the gross salary breaks down into Basic, HRA, Transport and Others. Used when generating payroll &amp; payslips.</span></span>
+                <span class="info-tip" tabindex="0"><i class="fas fa-info"></i><span class="info-tip-text">How the gross salary breaks down into Basic, HRA, Transport, Fuel, Car Allowance and Others. Used when generating payroll &amp; payslips.</span></span>
             </h2>
             {% if request.user.role.role == 'HR' %}
             <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
@@ -631,14 +631,14 @@
             {% if s and s.total > 0 %}
             <div class="ed-salary-bar"
                  data-basic="{{ s.basic }}" data-hra="{{ s.hra }}"
-                 data-transport="{{ s.transport }}" data-fuel="{{ s.fuel }}" data-others="{{ s.others }}"
+                 data-transport="{{ s.transport }}" data-fuel="{{ s.fuel }}" data-car="{{ s.car_allowance }}" data-others="{{ s.others }}"
                  id="salaryBar_{{ employee.pk }}"></div>
             <script>
             (function(){
                 var bar = document.getElementById('salaryBar_{{ employee.pk }}');
-                var vals = [+bar.dataset.basic, +bar.dataset.hra, +bar.dataset.transport, +bar.dataset.fuel, +bar.dataset.others];
+                var vals = [+bar.dataset.basic, +bar.dataset.hra, +bar.dataset.transport, +bar.dataset.fuel, +bar.dataset.car, +bar.dataset.others];
                 var total = vals.reduce(function(a,b){return a+b;},0);
-                var colors = ['#3b82f6','#10b981','#f59e0b','#14b8a6','#8b5cf6'];
+                var colors = ['#3b82f6','#10b981','#f59e0b','#14b8a6','#ec4899','#8b5cf6'];
                 if(total > 0) vals.forEach(function(v,i){
                     var d = document.createElement('div');
                     d.style.cssText = 'width:'+(v/total*100).toFixed(2)+'%;background:'+colors[i]+';height:100%;';
@@ -662,6 +662,10 @@
                 <div class="ed-info-row">
                     <span class="ed-info-label"><span class="ed-dot" style="background:#14b8a6;"></span>Fuel</span>
                     <span class="ed-info-value">AED {{ s.fuel|floatformat:2 }}</span>
+                </div>
+                <div class="ed-info-row">
+                    <span class="ed-info-label"><span class="ed-dot" style="background:#ec4899;"></span>Car Allowance</span>
+                    <span class="ed-info-value">AED {{ s.car_allowance|floatformat:2 }}</span>
                 </div>
                 <div class="ed-info-row">
                     <span class="ed-info-label"><span class="ed-dot" style="background:#8b5cf6;"></span>Others</span>

@@ -758,6 +758,7 @@
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;margin-right:.3rem;"></span>Transport (<span id="lgFTransport">0</span>%)</span>
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#8b5cf6;display:inline-block;margin-right:.3rem;"></span>Others (<span id="lgFOthers">0</span>%)</span>
                 <span><span style="width:9px;height:9px;border-radius:50%;background:#14b8a6;display:inline-block;margin-right:.3rem;"></span>Fuel (<span id="lgFFuel">0</span>%)</span>
+                <span><span style="width:9px;height:9px;border-radius:50%;background:#ec4899;display:inline-block;margin-right:.3rem;"></span>Car Allowance (<span id="lgFCarAllowance">0</span>%)</span>
             </div>
 
             <div class="row g-3">
@@ -814,6 +815,17 @@
                         <input type="number" name="fuel" id="fFuel" class="form-control"
                                min="0" step="0.01" placeholder="0.00"
                                value="{{ employee.salary_structure.fuel|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <span style="width:9px;height:9px;border-radius:50%;background:#ec4899;display:inline-block;margin-right:.3rem;"></span>
+                            Car Allowance
+                        </label>
+                        <input type="number" name="car_allowance" id="fCarAllowance" class="form-control"
+                               min="0" step="0.01" placeholder="0.00"
+                               value="{{ employee.salary_structure.car_allowance|default:'' }}">
                     </div>
                 </div>
             </div>
@@ -1364,12 +1376,12 @@ $(document).ready(function() {
 // ── Salary structure live calculator ────────────────────────────────────────
 (function () {
     var grossInput    = document.querySelector('input[name="emp_salary"]');
-    var compInputs    = ['fBasic','fHra','fTransport','fOthers','fFuel'].map(function(id){ return document.getElementById(id); });
-    var lgIds         = ['lgFBasic','lgFHra','lgFTransport','lgFOthers','lgFFuel'].map(function(id){ return document.getElementById(id); });
+    var compInputs    = ['fBasic','fHra','fTransport','fOthers','fFuel','fCarAllowance'].map(function(id){ return document.getElementById(id); });
+    var lgIds         = ['lgFBasic','lgFHra','lgFTransport','lgFOthers','lgFFuel','lgFCarAllowance'].map(function(id){ return document.getElementById(id); });
     var barEl         = document.getElementById('salaryBarForm');
     var totalEl       = document.getElementById('fTotal');
     var diffTag       = document.getElementById('fDiffTag');
-    var barColors     = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#14b8a6'];
+    var barColors     = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#14b8a6','#ec4899'];
 
     function rebuild() {
         var vals  = compInputs.map(function(el){ return parseFloat(el.value) || 0; });
@@ -1589,7 +1601,7 @@ $(function () {
 
     $extra.on('change', function () { render(true); });
     $primary.on('change', function () { render(true); });
-    ['fBasic','fHra','fTransport','fOthers','fFuel'].forEach(function (id) {
+    ['fBasic','fHra','fTransport','fOthers','fFuel','fCarAllowance'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', refreshTotal);
     });
